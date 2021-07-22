@@ -4,15 +4,15 @@ from typing import (
     Callable, Generic, Iterable, List, Optional, Tuple, TypeVar, Union
 )
 
-from typing_extensions import Protocol
-
 T = TypeVar("T")
 
 
-class Stream(Protocol[T]):
+class Stream(Generic[T]):
+    @abstractmethod
     def peek(self) -> Optional[T]:
         ...
 
+    @abstractmethod
     def advance(self) -> "Stream[T]":
         ...
 
@@ -60,32 +60,15 @@ class Error(Generic[T, V]):
 Result = Union[Ok[T, V], Error[T, V]]
 
 
-class Parser(Protocol[T, V]):
-    def __call__(self, stream: Stream[T]) -> Result[T, V]:
-        ...
-
-    def fmap(self, fn: Callable[[V], U]) -> "Parser[T, U]":
-        ...
-
-    def bind(self, fn: Callable[[V], "Parser[T, U]"]) -> "Parser[T, U]":
-        ...
-
-    def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V, U]]":
-        ...
-
-    def __or__(self, other: "Parser[T, V]") -> "Parser[T, V]":
-        ...
-
-
-class _Parser(Generic[T, V]):
+class Parser(Generic[T, V]):
     @abstractmethod
     def __call__(self, stream: Stream[T]) -> Result[T, V]:
         ...
 
-    def fmap(self, fn: Callable[[V], U]) -> Parser[T, U]:
+    def fmap(self, fn: Callable[[V], U]) -> "Parser[T, U]":
         return _FnWrapper(lambda s: self(s).fmap(fn))
 
-    def bind(self, fn: Callable[[V], Parser[T, U]]) -> Parser[T, U]:
+    def bind(self, fn: Callable[[V], "Parser[T, U]"]) -> "Parser[T, U]":
         def bind(stream: Stream[T]) -> Result[T, U]:
             r1 = self(stream)
             if isinstance(r1, Error):
@@ -97,7 +80,7 @@ class _Parser(Generic[T, V]):
 
         return _FnWrapper(bind)
 
-    def __add__(self, other: Parser[T, U]) -> Parser[T, Tuple[V, U]]:
+    def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V, U]]":
         def add(stream: Stream[T]) -> Result[T, Tuple[V, U]]:
             r1 = self(stream)
             if isinstance(r1, Error):
@@ -111,9 +94,9 @@ class _Parser(Generic[T, V]):
             v = r1.value
             return r2.fmap(lambda u: (v, u))
 
-        return _FnWrapper(add)  # type: ignore
+        return _FnWrapper(add)
 
-    def __or__(self, other: Parser[T, V]) -> Parser[T, V]:
+    def __or__(self, other: "Parser[T, V]") -> "Parser[T, V]":
         def or_(stream: Stream[T]) -> Result[T, V]:
             r1 = self(stream)
             if r1.consumed:
@@ -128,7 +111,7 @@ class _Parser(Generic[T, V]):
         return _FnWrapper(or_)
 
 
-class _FnWrapper(_Parser[T, V]):
+class _FnWrapper(Parser[T, V]):
     __slots__ = ("_fn",)
 
     def __init__(self, fn: Callable[[Stream[T]], Result[T, V]]):
@@ -138,7 +121,7 @@ class _FnWrapper(_Parser[T, V]):
         return self._fn(stream)
 
 
-class Pure(_Parser[T, V]):
+class Pure(Parser[T, V]):
     __slots__ = ("_x",)
 
     def __init__(self, x: V):
@@ -193,7 +176,7 @@ def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
     return _FnWrapper(label)
 
 
-class StringLexer:
+class StringLexer(Stream[str]):
     __slots__ = ("_s", "_p")
 
     def __init__(self, s: str, p: int):

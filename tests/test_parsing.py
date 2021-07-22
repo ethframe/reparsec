@@ -1,3 +1,5 @@
+# type: ignore [misc]
+
 from typing import List
 
 import pytest
