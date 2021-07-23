@@ -5,7 +5,7 @@ from typing import List
 import pytest
 
 from combinators.core import (
-    Error, Ok, Parser, StringLexer, char, digit, letter, many
+    ERROR, Parser, StringLexer, char, digit, letter, many
 )
 
 ident = (
@@ -21,7 +21,6 @@ DATA_POSITIVE = [
 @pytest.mark.parametrize("parser, data, value", DATA_POSITIVE)
 def test_positive(parser: Parser[str, str], data: str, value: str) -> None:
     result = parser(StringLexer(data, 0))
-    assert isinstance(result, Ok)
     assert result.value == value
 
 
@@ -34,5 +33,5 @@ DATA_NEGATIVE = [
 def test_negative(
         parser: Parser[str, str], data: str, expected: List[str]) -> None:
     result = parser(StringLexer(data, 0))
-    assert isinstance(result, Error)
+    assert result.value is ERROR
     assert list(result.expected) == expected

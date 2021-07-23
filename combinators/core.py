@@ -1,8 +1,11 @@
 from abc import abstractmethod
+from enum import Enum
 from itertools import chain
 from typing import (
     Callable, Generic, Iterable, List, Optional, Tuple, TypeVar, Union
 )
+
+from typing_extensions import Final
 
 T = TypeVar("T")
 
@@ -21,11 +24,19 @@ V = TypeVar("V")
 U = TypeVar("U")
 
 
-class Ok(Generic[T, V]):
+class _Error(int, Enum):
+    error = 0
+
+
+Value = Union[V, _Error]
+ERROR: Final = _Error.error
+
+
+class Result(Generic[T, V]):
     __slots__ = ("consumed", "value", "stream", "expected")
 
     def __init__(
-            self, consumed: bool, value: V, stream: Stream[T],
+            self, consumed: bool, value: Value[V], stream: Stream[T],
             expected: Iterable[str] = ()) -> None:
         self.consumed = consumed
         self.value = value
@@ -34,30 +45,17 @@ class Ok(Generic[T, V]):
 
     def __repr__(self) -> str:
         self.expected = list(self.expected)
-        return "<Ok(consumed={!r}, value={!r}, stream={!r}, expected={!r})>".format(
+        return "<Result(consumed={!r}, value={!r}, stream={!r}, expected={!r})>".format(
             self.consumed, self.value, self.stream, self.expected
         )
 
     def fmap(self, fn: Callable[[V], U]) -> "Result[T, U]":
-        return Ok(self.consumed, fn(self.value), self.stream, self.expected)
-
-
-class Error(Generic[T, V]):
-    __slots__ = ("consumed", "expected")
-
-    def __init__(self, consumed: bool, expected: Iterable[str] = ()) -> None:
-        self.consumed = consumed
-        self.expected = expected
-
-    def __repr__(self) -> str:
-        self.expected = list(self.expected)
-        return "<Error(consumed={!r}, expected={!r})>".format(self.consumed, self.expected)
-
-    def fmap(self, fn: Callable[[V], U]) -> "Result[T, U]":
-        return Error(self.consumed, self.expected)
-
-
-Result = Union[Ok[T, V], Error[T, V]]
+        return Result(
+            self.consumed,
+            ERROR if self.value is ERROR else fn(self.value),
+            self.stream,
+            self.expected
+        )
 
 
 class Parser(Generic[T, V]):
@@ -71,8 +69,8 @@ class Parser(Generic[T, V]):
     def bind(self, fn: Callable[[V], "Parser[T, U]"]) -> "Parser[T, U]":
         def bind(stream: Stream[T]) -> Result[T, U]:
             r1 = self(stream)
-            if isinstance(r1, Error):
-                return Error(r1.consumed, r1.expected)
+            if r1.value is ERROR:
+                return Result(r1.consumed, ERROR, r1.stream, r1.expected)
             r2 = fn(r1.value)(r1.stream)
             if r1.consumed:
                 r2.consumed = True
@@ -83,8 +81,8 @@ class Parser(Generic[T, V]):
     def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V, U]]":
         def add(stream: Stream[T]) -> Result[T, Tuple[V, U]]:
             r1 = self(stream)
-            if isinstance(r1, Error):
-                return Error(r1.consumed, r1.expected)
+            if r1.value is ERROR:
+                return Result(r1.consumed, ERROR, r1.stream, r1.expected)
             r2 = other(r1.stream)
             if r1.consumed:
                 r2.consumed = True
@@ -102,7 +100,7 @@ class Parser(Generic[T, V]):
             if r1.consumed:
                 return r1
             r2 = other(stream)
-            if isinstance(r1, Error) or r2.consumed:
+            if r1.value is ERROR or r2.consumed:
                 r2.expected = chain(r1.expected, r2.expected)
                 return r2
             r1.expected = chain(r1.expected, r2.expected)
@@ -128,7 +126,7 @@ class Pure(Parser[T, V]):
         self._x = x
 
     def __call__(self, stream: Stream[T]) -> Result[T, V]:
-        return Ok(False, self._x, stream)
+        return Result(False, self._x, stream)
 
 
 pure = Pure
@@ -138,17 +136,17 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
     def satisfy(stream: Stream[T]) -> Result[T, T]:
         c = stream.peek()
         if c is None or not test(c):
-            return Error(False)
-        return Ok(True, c, stream.advance())
+            return Result(False, ERROR, stream)
+        return Result(True, c, stream.advance())
     return _FnWrapper(satisfy)
 
 
 def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
     def maybe(stream: Stream[T]) -> Result[T, Optional[V]]:
         r = parser(stream)
-        if isinstance(r, Ok):
-            return Ok(r.consumed, r.value, r.stream)
-        return Ok(r.consumed, None, stream)
+        if r.value is ERROR:
+            return Result(r.consumed, None, stream)
+        return Result(r.consumed, r.value, r.stream)
     return _FnWrapper(maybe)
 
 
@@ -157,13 +155,13 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
         value: List[V] = []
         r = parser(stream)
         consumed = r.consumed
-        while isinstance(r, Ok):
+        while r.value is not ERROR:
             stream = r.stream
             value.append(r.value)
             r = parser(stream)
             if r.consumed:
                 consumed = True
-        return Ok(consumed, value, stream)
+        return Result(consumed, value, stream)
     return _FnWrapper(many)
 
 
