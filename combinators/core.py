@@ -13,6 +13,21 @@ V = TypeVar("V")
 U = TypeVar("U")
 
 
+class ParseError(Exception):
+    def __init__(self, pos: int, expected: List[str]):
+        super().__init__(pos, expected)
+        self.pos = pos
+        self.expected = expected
+
+    def __str__(self) -> str:
+        if not self.expected:
+            return "at {}: unexpected input".format(self.pos)
+        if len(self.expected) == 1:
+            return "at {}: expected {}".format(self.pos, self.expected[0])
+        return "at {}: expected {} or {}".format(
+            self.pos, ', '.join(self.expected[:-1]), self.expected[-1]
+        )
+
 class _Error(int, Enum):
     error = 0
 
@@ -44,8 +59,17 @@ class Result(Generic[T, V]):
             self.expected
         )
 
+    def unwrap(self) -> V:
+        if self.value is ERROR:
+            raise ParseError(self.pos, list(self.expected))
+        return self.value
+
+
 
 class Parser(Generic[T, V]):
+    def parse(self, stream: Sequence[T]) -> Result[T, V]:
+        return self(0, stream)
+
     @abstractmethod
     def __call__(self, pos: int, stream: Sequence[T]) -> Result[T, V]:
         ...
@@ -61,6 +85,9 @@ class Parser(Generic[T, V]):
             return fn(r1.value)(r1.pos, stream)
 
         return _FnWrapper(bind)
+
+    def label(self, expected: str) -> "Parser[T, V]":
+        return label(self, expected)
 
     def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V, U]]":
         def add(pos: int, stream: Sequence[T]) -> Result[T, Tuple[V, U]]:
@@ -159,5 +186,5 @@ def char(c: str) -> Parser[str, str]:
     return label(satisfy(lambda v: v == c), repr(c))
 
 
-letter: Parser[str, str] = label(satisfy(lambda v: v.isalpha()), "letter")
-digit: Parser[str, str] = label(satisfy(lambda v: v.isdigit()), "digit")
+letter: Parser[str, str] = satisfy(str.isalpha).label("letter")
+digit: Parser[str, str] = satisfy(str.isdigit).label("digit")

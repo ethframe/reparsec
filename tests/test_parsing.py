@@ -4,7 +4,7 @@ from typing import List
 
 import pytest
 
-from combinators.core import ERROR, Parser, char, digit, letter, many
+from combinators.core import ParseError, Parser, char, digit, letter, many
 
 ident = (
     (letter | char("_")) + many(letter | digit | char("_"))
@@ -18,8 +18,7 @@ DATA_POSITIVE = [
 
 @pytest.mark.parametrize("parser, data, value", DATA_POSITIVE)
 def test_positive(parser: Parser[str, str], data: str, value: str) -> None:
-    result = parser(0, data)
-    assert result.value == value
+    assert parser.parse(data).unwrap() == value
 
 
 DATA_NEGATIVE = [
@@ -30,6 +29,6 @@ DATA_NEGATIVE = [
 @pytest.mark.parametrize("parser, data, expected", DATA_NEGATIVE)
 def test_negative(
         parser: Parser[str, str], data: str, expected: List[str]) -> None:
-    result = parser(0, data)
-    assert result.value is ERROR
-    assert list(result.expected) == expected
+    with pytest.raises(ParseError) as err:
+        parser.parse(data).unwrap()
+    assert err.value.expected == expected
