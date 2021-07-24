@@ -36,7 +36,7 @@ Value = Union[V, _Error]
 ERROR: Final = _Error.error
 
 
-class Result(Generic[T, V]):
+class Result(Generic[V]):
     __slots__ = ("pos", "value", "expected")
 
     def __init__(
@@ -52,7 +52,7 @@ class Result(Generic[T, V]):
             self.pos, self.value, self.expected
         )
 
-    def fmap(self, fn: Callable[[V], U]) -> "Result[T, U]":
+    def fmap(self, fn: Callable[[V], U]) -> "Result[U]":
         return Result(
             self.pos,
             ERROR if self.value is ERROR else fn(self.value),
@@ -67,18 +67,18 @@ class Result(Generic[T, V]):
 
 
 class Parser(Generic[T, V]):
-    def parse(self, stream: Sequence[T]) -> Result[T, V]:
+    def parse(self, stream: Sequence[T]) -> Result[V]:
         return self(0, stream)
 
     @abstractmethod
-    def __call__(self, pos: int, stream: Sequence[T]) -> Result[T, V]:
+    def __call__(self, pos: int, stream: Sequence[T]) -> Result[V]:
         ...
 
     def fmap(self, fn: Callable[[V], U]) -> "Parser[T, U]":
         return _FnWrapper(lambda p, s: self(p, s).fmap(fn))
 
     def bind(self, fn: Callable[[V], "Parser[T, U]"]) -> "Parser[T, U]":
-        def bind(pos: int, stream: Sequence[T]) -> Result[T, U]:
+        def bind(pos: int, stream: Sequence[T]) -> Result[U]:
             r1 = self(pos, stream)
             if r1.value is ERROR:
                 return Result(r1.pos, ERROR, r1.expected)
@@ -90,7 +90,7 @@ class Parser(Generic[T, V]):
         return label(self, expected)
 
     def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V, U]]":
-        def add(pos: int, stream: Sequence[T]) -> Result[T, Tuple[V, U]]:
+        def add(pos: int, stream: Sequence[T]) -> Result[Tuple[V, U]]:
             r1 = self(pos, stream)
             if r1.value is ERROR:
                 return Result(r1.pos, ERROR, r1.expected)
@@ -105,7 +105,7 @@ class Parser(Generic[T, V]):
         return _FnWrapper(add)
 
     def __or__(self, other: "Parser[T, V]") -> "Parser[T, V]":
-        def or_(pos: int, stream: Sequence[T]) -> Result[T, V]:
+        def or_(pos: int, stream: Sequence[T]) -> Result[V]:
             r1 = self(pos, stream)
             if r1.pos != pos:
                 return r1
@@ -122,10 +122,10 @@ class Parser(Generic[T, V]):
 class _FnWrapper(Parser[T, V]):
     __slots__ = ("_fn",)
 
-    def __init__(self, fn: Callable[[int, Sequence[T]], Result[T, V]]):
+    def __init__(self, fn: Callable[[int, Sequence[T]], Result[V]]):
         self._fn = fn
 
-    def __call__(self, pos: int, stream: Sequence[T]) -> Result[T, V]:
+    def __call__(self, pos: int, stream: Sequence[T]) -> Result[V]:
         return self._fn(pos, stream)
 
 
@@ -135,7 +135,7 @@ class Pure(Parser[T, V]):
     def __init__(self, x: V):
         self._x = x
 
-    def __call__(self, pos: int, stream: Sequence[T]) -> Result[T, V]:
+    def __call__(self, pos: int, stream: Sequence[T]) -> Result[V]:
         return Result(pos, self._x)
 
 
@@ -143,7 +143,7 @@ pure = Pure
 
 
 def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
-    def satisfy(pos: int, stream: Sequence[T]) -> Result[T, T]:
+    def satisfy(pos: int, stream: Sequence[T]) -> Result[T]:
         if pos < len(stream):
             c = stream[pos]
             if test(c):
@@ -153,7 +153,7 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
 
 
 def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
-    def maybe(pos: int, stream: Sequence[T]) -> Result[T, Optional[V]]:
+    def maybe(pos: int, stream: Sequence[T]) -> Result[Optional[V]]:
         r = parser(pos, stream)
         if r.value is ERROR:
             return Result(pos, None)
@@ -162,7 +162,7 @@ def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
 
 
 def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
-    def many(pos: int, stream: Sequence[T]) -> Result[T, List[V]]:
+    def many(pos: int, stream: Sequence[T]) -> Result[List[V]]:
         value: List[V] = []
         r = parser(pos, stream)
         while r.value is not ERROR:
@@ -174,7 +174,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
 
 
 def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
-    def label(pos: int, stream: Sequence[T]) -> Result[T, V]:
+    def label(pos: int, stream: Sequence[T]) -> Result[V]:
         r = parser(pos, stream)
         if r.pos == pos:
             r.expected = [expected]
