@@ -2,7 +2,7 @@ from abc import abstractmethod
 from enum import Enum
 from itertools import chain
 from typing import (
-    Callable, Generic, Iterable, List, Optional, Sequence, Tuple, TypeVar,
+    Any, Callable, Generic, Iterable, List, Optional, Sequence, Tuple, Type, TypeVar,
     Union
 )
 
@@ -28,6 +28,7 @@ class ParseError(Exception):
             self.pos, ', '.join(self.expected[:-1]), self.expected[-1]
         )
 
+
 class _Error(int, Enum):
     error = 0
 
@@ -37,8 +38,6 @@ ERROR: Final = _Error.error
 
 
 class Result(Generic[V]):
-    __slots__ = ("pos", "value", "expected")
-
     def __init__(
             self, pos: int, value: Value[V],
             expected: Iterable[str] = ()) -> None:
@@ -46,24 +45,10 @@ class Result(Generic[V]):
         self.value = value
         self.expected = expected
 
-    def __repr__(self) -> str:
-        self.expected = list(self.expected)
-        return "<Result(pos={!r}, value={!r}, expected={!r})>".format(
-            self.pos, self.value, self.expected
-        )
-
-    def fmap(self, fn: Callable[[V], U]) -> "Result[U]":
-        return Result(
-            self.pos,
-            ERROR if self.value is ERROR else fn(self.value),
-            self.expected
-        )
-
     def unwrap(self) -> V:
         if self.value is ERROR:
             raise ParseError(self.pos, list(self.expected))
         return self.value
-
 
 
 class Parser(Generic[T, V]):
@@ -75,7 +60,15 @@ class Parser(Generic[T, V]):
         ...
 
     def fmap(self, fn: Callable[[V], U]) -> "Parser[T, U]":
-        return _FnWrapper(lambda p, s: self(p, s).fmap(fn))
+        def fmap(pos: int, stream: Sequence[T]) -> Result[U]:
+            r = self(pos, stream)
+            return Result(
+                r.pos,
+                ERROR if r.value is ERROR else fn(r.value),
+                r.expected
+            )
+
+        return FnParser(fmap)
 
     def bind(self, fn: Callable[[V], "Parser[T, U]"]) -> "Parser[T, U]":
         def bind(pos: int, stream: Sequence[T]) -> Result[U]:
@@ -84,7 +77,7 @@ class Parser(Generic[T, V]):
                 return Result(r1.pos, ERROR, r1.expected)
             return fn(r1.value)(r1.pos, stream)
 
-        return _FnWrapper(bind)
+        return FnParser(bind)
 
     def label(self, expected: str) -> "Parser[T, V]":
         return label(self, expected)
@@ -95,14 +88,14 @@ class Parser(Generic[T, V]):
             if r1.value is ERROR:
                 return Result(r1.pos, ERROR, r1.expected)
             r2 = other(r1.pos, stream)
-            if r1.pos != pos:
-                r2.expected = r1.expected
-            else:
-                r2.expected = chain(r1.expected, r2.expected)
-            v = r1.value
-            return r2.fmap(lambda u: (v, u))
+            return Result(
+                r2.pos,
+                ERROR if r2.value is ERROR else (r1.value, r2.value),
+                chain(r1.expected, r2.expected)
+                if r1.pos == pos else r1.expected
+            )
 
-        return _FnWrapper(add)
+        return FnParser(add)
 
     def __or__(self, other: "Parser[T, V]") -> "Parser[T, V]":
         def or_(pos: int, stream: Sequence[T]) -> Result[V]:
@@ -116,12 +109,10 @@ class Parser(Generic[T, V]):
             r1.expected = chain(r1.expected, r2.expected)
             return r1
 
-        return _FnWrapper(or_)
+        return FnParser(or_)
 
 
-class _FnWrapper(Parser[T, V]):
-    __slots__ = ("_fn",)
-
+class FnParser(Parser[T, V]):
     def __init__(self, fn: Callable[[int, Sequence[T]], Result[V]]):
         self._fn = fn
 
@@ -130,8 +121,6 @@ class _FnWrapper(Parser[T, V]):
 
 
 class Pure(Parser[T, V]):
-    __slots__ = ("_x",)
-
     def __init__(self, x: V):
         self._x = x
 
@@ -142,6 +131,16 @@ class Pure(Parser[T, V]):
 pure = Pure
 
 
+class Eof(Parser[T, None]):
+    def __call__(self, pos: int, stream: Sequence[T]) -> Result[None]:
+        if pos == len(stream):
+            return Result(pos, None)
+        return Result(pos, ERROR, ["end of file"])
+
+
+eof = Eof
+
+
 def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
     def satisfy(pos: int, stream: Sequence[T]) -> Result[T]:
         if pos < len(stream):
@@ -149,16 +148,18 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
             if test(c):
                 return Result(pos + 1, c)
         return Result(pos, ERROR)
-    return _FnWrapper(satisfy)
+
+    return FnParser(satisfy)
 
 
 def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
     def maybe(pos: int, stream: Sequence[T]) -> Result[Optional[V]]:
         r = parser(pos, stream)
-        if r.value is ERROR:
+        if r.value is ERROR and r.pos == pos:
             return Result(pos, None)
         return Result(r.pos, r.value, r.expected)
-    return _FnWrapper(maybe)
+
+    return FnParser(maybe)
 
 
 def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
@@ -170,7 +171,8 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
             pos = r.pos
             r = parser(pos, stream)
         return Result(pos, value)
-    return _FnWrapper(many)
+
+    return FnParser(many)
 
 
 def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
@@ -179,12 +181,40 @@ def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
         if r.pos == pos:
             r.expected = [expected]
         return r
-    return _FnWrapper(label)
+
+    return FnParser(label)
 
 
-def char(c: str) -> Parser[str, str]:
-    return label(satisfy(lambda v: v == c), repr(c))
+def sym(s: T) -> Parser[T, T]:
+    def sym(pos: int, stream: Sequence[T]) -> Result[T]:
+        if pos < len(stream):
+            t = stream[pos]
+            if t == s:
+                return Result(pos + 1, t)
+        return Result(pos, ERROR, [repr(s)])
+
+    return FnParser(sym)
 
 
 letter: Parser[str, str] = satisfy(str.isalpha).label("letter")
 digit: Parser[str, str] = satisfy(str.isdigit).label("digit")
+
+
+class Delay(Parser[T, V]):
+    def __init__(self) -> None:
+        def _undefined(pos: int, stream: Sequence[T]) -> Result[V]:
+            raise RuntimeError("Delayed parser was not defined")
+
+        self._parser: Parser[T, V] = FnParser(_undefined)
+
+    def define(self, parser: Parser[T, V]) -> None:
+        self._parser = parser
+
+    def __call__(self, pos: int, stream: Sequence[T]) -> Result[V]:
+        return self._parser(pos, stream)
+
+
+def sep_by(parser: Parser[T, V], sep: Parser[T, U]) -> Parser[T, List[V]]:
+    return maybe(parser + many((sep + parser).fmap(lambda v: v[1]))).fmap(
+        lambda v: [] if v is None else [v[0]] + v[1]
+    )

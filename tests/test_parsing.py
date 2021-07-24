@@ -1,13 +1,12 @@
 # type: ignore [misc]
-
 from typing import List
 
 import pytest
 
-from combinators.core import ParseError, Parser, char, digit, letter, many
+from combinators.core import ParseError, Parser, sym, digit, letter, many
 
 ident = (
-    (letter | char("_")) + many(letter | digit | char("_"))
+    (letter | sym("_")) + many(letter | digit | sym("_"))
 ).fmap(lambda v: v[0] + "".join(v[1]))
 
 
