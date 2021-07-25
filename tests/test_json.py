@@ -1,59 +1,18 @@
-import re
-from ast import literal_eval
 from typing import List, Tuple
 
 import pytest
 
-from combinators.core import Delay, ParseError, Parser, eof, sym
-from combinators.lexer import Token, split_tokens, token
-
-spec = re.compile(r"""
-[ \n\r\t]+
-|(?P<punct>[{}:,[\]])
-|(?P<bool>true|false)
-|(?P<null>null)
-|(?P<float>-?(?:[0-9]|[1-9][0-9]+)(?:
-    (?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)|(?:\.[0-9]+)
-))
-|(?P<integer>-?(?:[0-9]|[1-9][0-9]+))
-|(?P<string>"(?:
-    [\x20\x21\x23-\x5B\x5D-\U0010FFFF]
-    |\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4})
-)+")
-""", re.VERBOSE)
-
-
-def punct(x: str) -> Parser[Token, Token]:
-    return sym(Token("punct", x)).label(repr(x))
-
-
-JsonParser = Parser[Token, object]
-
-value: Delay[Token, object] = Delay()
-
-string: JsonParser = token("string").fmap(lambda t: literal_eval(t.value))
-integer: JsonParser = token("integer").fmap(lambda t: int(t.value))
-number: JsonParser = token("float").fmap(lambda t: float(t.value))
-boolean: JsonParser = token("bool").fmap(lambda t: t.value == "true")
-null: JsonParser = token("null").fmap(lambda t: None)
-json_dict: JsonParser = punct("{").rseq(
-    (string.lseq(punct(":")) + value).sep_by(punct(",")).fmap(lambda v: dict(v))
-).lseq(punct("}")).label("object")
-json_list: JsonParser = punct("[").rseq(
-    value.sep_by(punct(","))
-).lseq(punct("]")).label("list")
-
-value.define(
-    (
-        integer | number | boolean | null | string | json_dict | json_list
-    ).label("value")
-)
-
-json = value.lseq(eof())
+from combinators import json
+from combinators.core import ParseError
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),
+    (r"12", 12),
+    (r"-1", -1),
     (r"1.0", 1.0),
+    (r"10.0", 10.0),
+    (r"1.0e2", 100.0),
+    (r"-1.0", -1.0),
     (r"true", True),
     (r"false", False),
     (r"null", None),
@@ -68,7 +27,7 @@ DATA_POSITIVE: List[Tuple[str, object]] = [
 
 @pytest.mark.parametrize("data, expected", DATA_POSITIVE)  # type: ignore
 def test_positive(data: str, expected: object) -> None:
-    assert json.parse(split_tokens(data, spec)).unwrap() == expected
+    assert json.parse(data) == expected
 
 
 DATA_NEGATIVE = [
@@ -88,5 +47,5 @@ DATA_NEGATIVE = [
 @pytest.mark.parametrize("data, expected", DATA_NEGATIVE)  # type: ignore
 def test_negative(data: str, expected: str) -> None:
     with pytest.raises(ParseError) as err:
-        json.parse(split_tokens(data, spec)).unwrap()
+        json.parse(data)
     assert str(err.value) == expected
