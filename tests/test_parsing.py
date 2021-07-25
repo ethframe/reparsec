@@ -1,4 +1,3 @@
-# type: ignore [misc]
 from typing import List
 
 import pytest
@@ -15,7 +14,8 @@ DATA_POSITIVE = [
 ]
 
 
-@pytest.mark.parametrize("parser, data, value", DATA_POSITIVE)
+@pytest.mark.parametrize(  # type: ignore
+    "parser, data, value", DATA_POSITIVE)
 def test_positive(parser: Parser[str, str], data: str, value: str) -> None:
     assert parser.parse(data).unwrap() == value
 
@@ -25,7 +25,8 @@ DATA_NEGATIVE = [
 ]
 
 
-@pytest.mark.parametrize("parser, data, expected", DATA_NEGATIVE)
+@pytest.mark.parametrize(  # type: ignore
+    "parser, data, expected", DATA_NEGATIVE)
 def test_negative(
         parser: Parser[str, str], data: str, expected: List[str]) -> None:
     with pytest.raises(ParseError) as err:
