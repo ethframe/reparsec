@@ -2,10 +2,10 @@ from typing import List
 
 import pytest
 
-from combinators.core import ParseError, Parser, sym, digit, letter, many
+from combinators.core import ParseError, Parser, digit, letter, sym
 
 ident = (
-    (letter | sym("_")) + many(letter | digit | sym("_"))
+    (letter | sym("_")) + (letter | digit | sym("_")).many()
 ).fmap(lambda v: v[0] + "".join(v[1]))
 
 

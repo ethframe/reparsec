@@ -1,11 +1,11 @@
-from ast import literal_eval
 import re
+from ast import literal_eval
 from typing import List, Tuple
 
 import pytest
 
-from combinators.core import Delay, ParseError, Parser, sym, eof
-from combinators.lexer import split_tokens, token, Token
+from combinators.core import Delay, ParseError, Parser, eof, sym
+from combinators.lexer import Token, split_tokens, token
 
 spec = re.compile(r"""
 [ \n\r\t]+
