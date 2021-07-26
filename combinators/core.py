@@ -9,9 +9,10 @@ from typing import (
 from typing_extensions import Final
 
 T = TypeVar("T")
-V = TypeVar("V")
+V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
-U = TypeVar("U")
+U = TypeVar("U", bound=object)
+X = TypeVar("X", bound=object)
 
 
 class ParseError(Exception):
@@ -155,6 +156,11 @@ class Parser(Generic[T, V_co]):
     def sep_by(self, sep: "Parser[T, U]") -> "Parser[T, List[V_co]]":
         return sep_by(self, sep)
 
+    def between(
+            self, open: "Parser[T, U]",
+            close: "Parser[T, X]") -> "Parser[T, V_co]":
+        return between(open, close, self)
+
 
 class FnParser(Parser[T, V_co]):
     def __init__(self, fn: Callable[[Sequence[T], int], Result[V_co]]):
@@ -207,8 +213,8 @@ def sym(s: T) -> Parser[T, T]:
     return FnParser(sym)
 
 
-def maybe(parser: Parser[T, V_co]) -> Parser[T, Optional[V_co]]:
-    def maybe(stream: Sequence[T], pos: int) -> Result[Optional[V_co]]:
+def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
+    def maybe(stream: Sequence[T], pos: int) -> Result[Optional[V]]:
         r1 = parser(stream, pos)
         if r1.pos != pos:
             return r1
@@ -219,9 +225,9 @@ def maybe(parser: Parser[T, V_co]) -> Parser[T, Optional[V_co]]:
     return FnParser(maybe)
 
 
-def many(parser: Parser[T, V_co]) -> Parser[T, List[V_co]]:
-    def many(stream: Sequence[T], pos: int) -> Result[List[V_co]]:
-        value: List[V_co] = []
+def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
+    def many(stream: Sequence[T], pos: int) -> Result[List[V]]:
+        value: List[V] = []
         r = parser(stream, pos)
         while r.value is not ERROR:
             value.append(r.value)
@@ -234,8 +240,8 @@ def many(parser: Parser[T, V_co]) -> Parser[T, List[V_co]]:
     return FnParser(many)
 
 
-def label(parser: Parser[T, V_co], expected: str) -> Parser[T, V_co]:
-    def label(stream: Sequence[T], pos: int) -> Result[V_co]:
+def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
+    def label(stream: Sequence[T], pos: int) -> Result[V]:
         r = parser(stream, pos)
         if r.pos != pos:
             return r
@@ -258,10 +264,16 @@ class Delay(Parser[T, V_co]):
         return self._parser(stream, pos)
 
 
-def sep_by(parser: Parser[T, V_co], sep: Parser[T, U]) -> Parser[T, List[V_co]]:
+def sep_by(parser: Parser[T, V], sep: Parser[T, U]) -> Parser[T, List[V]]:
     return maybe(parser + many(sep.rseq(parser))).fmap(
         lambda v: [] if v is None else [v[0]] + v[1]
     )
+
+
+def between(
+        open: Parser[T, U], close: Parser[T, X],
+        parser: Parser[T, V]) -> Parser[T, V]:
+    return open.rseq(parser).lseq(close)
 
 
 letter: Parser[str, str] = satisfy(str.isalpha).label("letter")
