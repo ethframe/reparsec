@@ -1,12 +1,9 @@
 from abc import abstractmethod
-from enum import Enum
 from itertools import chain
 from typing import (
-    Callable, Generic, Iterable, List, Optional, Sequence, Tuple, TypeVar,
-    Union
+    Callable, Generic, Iterable, List, NoReturn, Optional, Sequence, Tuple,
+    TypeVar, Union
 )
-
-from typing_extensions import Final
 
 T = TypeVar("T")
 V = TypeVar("V", bound=object)
@@ -31,32 +28,34 @@ class ParseError(Exception):
         )
 
 
-class _Error(int, Enum):
-    error = 0
-
-
-Value = Union[V_co, _Error]
-ERROR: Final = _Error.error
-
-
-class Result(Generic[V_co]):
+class Ok(Generic[V_co]):
     def __init__(
-            self, value: Value[V_co], pos: int,
+            self, value: V_co, pos: int,
             expected: Iterable[str] = ()) -> None:
         self.value = value
         self.pos = pos
         self.expected = expected
 
     def unwrap(self) -> V_co:
-        if self.value is ERROR:
-            raise ParseError(self.pos, list(self.expected))
         return self.value
 
 
-def merge_expected(pos: int, r1: Result[V], r2: Result[U]) -> Iterable[str]:
-    if r1.pos != pos and r1.pos != r2.pos:
-        return r2.expected
-    return chain(r1.expected, r2.expected)
+class Error:
+    def __init__(self, pos: int, expected: Iterable[str] = ()) -> None:
+        self.pos = pos
+        self.expected = expected
+
+    def unwrap(self) -> NoReturn:
+        raise ParseError(self.pos, list(self.expected))
+
+
+Result = Union[Ok[V], Error]
+
+
+def merge_expected(pos: int, ra: Result[V], rb: Result[U]) -> Iterable[str]:
+    if ra.pos != pos and ra.pos != rb.pos:
+        return rb.expected
+    return chain(ra.expected, rb.expected)
 
 
 class Parser(Generic[T, V_co]):
@@ -70,77 +69,78 @@ class Parser(Generic[T, V_co]):
     def fmap(self, fn: Callable[[V_co], U]) -> "Parser[T, U]":
         def fmap(stream: Sequence[T], pos: int) -> Result[U]:
             r = self(stream, pos)
-            return Result(
-                ERROR if r.value is ERROR else fn(r.value),
-                r.pos, r.expected
-            )
+            if isinstance(r, Error):
+                return r
+            return Ok(fn(r.value), r.pos, r.expected)
 
         return FnParser(fmap)
 
     def bind(self, fn: Callable[[V_co], "Parser[T, U]"]) -> "Parser[T, U]":
         def bind(stream: Sequence[T], pos: int) -> Result[U]:
-            r1 = self(stream, pos)
-            if r1.value is ERROR:
-                return Result(ERROR, r1.pos, r1.expected)
-            r2 = fn(r1.value)(stream, r1.pos)
-            expected = merge_expected(pos, r1, r2)
-            if r2.value is ERROR:
-                return Result(ERROR, r2.pos, expected)
-            return Result(r2.value, r2.pos, expected)
+            ra = self(stream, pos)
+            if isinstance(ra, Error):
+                return ra
+            rb = fn(ra.value)(stream, ra.pos)
+            expected = merge_expected(pos, ra, rb)
+            if isinstance(rb, Error):
+                return Error(rb.pos, expected)
+            return Ok(rb.value, rb.pos, expected)
 
         return FnParser(bind)
 
     def lseq(self, other: "Parser[T, U]") -> "Parser[T, V_co]":
         def lseq(stream: Sequence[T], pos: int) -> Result[V_co]:
-            r1 = self(stream, pos)
-            if r1.value is ERROR:
-                return Result(ERROR, r1.pos, r1.expected)
-            r2 = other(stream, r1.pos)
-            expected = merge_expected(pos, r1, r2)
-            if r2.value is ERROR:
-                return Result(ERROR, r2.pos, expected)
-            return Result(r1.value, r2.pos, expected)
+            ra = self(stream, pos)
+            if isinstance(ra, Error):
+                return ra
+            rb = other(stream, ra.pos)
+            expected = merge_expected(pos, ra, rb)
+            if isinstance(rb, Error):
+                return Error(rb.pos, expected)
+            return Ok(ra.value, rb.pos, expected)
 
         return FnParser(lseq)
 
     def rseq(self, other: "Parser[T, U]") -> "Parser[T, U]":
         def rseq(stream: Sequence[T], pos: int) -> Result[U]:
-            r1 = self(stream, pos)
-            if r1.value is ERROR:
-                return Result(ERROR, r1.pos, r1.expected)
-            r2 = other(stream, r1.pos)
-            expected = merge_expected(pos, r1, r2)
-            if r2.value is ERROR:
-                return Result(ERROR, r2.pos, expected)
-            return Result(r2.value, r2.pos, expected)
+            ra = self(stream, pos)
+            if isinstance(ra, Error):
+                return Error(ra.pos, ra.expected)
+            rb = other(stream, ra.pos)
+            expected = merge_expected(pos, ra, rb)
+            if isinstance(rb, Error):
+                return Error(rb.pos, expected)
+            return Ok(rb.value, rb.pos, expected)
 
         return FnParser(rseq)
 
     def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V_co, U]]":
         def add(stream: Sequence[T], pos: int) -> Result[Tuple[V_co, U]]:
-            r1 = self(stream, pos)
-            if r1.value is ERROR:
-                return Result(ERROR, r1.pos, r1.expected)
-            r2 = other(stream, r1.pos)
-            expected = merge_expected(pos, r1, r2)
-            if r2.value is ERROR:
-                return Result(ERROR, r2.pos, expected)
-            return Result((r1.value, r2.value), r2.pos, expected)
+            ra = self(stream, pos)
+            if isinstance(ra, Error):
+                return ra
+            rb = other(stream, ra.pos)
+            expected = merge_expected(pos, ra, rb)
+            if isinstance(rb, Error):
+                return Error(rb.pos, expected)
+            return Ok((ra.value, rb.value), rb.pos, expected)
 
         return FnParser(add)
 
     def __or__(self, other: "Parser[T, V_co]") -> "Parser[T, V_co]":
         def or_(stream: Sequence[T], pos: int) -> Result[V_co]:
-            r1 = self(stream, pos)
-            if r1.pos != pos:
-                return r1
-            r2 = other(stream, pos)
-            if r2.pos != pos:
-                return r2
-            return Result(
-                r2.value if r1.value is ERROR else r1.value,
-                pos, chain(r1.expected, r2.expected)
-            )
+            ra = self(stream, pos)
+            if ra.pos != pos:
+                return ra
+            rb = other(stream, pos)
+            if rb.pos != pos:
+                return rb
+            expected = chain(ra.expected, rb.expected)
+            if isinstance(ra, Ok):
+                return Ok(ra.value, pos, expected)
+            if isinstance(rb, Ok):
+                return Ok(rb.value, pos, expected)
+            return Error(pos, expected)
 
         return FnParser(or_)
 
@@ -175,7 +175,7 @@ class Pure(Parser[T, V_co]):
         self._x = x
 
     def __call__(self, stream: Sequence[T], pos: int) -> Result[V_co]:
-        return Result(self._x, pos)
+        return Ok(self._x, pos)
 
 
 pure = Pure
@@ -184,8 +184,8 @@ pure = Pure
 class Eof(Parser[T, None]):
     def __call__(self, stream: Sequence[T], pos: int) -> Result[None]:
         if pos == len(stream):
-            return Result(None, pos)
-        return Result(ERROR, pos, ["end of file"])
+            return Ok(None, pos)
+        return Error(pos, ["end of file"])
 
 
 eof = Eof
@@ -196,8 +196,8 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
         if pos < len(stream):
             tok = stream[pos]
             if test(tok):
-                return Result(tok, pos + 1)
-        return Result(ERROR, pos)
+                return Ok(tok, pos + 1)
+        return Error(pos)
 
     return FnParser(satisfy)
 
@@ -207,20 +207,20 @@ def sym(s: T) -> Parser[T, T]:
         if pos < len(stream):
             t = stream[pos]
             if t == s:
-                return Result(t, pos + 1)
-        return Result(ERROR, pos, [repr(s)])
+                return Ok(t, pos + 1)
+        return Error(pos, [repr(s)])
 
     return FnParser(sym)
 
 
 def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
     def maybe(stream: Sequence[T], pos: int) -> Result[Optional[V]]:
-        r1 = parser(stream, pos)
-        if r1.pos != pos:
-            return r1
-        if r1.value is ERROR:
-            return Result(None, pos, r1.expected)
-        return Result(r1.value, pos, r1.expected)
+        r = parser(stream, pos)
+        if r.pos != pos:
+            return r
+        if isinstance(r, Error):
+            return Ok(None, pos, r.expected)
+        return r
 
     return FnParser(maybe)
 
@@ -229,13 +229,13 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
     def many(stream: Sequence[T], pos: int) -> Result[List[V]]:
         value: List[V] = []
         r = parser(stream, pos)
-        while r.value is not ERROR:
+        while not isinstance(r, Error):
             value.append(r.value)
             pos = r.pos
             r = parser(stream, pos)
         if r.pos != pos:
-            return Result(ERROR, r.pos, r.expected)
-        return Result(value, pos, r.expected)
+            return r
+        return Ok(value, pos, r.expected)
 
     return FnParser(many)
 
@@ -245,7 +245,9 @@ def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
         r = parser(stream, pos)
         if r.pos != pos:
             return r
-        return Result(r.value, r.pos, [expected])
+        if isinstance(r, Error):
+            return Error(pos, [expected])
+        return Ok(r.value, pos, [expected])
 
     return FnParser(label)
 

@@ -51,4 +51,4 @@ def postfix(
         fn: Callable[[V, U], V]) -> Parser[T, V]:
     return (
         arg + op.many()
-    ).fmap(lambda v: reduce(lambda t, o: fn(t, o), v[1], v[0]))
+    ).fmap(lambda v: reduce(fn, v[1], v[0]))
