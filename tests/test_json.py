@@ -3,7 +3,8 @@ from typing import List, Tuple
 import pytest
 
 from combinators import json
-from combinators.core import ParseError
+from combinators.core import ParseError, Recovered
+from combinators.lexer import split_tokens
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),
@@ -49,3 +50,22 @@ def test_negative(data: str, expected: str) -> None:
     with pytest.raises(ParseError) as err:
         json.parse(data)
     assert str(err.value) == expected
+
+
+DATA_RECOVERY: List[Tuple[str, object]] = [
+    ("1 1", 1),
+    ("{", {}),
+    ("[1 2]", [1]),
+    ("[1, , 2]", [1, 2]),
+    ("[1, [{, 2]", [1, [{}, 2]]),
+    ("[1, }, 2]", [1, {}, 2]),
+    ('{"key": }', {"key": {}}),
+    ('{"key": ]', {"key": []}),
+    ('{"key": 2]', {"key": 2}),
+]
+
+
+@pytest.mark.parametrize("data, expected", DATA_RECOVERY)  # type: ignore
+def test_recovery(data: str, expected: str) -> None:
+    r = json.json.parse(split_tokens(data, json.spec), recover=True)
+    assert isinstance(r, Recovered) and r.repairs[0].value == expected
