@@ -1,5 +1,6 @@
-from .core import Parser, label, satisfy
 from typing import Iterator, List, NamedTuple, Pattern
+
+from .core import Parser, insert, label, satisfy
 
 
 class Token(NamedTuple):
@@ -26,3 +27,7 @@ def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
 
 def token(k: str) -> Parser[Token, Token]:
     return label(satisfy(lambda t: t.kind == k), k)
+
+
+def token_ins(kind: str, ins_value: str) -> Parser[Token, Token]:
+    return token(kind) | insert(Token(kind, ins_value))

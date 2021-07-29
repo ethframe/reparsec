@@ -29,21 +29,22 @@ class ParseError(Exception):
         )
 
 
+class RepairOp(Generic[T]):
+    pass
+
+
 @dataclass
-class Skip:
+class Skip(RepairOp[T]):
     count: int
     pos: int
     expected: Iterable[str] = ()
 
 
 @dataclass
-class Insert(Generic[T]):
+class Insert(RepairOp[T]):
     value: T
     pos: int
     expected: Iterable[str] = ()
-
-
-RepairOp = Union[Skip, Insert[T]]
 
 
 @dataclass
@@ -87,6 +88,8 @@ class Recovered(Generic[T, V_co]):
 
 Result = Union[Recovered[T, V], Ok[V], Error]
 
+ParserFn = Callable[[Sequence[T], int, int], Result[T, V]]
+
 
 def merge_expected(
         pos: int, ra: Result[T, V], rb: Result[T, U]) -> Iterable[str]:
@@ -106,10 +109,15 @@ class Parser(Generic[T, V_co]):
             self, stream: Sequence[T], pos: int, bt: int) -> Result[T, V_co]:
         ...
 
+    def to_fn(self) -> ParserFn[T, V_co]:
+        return self
+
     def fmap(self, fn: Callable[[V_co], U]) -> "Parser[T, U]":
+        self_fn = self.to_fn()
+
         @FnParser
         def fmap(stream: Sequence[T], pos: int, bt: int) -> Result[T, U]:
-            r = self(stream, pos, bt)
+            r = self_fn(stream, pos, bt)
             if isinstance(r, Error):
                 return r
             if isinstance(r, Recovered):
@@ -125,8 +133,11 @@ class Parser(Generic[T, V_co]):
         return fmap
 
     def bind(self, fn: Callable[[V_co], "Parser[T, U]"]) -> "Parser[T, U]":
+        self_fn = self.to_fn()
+
+        @FnParser
         def bind(stream: Sequence[T], pos: int, bt: int) -> Result[T, U]:
-            ra = self(stream, pos, bt)
+            ra = self_fn(stream, pos, bt)
             if isinstance(ra, Error):
                 return ra
             if isinstance(ra, Recovered):
@@ -160,7 +171,7 @@ class Parser(Generic[T, V_co]):
                 return Recovered(list(reps.values()), ra.pos, ra.expected)
             return Error(ra.pos, ra.expected)
 
-        return FnParser(bind)
+        return bind
 
     def lseq(self, other: "Parser[T, U]") -> "Parser[T, V_co]":
         return self.bind(lambda l: other.fmap(lambda _: l))
@@ -172,12 +183,15 @@ class Parser(Generic[T, V_co]):
         return self.bind(lambda l: other.fmap(lambda r: (l, r)))
 
     def __or__(self, other: "Parser[T, V_co]") -> "Parser[T, V_co]":
+        self_fn = self.to_fn()
+        other_fn = other.to_fn()
+
         @FnParser
         def or_(stream: Sequence[T], pos: int, bt: int) -> Result[T, V_co]:
-            ra = self(stream, pos, max(pos, bt))
+            ra = self_fn(stream, pos, max(pos, bt))
             if ra.pos != pos:
                 return ra
-            rb = other(stream, pos, max(pos, bt))
+            rb = other_fn(stream, pos, max(pos, bt))
             if rb.pos != pos:
                 return rb
             expected = chain(ra.expected, rb.expected)
@@ -186,8 +200,8 @@ class Parser(Generic[T, V_co]):
             if isinstance(rb, Ok):
                 return Ok(rb.value, pos, expected)
             if pos > bt:
-                ra = self(stream, pos, -1)
-                rb = other(stream, pos, -1)
+                ra = self_fn(stream, pos, -1)
+                rb = other_fn(stream, pos, -1)
                 if isinstance(ra, Recovered):
                     if isinstance(rb, Recovered):
                         reps = {pa.pos: pa for pa in ra.repairs}
@@ -220,8 +234,11 @@ class Parser(Generic[T, V_co]):
 
 
 class FnParser(Parser[T, V_co]):
-    def __init__(self, fn: Callable[[Sequence[T], int, int], Result[T, V_co]]):
+    def __init__(self, fn: ParserFn[T, V_co]):
         self._fn = fn
+
+    def to_fn(self) -> ParserFn[T, V_co]:
+        return self._fn
 
     def __call__(
             self, stream: Sequence[T], pos: int, bt: int) -> Result[T, V_co]:
@@ -252,19 +269,6 @@ class PureFn(Parser[T, V_co]):
 pure_fn = PureFn
 
 
-def skip(
-        parser: Parser[T, V], stream: Sequence[T], pos: int,
-        expected: Iterable[str] = ()) -> Optional[Repair[T, V]]:
-    cur = pos
-    while cur < len(stream):
-        cur += 1
-        r = parser(stream, cur, len(stream))
-        if isinstance(r, Ok):
-            skip = cur - pos
-            return Repair(r.value, skip, r.pos, [Skip(skip, pos, expected)])
-    return None
-
-
 class Eof(Parser[T, None]):
     def __call__(
             self, stream: Sequence[T], pos: int, bt: int) -> Result[T, None]:
@@ -281,6 +285,19 @@ class Eof(Parser[T, None]):
 eof = Eof
 
 
+def skip(
+        parser: Parser[T, V], stream: Sequence[T], pos: int,
+        expected: Iterable[str] = ()) -> Optional[Repair[T, V]]:
+    cur = pos
+    while cur < len(stream):
+        cur += 1
+        r = parser(stream, cur, len(stream))
+        if isinstance(r, Ok):
+            skip = cur - pos
+            return Repair(r.value, skip, r.pos, [Skip(skip, pos, expected)])
+    return None
+
+
 def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
     @FnParser
     def satisfy(stream: Sequence[T], pos: int, bt: int) -> Result[T, T]:
@@ -289,9 +306,14 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
             if test(tok):
                 return Ok(tok, pos + 1)
         if pos > bt:
-            p = skip(satisfy, stream, pos)
-            if p is not None:
-                return Recovered([p], pos)
+            cur = pos + 1
+            while cur < len(stream):
+                tok = stream[cur]
+                if test(tok):
+                    skip = cur - pos
+                    op: RepairOp[T] = Skip(skip, pos)
+                    return Recovered([Repair(tok, skip, cur + 1, [op])], pos)
+                cur += 1
         return Error(pos)
 
     return satisfy
@@ -301,17 +323,23 @@ def sym(s: T) -> Parser[T, T]:
     @FnParser
     def sym(stream: Sequence[T], pos: int, bt: int) -> Result[T, T]:
         if pos < len(stream):
-            t = stream[pos]
-            if t == s:
-                return Ok(t, pos + 1)
+            tok = stream[pos]
+            if tok == s:
+                return Ok(tok, pos + 1)
         expected = [repr(s)]
         if pos > bt:
             repairs: List[Repair[T, T]] = [
                 Repair(s, 1, pos, [Insert(s, pos, expected)])
             ]
-            p = skip(sym, stream, pos, expected)
-            if p is not None:
-                repairs.append(p)
+            cur = pos + 1
+            while cur < len(stream):
+                tok = stream[cur]
+                if tok == s:
+                    skip = cur - pos
+                    repairs.append(
+                        Repair(tok, skip, cur + 1, [Skip(skip, pos, expected)])
+                    )
+                cur += 1
             return Recovered(repairs, pos, expected)
         return Error(pos, expected)
 
@@ -319,10 +347,12 @@ def sym(s: T) -> Parser[T, T]:
 
 
 def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
+    fn = parser.to_fn()
+
     @FnParser
     def maybe(
             stream: Sequence[T], pos: int, bt: int) -> Result[T, Optional[V]]:
-        r = parser(stream, pos, max(pos, bt))
+        r = fn(stream, pos, max(pos, bt))
         if r.pos != pos or isinstance(r, Ok):
             return r
         return Ok(None, pos, r.expected)
@@ -331,11 +361,61 @@ def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
 
 
 def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
-    res: Delay[T, List[V]] = Delay()
-    res.define(
-        (parser + res).fmap(lambda v: [v[0]] + v[1]) | pure_fn(lambda: [])
+    fn = parser.to_fn()
+
+    recovery_parser: Delay[T, List[V]] = Delay()
+    recovery_parser.define(
+        (parser + recovery_parser).fmap(lambda v: [v[0]] + v[1]) |
+        pure_fn(lambda: [])
     )
-    return res
+
+    @FnParser
+    def many(stream: Sequence[T], pos: int, bt: int) -> Result[T, List[V]]:
+        value: List[V] = []
+        r = fn(stream, pos, max(pos, bt))
+        while not isinstance(r, Error):
+            if isinstance(r, Recovered):
+                return many_recover(r, value, stream)
+            value.append(r.value)
+            pos = r.pos
+            r = parser(stream, pos, max(pos, bt))
+        if r.pos != pos:
+            return r
+        return Ok(value, pos, r.expected)
+
+    def many_recover(
+            r: Recovered[T, V], value: List[V],
+            stream: Sequence[T]) -> Result[T, List[V]]:
+        reps: Dict[int, Repair[T, List[V]]] = {}
+        for p in r.repairs:
+            rb = recovery_parser(stream, p.pos, -1)
+            if isinstance(rb, Ok):
+                if rb.pos not in reps or p.cost < reps[rb.pos].cost:
+                    pv = value.copy()
+                    pv.append(p.value)
+                    pv.extend(rb.value)
+                    reps[rb.pos] = Repair(pv, p.cost, rb.pos, p.ops)
+            elif isinstance(rb, Recovered):
+                p_ops = list(p.ops)
+                for pb in rb.repairs:
+                    cost = p.cost + pb.cost
+                    if pb.pos not in reps or cost < reps[pb.pos].cost:
+                        pv = value.copy()
+                        pv.append(p.value)
+                        pv.extend(pb.value)
+                        reps[pb.pos] = Repair(
+                            pb.value, cost, pb.pos, chain(p_ops, pb.ops)
+                        )
+            elif rb.pos == p.pos:
+                if p.pos not in reps or p.cost < reps[p.pos].cost:
+                    pv = value.copy()
+                    pv.append(p.value)
+                    reps[rb.pos] = Repair(pv, p.cost, p.pos, p.ops)
+        if reps:
+            return Recovered(list(reps.values()), r.pos, r.expected)
+        return Error(r.pos, r.expected)
+
+    return many
 
 
 def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
@@ -353,20 +433,41 @@ def label(parser: Parser[T, V], expected: str) -> Parser[T, V]:
     return label
 
 
+def insert(token: T) -> Parser[T, T]:
+    expected = [repr(token)]
+
+    @FnParser
+    def insert(stream: Sequence[T], pos: int, bt: int) -> Result[T, T]:
+        if pos > bt:
+            return Recovered(
+                [Repair(token, 1, pos, [Insert(token, pos, expected)])], pos
+            )
+        return Error(pos)
+    return insert
+
+
 class Delay(Parser[T, V_co]):
     def __init__(self) -> None:
-        @FnParser
-        def _parser(stream: Sequence[T], pos: int, bt: int) -> Result[T, V_co]:
+        def _fn(stream: Sequence[T], pos: int, bt: int) -> Result[T, V_co]:
             raise RuntimeError("Delayed parser was not defined")
 
-        self._parser: Parser[T, V_co] = _parser
+        self._defined = False
+        self._fn: ParserFn[T, V_co] = _fn
 
     def define(self, parser: Parser[T, V_co]) -> None:
-        self._parser = parser
+        if self._defined:
+            raise RuntimeError("Delayed parser was already defined")
+        self._defined = True
+        self._fn = parser.to_fn()
+
+    def to_fn(self) -> ParserFn[T, V_co]:
+        if self._defined:
+            return self._fn
+        return self
 
     def __call__(
             self, stream: Sequence[T], pos: int, bt: int) -> Result[T, V_co]:
-        return self._parser(stream, pos, bt)
+        return self._fn(stream, pos, bt)
 
 
 def sep_by(parser: Parser[T, V], sep: Parser[T, U]) -> Parser[T, List[V]]:
