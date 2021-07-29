@@ -174,13 +174,13 @@ class Parser(Generic[T, V_co]):
         return bind
 
     def lseq(self, other: "Parser[T, U]") -> "Parser[T, V_co]":
-        return self.bind(lambda l: other.fmap(lambda _: l))
+        return lseq(self, other)
 
     def rseq(self, other: "Parser[T, U]") -> "Parser[T, U]":
-        return self.bind(lambda _: other.fmap(lambda r: r))
+        return rseq(self, other)
 
     def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V_co, U]]":
-        return self.bind(lambda l: other.fmap(lambda r: (l, r)))
+        return seq(self, other)
 
     def __or__(self, other: "Parser[T, V_co]") -> "Parser[T, V_co]":
         self_fn = self.to_fn()
@@ -344,6 +344,18 @@ def sym(s: T) -> Parser[T, T]:
         return Error(pos, expected)
 
     return sym
+
+
+def lseq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, V]:
+    return parser.bind(lambda l: second.fmap(lambda _: l))
+
+
+def rseq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, U]:
+    return parser.bind(lambda _: second.fmap(lambda r: r))
+
+
+def seq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, Tuple[V, U]]:
+    return parser.bind(lambda l: second.fmap(lambda r: (l, r)))
 
 
 def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
