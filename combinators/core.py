@@ -393,12 +393,6 @@ def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
 def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
     fn = parser.to_fn()
 
-    recovery_parser: Delay[T, List[V]] = Delay()
-    recovery_parser.define(
-        (parser + recovery_parser).fmap(lambda v: [v[0]] + v[1]) |
-        pure_fn(lambda: [])
-    )
-
     def many(stream: Sequence[T], pos: int, bt: int) -> Result[T, List[V]]:
         value: List[V] = []
         r = fn(stream, pos, max(pos, bt))
@@ -417,7 +411,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
             stream: Sequence[T]) -> Result[T, List[V]]:
         reps: Dict[int, Repair[T, List[V]]] = {}
         for p in r.repairs:
-            rb = recovery_parser(stream, p.pos, -1)
+            rb = many(stream, p.pos, -1)
             if isinstance(rb, Ok):
                 if rb.pos not in reps or p.cost < reps[rb.pos].cost:
                     pv = [*value, p.value, *rb.value]
