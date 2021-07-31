@@ -177,13 +177,13 @@ class Parser(Generic[T, V_co]):
         return FnParser(bind)
 
     def lseq(self, other: "Parser[T, U]") -> "Parser[T, V_co]":
-        return lseq(self, other)
+        return _make_seq(self, other, lambda l, _: l)
 
     def rseq(self, other: "Parser[T, U]") -> "Parser[T, U]":
-        return rseq(self, other)
+        return _make_seq(self, other, lambda _, r: r)
 
     def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V_co, U]]":
-        return seq(self, other)
+        return _make_seq(self, other, lambda l, r: (l, r))
 
     def __or__(self, other: "Parser[T, V_co]") -> "Parser[T, V_co]":
         self_fn = self.to_fn()
@@ -245,6 +245,49 @@ class FnParser(Parser[T, V_co]):
     def __call__(
             self, stream: Sequence[T], pos: int, bt: int) -> Result[T, V_co]:
         return self._fn(stream, pos, bt)
+
+
+def _make_seq(
+        parser: Parser[T, V], other: Parser[T, U],
+        fn: Callable[[V, U], X]) -> Parser[T, X]:
+    parser_fn = parser.to_fn()
+    other_fn = other.to_fn()
+
+    def seq(stream: Sequence[T], pos: int, bt: int) -> Result[T, X]:
+        ra = parser_fn(stream, pos, bt)
+        if isinstance(ra, Error):
+            return ra
+        if isinstance(ra, Recovered):
+            return seq_recover(ra, stream)
+        va = ra.value
+        rb = other_fn(stream, ra.pos, bt)
+        return rb.fmap(lambda vb: fn(va, vb)).expect(
+            merge_expected(pos, ra, rb)
+        )
+
+    def seq_recover(ra: Recovered[T, V], stream: Sequence[T]) -> Result[T, X]:
+        reps: Dict[int, Repair[T, X]] = {}
+        for pa in ra.repairs:
+            rb = other_fn(stream, pa.pos, -1)
+            if isinstance(rb, Ok):
+                if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
+                    reps[rb.pos] = Repair(
+                        pa.cost, fn(pa.value, rb.value), rb.pos, pa.ops
+                    )
+            elif isinstance(rb, Recovered):
+                pa_ops = list(pa.ops)
+                for pb in rb.repairs:
+                    cost = pa.cost + pb.cost
+                    if pb.pos not in reps or cost < reps[pb.pos].cost:
+                        reps[pb.pos] = Repair(
+                            cost, fn(pa.value, pb.value), pb.pos,
+                            chain(pa_ops, pb.ops)
+                        )
+        if reps:
+            return Recovered(list(reps.values()), ra.pos, ra.expected)
+        return Error(ra.pos, ra.expected)
+
+    return FnParser(seq)
 
 
 class Pure(Parser[T, V_co]):
@@ -332,18 +375,6 @@ def sym(s: T) -> Parser[T, T]:
         return Error(pos, expected)
 
     return FnParser(sym)
-
-
-def lseq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, V]:
-    return parser.bind(lambda l: second.fmap(lambda _: l))
-
-
-def rseq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, U]:
-    return parser.bind(lambda _: second.fmap(lambda r: r))
-
-
-def seq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, Tuple[V, U]]:
-    return parser.bind(lambda l: second.fmap(lambda r: (l, r)))
 
 
 def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
