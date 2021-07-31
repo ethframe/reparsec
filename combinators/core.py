@@ -67,8 +67,8 @@ class Ok(Generic[V_co]):
     def fmap(self, fn: Callable[[V_co], U]) -> "Ok[U]":
         return Ok(fn(self.value), self.pos, self.expected)
 
-    def label(self, x: str) -> "Ok[V_co]":
-        return Ok(self.value, self.pos, [x])
+    def expect(self, expected: Iterable[str]) -> "Ok[V_co]":
+        return Ok(self.value, self.pos, expected)
 
 
 @dataclass
@@ -83,13 +83,13 @@ class Error:
     def fmap(self, fn: Callable[[V], U]) -> "Error":
         return self
 
-    def label(self, x: str) -> "Error":
-        return Error(self.pos, [x])
+    def expect(self, expected: Iterable[str]) -> "Error":
+        return Error(self.pos, expected)
 
 
 @dataclass
 class Recovered(Generic[T, V_co]):
-    repairs: List[Repair[T, V_co]]
+    repairs: Iterable[Repair[T, V_co]]
     pos: int
     expected: Iterable[str] = ()
 
@@ -103,8 +103,8 @@ class Recovered(Generic[T, V_co]):
             self.pos, self.expected
         )
 
-    def label(self, x: str) -> "Recovered[T, V_co]":
-        return Recovered(self.repairs, self.pos, [x])
+    def expect(self, expected: Iterable[str]) -> "Recovered[T, V_co]":
+        return Recovered(self.repairs, self.pos, expected)
 
 
 Result = Union[Recovered[T, V], Ok[V], Error]
@@ -151,12 +151,7 @@ class Parser(Generic[T, V_co]):
             if isinstance(ra, Recovered):
                 return bind_recover(ra, stream)
             rb = fn(ra.value)(stream, ra.pos, bt)
-            expected = merge_expected(pos, ra, rb)
-            if isinstance(rb, Error):
-                return Error(rb.pos, expected)
-            if isinstance(rb, Recovered):
-                return Recovered(rb.repairs, rb.pos, expected)
-            return Ok(rb.value, rb.pos, expected)
+            return rb.expect(merge_expected(pos, ra, rb))
 
         def bind_recover(
                 ra: Recovered[T, V_co], stream: Sequence[T]) -> Result[T, U]:
@@ -304,8 +299,9 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
                 t = stream[cur]
                 if test(t):
                     skip = cur - pos
-                    op: RepairOp[T] = Skip(skip, pos)
-                    return Recovered([Repair(skip, t, cur + 1, [op])], pos)
+                    return Recovered(
+                        [Repair(skip, t, cur + 1, [Skip(skip, pos)])], pos
+                    )
                 cur += 1
         return Error(pos)
 
@@ -321,15 +317,14 @@ def sym(s: T) -> Parser[T, T]:
             if t == s:
                 return Ok(t, pos + 1)
         if pos > bt:
-            ins: Repair[T, T] = Repair(1, s, pos, [Insert(s, pos, expected)])
+            ins = Repair(1, s, pos, [Insert(s, pos, expected)])
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
                 if t == s:
                     skip = cur - pos
-                    op: RepairOp[T] = Skip(skip, pos)
                     return Recovered(
-                        [ins, Repair(skip, t, cur + 1, [op])], pos
+                        [ins, Repair(skip, t, cur + 1, [Skip(skip, pos)])], pos
                     )
                 cur += 1
             return Recovered([ins], pos, expected)
@@ -417,12 +412,13 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
 
 def label(parser: Parser[T, V], x: str) -> Parser[T, V]:
     fn = parser.to_fn()
+    expected = [x]
 
     def label(stream: Sequence[T], pos: int, bt: int) -> Result[T, V]:
         r = fn(stream, pos, bt)
         if r.pos != pos:
             return r
-        return r.label(x)
+        return r.expect(expected)
 
     return FnParser(label)
 

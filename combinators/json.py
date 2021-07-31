@@ -2,7 +2,7 @@ import re
 from typing import Match
 
 from .core import Delay, Parser, eof, sym
-from .lexer import Token, split_tokens, token, token_ins
+from .lexer import Token, split_tokens, token_ins
 
 spec = re.compile(r"""
 [ \n\r\t]+

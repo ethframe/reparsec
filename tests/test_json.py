@@ -70,4 +70,4 @@ DATA_RECOVERY: List[Tuple[str, object]] = [
 @pytest.mark.parametrize("data, expected", DATA_RECOVERY)  # type: ignore
 def test_recovery(data: str, expected: str) -> None:
     r = json.json.parse(split_tokens(data, json.spec), recover=True)
-    assert isinstance(r, Recovered) and r.repairs[0].value == expected
+    assert isinstance(r, Recovered) and next(iter(r.repairs)).value == expected
