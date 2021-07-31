@@ -324,7 +324,8 @@ def sym(s: T) -> Parser[T, T]:
                 if t == s:
                     skip = cur - pos
                     return Recovered(
-                        [ins, Repair(skip, t, cur + 1, [Skip(skip, pos)])], pos
+                        [ins, Repair(skip, t, cur + 1, [Skip(skip, pos)])],
+                        pos, expected
                     )
                 cur += 1
             return Recovered([ins], pos, expected)
