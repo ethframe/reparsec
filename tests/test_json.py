@@ -64,6 +64,7 @@ DATA_RECOVERY: List[Tuple[str, object]] = [
     ('{"key": 2]', {"key": 2}),
     ('{"key": 0,', {"key": 0, "a": 1}),
     ('{"key": 0, ]', {"key": 0, "a": []}),
+    ('{"key": @}', {"key": 1}),
 ]
 
 

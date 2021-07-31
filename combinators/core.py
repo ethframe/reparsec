@@ -401,7 +401,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
                 return many_recover(r, value, stream)
             value.append(r.value)
             pos = r.pos
-            r = parser(stream, pos, max(pos, bt))
+            r = fn(stream, pos, max(pos, bt))
         if r.pos != pos:
             return r
         return Ok(value, pos, r.expected)

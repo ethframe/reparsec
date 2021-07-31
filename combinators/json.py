@@ -17,6 +17,7 @@ spec = re.compile(r"""
     [\x20\x21\x23-\x5B\x5D-\U0010FFFF]
     |\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4})
 )+)"
+|(?P<_>.)
 """, re.VERBOSE)
 
 
