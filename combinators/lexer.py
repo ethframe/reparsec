@@ -1,14 +1,21 @@
-from typing import Iterator, List, NamedTuple, Pattern
+from dataclasses import dataclass, field
+from typing import Iterator, List, Optional, Pattern, Tuple
 
 from .core import Parser, insert, label, satisfy
 
 
-class Token(NamedTuple):
+@dataclass(frozen=True)
+class Token:
     kind: str
     value: str
+    loc: Optional[Tuple[int, int]] = field(
+        default=None, repr=False, compare=False
+    )
 
 
 def iter_tokens(src: str, spec: Pattern[str]) -> Iterator[Token]:
+    line = 0
+    col = 0
     pos = 0
     src_len = len(src)
     while pos < src_len:
@@ -17,8 +24,16 @@ def iter_tokens(src: str, spec: Pattern[str]) -> Iterator[Token]:
             raise ValueError()
         kind = match.lastgroup
         if kind is not None:
-            yield Token(kind, match.group(kind))
+            yield Token(kind, match.group(kind), (line, col))
         pos = match.end()
+
+        chunk = match.group()
+        nl = chunk.count("\n")
+        if nl:
+            line += nl
+            col = len(chunk) - chunk.rfind("\n") - 1
+        else:
+            col += len(chunk)
 
 
 def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:

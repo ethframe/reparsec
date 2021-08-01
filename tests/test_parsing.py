@@ -31,4 +31,4 @@ def test_negative(
         parser: Parser[str, str], data: str, expected: List[str]) -> None:
     with pytest.raises(ParseError) as err:
         parser.parse(data).unwrap()
-    assert err.value.expected == expected
+    assert err.value.errors[0].expected == expected

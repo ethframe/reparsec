@@ -52,23 +52,58 @@ def test_negative(data: str, expected: str) -> None:
     assert str(err.value) == expected
 
 
-DATA_RECOVERY: List[Tuple[str, object]] = [
-    ("1 1", 1),
-    ("{", {}),
-    ("[1 2]", [1]),
-    ("[1, , 2]", [1, 2]),
-    ("[1, [{, 2]", [1, [{}, 2]]),
-    ("[1, }, 2]", [1, {}, 2]),
-    ('{"key": }', {"key": 1}),
-    ('{"key": ]', {"key": []}),
-    ('{"key": 2]', {"key": 2}),
-    ('{"key": 0,', {"key": 0, "a": 1}),
-    ('{"key": 0, ]', {"key": 0, "a": []}),
-    ('{"key": @}', {"key": 1}),
+DATA_RECOVERY: List[Tuple[str, object, str]] = [
+    ("1 1", 1, "at 1: expected end of file"),
+    ("{", {}, "at 1: expected Token(kind='punct', value='}')"),
+    ("[1 2]", [1], "at 2: unexpected input"),
+    ("[1, , 2]", [1, 2], "at 3: unexpected input"),
+    (
+        "[1, [{, 2]", [1, [{}, 2]],
+        "at 5: expected Token(kind='punct', value='}'), " +
+        "at 8: expected Token(kind='punct', value=']')"
+    ),
+    ("[1, }, 2]", [1, {}, 2], "at 3: expected Token(kind='punct', value='{')"),
+    (
+        '{"key": }', {"key": 1},
+        "at 3: expected Token(kind='integer', value='1')"
+    ),
+    (
+        '{"key": ]', {"key": []},
+        "at 3: expected Token(kind='punct', value='['), " +
+        "at 4: expected Token(kind='punct', value='}')"
+    ),
+    (
+        '{"key": 2]', {"key": 2},
+        "at 4: expected Token(kind='punct', value='}'), " +
+        "at 4: expected end of file"
+    ),
+    (
+        '{"key": 0,', {"key": 0, "a": 1},
+        "at 5: expected Token(kind='string', value='a'), " +
+        "at 5: expected Token(kind='punct', value=':'), " +
+        "at 5: expected Token(kind='integer', value='1'), " +
+        "at 5: expected Token(kind='punct', value='}')"
+    ),
+    (
+        '{"key": 0, ]', {"key": 0, "a": []},
+        "at 5: expected Token(kind='string', value='a'), " +
+        "at 5: expected Token(kind='punct', value=':'), " +
+        "at 5: expected Token(kind='punct', value='['), " +
+        "at 6: expected Token(kind='punct', value='}')"
+    ),
+    (
+        '{"key": @}', {"key": 1},
+        "at 3: expected Token(kind='integer', value='1'), " +
+        "at 3: unexpected input"
+    ),
 ]
 
 
-@pytest.mark.parametrize("data, expected", DATA_RECOVERY)  # type: ignore
-def test_recovery(data: str, expected: str) -> None:
+@pytest.mark.parametrize(  # type: ignore
+    "data, value, expected", DATA_RECOVERY)
+def test_recovery(data: str, value: str, expected: str) -> None:
     r = json.json.parse(split_tokens(data, json.spec), recover=True)
-    assert isinstance(r, Recovered) and next(iter(r.repairs)).value == expected
+    assert r.unwrap(recover=True) == value
+    with pytest.raises(ParseError) as err:
+        r.unwrap()
+    assert str(err.value) == expected
