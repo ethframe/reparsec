@@ -56,17 +56,14 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ("1 1", 1, "at 1: expected end of file"),
     ("{", {}, "at 1: expected Token(kind='punct', value='}')"),
     ("[1 2]", [1], "at 2: unexpected input"),
-    ("[1, , 2]", [1, 2], "at 3: unexpected input"),
+    ("[1, , 2]", [1, 1, 2], "at 3: expected value"),
     (
         "[1, [{, 2]", [1, [{}, 2]],
         "at 5: expected Token(kind='punct', value='}'), " +
         "at 8: expected Token(kind='punct', value=']')"
     ),
     ("[1, }, 2]", [1, {}, 2], "at 3: expected Token(kind='punct', value='{')"),
-    (
-        '{"key": }', {"key": 1},
-        "at 3: expected Token(kind='integer', value='1')"
-    ),
+    ('{"key": }', {"key": 1}, "at 3: expected value"),
     (
         '{"key": ]', {"key": []},
         "at 3: expected Token(kind='punct', value='['), " +
@@ -79,23 +76,18 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ),
     (
         '{"key": 0,', {"key": 0, "a": 1},
-        "at 5: expected Token(kind='string', value='a'), " +
+        "at 5: expected string, " +
         "at 5: expected Token(kind='punct', value=':'), " +
-        "at 5: expected Token(kind='integer', value='1'), " +
-        "at 5: expected Token(kind='punct', value='}')"
+        "at 5: expected value, at 5: expected Token(kind='punct', value='}')"
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 5: expected Token(kind='string', value='a'), " +
+        "at 5: expected string, " +
         "at 5: expected Token(kind='punct', value=':'), " +
         "at 5: expected Token(kind='punct', value='['), " +
         "at 6: expected Token(kind='punct', value='}')"
     ),
-    (
-        '{"key": @}', {"key": 1},
-        "at 3: expected Token(kind='integer', value='1'), " +
-        "at 3: unexpected input"
-    ),
+    ('{"key": @}', {"key": 1}, "at 3: expected value, at 3: unexpected input"),
 ]
 
 

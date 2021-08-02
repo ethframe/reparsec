@@ -1,8 +1,8 @@
 import re
 from typing import Match
 
-from .core import Delay, Parser, eof, sym
-from .lexer import Token, split_tokens, token_ins
+from .core import Delay, Parser, eof, insert, sym
+from .lexer import Token, split_tokens, token
 
 spec = re.compile(r"""
 [ \n\r\t]+
@@ -48,23 +48,24 @@ JsonParser = Parser[Token, object]
 
 value: Delay[Token, object] = Delay()
 
-string: JsonParser = token_ins("string", "a").fmap(lambda t: unescape(t.value))
-integer: JsonParser = token_ins("integer", "1").fmap(lambda t: int(t.value))
-number: JsonParser = token_ins("float", "1.0").fmap(lambda t: float(t.value))
-boolean: JsonParser = token_ins("bool", "true").fmap(
-    lambda t: t.value == "true"
-)
-null: JsonParser = token_ins("null", "null").fmap(lambda t: None)
-json_dict: JsonParser = (string.lseq(punct(":")) + value).sep_by(
-    punct(",")
-).fmap(lambda v: dict(v)).between(punct("{"), punct("}")).label("object")
+string: JsonParser = token("string").fmap(lambda t: unescape(t.value))
+integer: JsonParser = token("integer").fmap(lambda t: int(t.value))
+number: JsonParser = token("float").fmap(lambda t: float(t.value))
+boolean: JsonParser = token("bool").fmap(lambda t: t.value == "true")
+null: JsonParser = token("null").fmap(lambda t: None)
+json_dict: JsonParser = (
+    (string | insert("a", "string")).lseq(punct(":")) + value
+).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
+    punct("{"), punct("}")
+).label("object")
 json_list: JsonParser = value.sep_by(punct(",")).between(
     punct("["), punct("]")
 ).label("list")
 
 value.define(
     (
-        integer | number | boolean | null | string | json_dict | json_list
+        integer | number | boolean | null | string | insert(1, 'value')
+        | json_dict | json_list
     ).label("value")
 )
 

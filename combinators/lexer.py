@@ -45,4 +45,4 @@ def token(k: str) -> Parser[Token, Token]:
 
 
 def token_ins(kind: str, ins_value: str) -> Parser[Token, Token]:
-    return token(kind) | insert(Token(kind, ins_value))
+    return token(kind) | insert(Token(kind, ins_value), kind)
