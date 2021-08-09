@@ -6,6 +6,8 @@ from typing import (
     Tuple, TypeVar, Union
 )
 
+from typing_extensions import final
+
 T = TypeVar("T")
 V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
@@ -64,6 +66,7 @@ class Repair(Generic[V_co]):
     ops: Iterable[RepairOp]
 
 
+@final
 @dataclass
 class Ok(Generic[V_co]):
     value: V_co
@@ -80,6 +83,7 @@ class Ok(Generic[V_co]):
         return Ok(self.value, self.pos, expected)
 
 
+@final
 @dataclass
 class Error:
     pos: int
@@ -96,6 +100,7 @@ class Error:
         return Error(self.pos, expected)
 
 
+@final
 @dataclass
 class Recovered(Generic[V_co]):
     repairs: Iterable[Repair[V_co]]
@@ -160,9 +165,9 @@ class Parser(Generic[T, V_co]):
 
         def bind(stream: Sequence[T], pos: int, bt: int) -> Result[U]:
             ra = self_fn(stream, pos, bt)
-            if isinstance(ra, Error):
+            if type(ra) is Error:
                 return ra
-            if isinstance(ra, Recovered):
+            if type(ra) is Recovered:
                 return bind_recover(ra, stream)
             rb = fn(ra.value)(stream, ra.pos, bt)
             return rb.expect(merge_expected(pos, ra, rb))
@@ -172,11 +177,11 @@ class Parser(Generic[T, V_co]):
             reps: Dict[int, Repair[U]] = {}
             for pa in ra.repairs:
                 rb = fn(pa.value)(stream, pa.pos, -1)
-                if isinstance(rb, Ok):
+                if type(rb) is Ok:
                     if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                         reps[rb.pos] = Repair(
                             pa.cost, rb.value, rb.pos, pa.ops)
-                elif isinstance(rb, Recovered):
+                elif type(rb) is Recovered:
                     pa_ops = list(pa.ops)
                     for pb in rb.repairs:
                         cost = pa.cost + pb.cost
@@ -211,20 +216,20 @@ class Parser(Generic[T, V_co]):
             if rb.pos != pos:
                 return rb
             expected = chain(ra.expected, rb.expected)
-            if isinstance(ra, Ok):
+            if type(ra) is Ok:
                 return Ok(ra.value, pos, expected)
-            if isinstance(rb, Ok):
+            if type(rb) is Ok:
                 return Ok(rb.value, pos, expected)
             if pos > bt:
                 ra = self_fn(stream, pos, -1)
                 rb = other_fn(stream, pos, -1)
-                if isinstance(ra, Recovered):
-                    if isinstance(rb, Recovered):
+                if type(ra) is Recovered:
+                    if type(rb) is Recovered:
                         reps = {pb.pos: pb for pb in rb.repairs}
                         reps.update((pa.pos, pa) for pa in ra.repairs)
                         return Recovered(list(reps.values()), ra.pos, expected)
                     return Recovered(ra.repairs, ra.pos, expected)
-                if isinstance(rb, Recovered):
+                if type(rb) is Recovered:
                     return Recovered(rb.repairs, ra.pos, expected)
             return Error(pos, expected)
 
@@ -267,9 +272,9 @@ def _make_seq(
 
     def seq(stream: Sequence[T], pos: int, bt: int) -> Result[X]:
         ra = parser_fn(stream, pos, bt)
-        if isinstance(ra, Error):
+        if type(ra) is Error:
             return ra
-        if isinstance(ra, Recovered):
+        if type(ra) is Recovered:
             return seq_recover(ra, stream)
         va = ra.value
         rb = second_fn(stream, ra.pos, bt)
@@ -281,12 +286,12 @@ def _make_seq(
         reps: Dict[int, Repair[X]] = {}
         for pa in ra.repairs:
             rb = second_fn(stream, pa.pos, -1)
-            if isinstance(rb, Ok):
+            if type(rb) is Ok:
                 if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                     reps[rb.pos] = Repair(
                         pa.cost, fn(pa.value, rb.value), rb.pos, pa.ops
                     )
-            elif isinstance(rb, Recovered):
+            elif type(rb) is Recovered:
                 pa_ops = list(pa.ops)
                 for pb in rb.repairs:
                     cost = pa.cost + pb.cost
@@ -404,7 +409,7 @@ def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
 
     def maybe(stream: Sequence[T], pos: int, bt: int) -> Result[Optional[V]]:
         r = fn(stream, pos, max(pos, bt))
-        if r.pos != pos or isinstance(r, Ok):
+        if r.pos != pos or type(r) is Ok:
             return r
         return Ok(None, pos, r.expected)
 
@@ -417,8 +422,8 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
     def many(stream: Sequence[T], pos: int, bt: int) -> Result[List[V]]:
         value: List[V] = []
         r = fn(stream, pos, max(pos, bt))
-        while not isinstance(r, Error):
-            if isinstance(r, Recovered):
+        while not type(r) is Error:
+            if type(r) is Recovered:
                 return many_recover(r, value, stream)
             value.append(r.value)
             pos = r.pos
@@ -433,11 +438,11 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
         reps: Dict[int, Repair[List[V]]] = {}
         for p in r.repairs:
             rb = many(stream, p.pos, -1)
-            if isinstance(rb, Ok):
+            if type(rb) is Ok:
                 if rb.pos not in reps or p.cost < reps[rb.pos].cost:
                     pv = [*value, p.value, *rb.value]
                     reps[rb.pos] = Repair(p.cost, pv, rb.pos, p.ops)
-            elif isinstance(rb, Recovered):
+            elif type(rb) is Recovered:
                 p_ops = list(p.ops)
                 for pb in rb.repairs:
                     cost = p.cost + pb.cost
