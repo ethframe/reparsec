@@ -1,18 +1,54 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from itertools import chain
 from typing import (
-    Callable, Dict, Generic, Iterable, List, NoReturn, Optional, Sequence,
-    Tuple, TypeVar, Union
+    Callable, Dict, Generic, Iterable, Iterator, List, NoReturn, Optional,
+    Sequence, Tuple, TypeVar, Union
 )
 
 from typing_extensions import final
 
 T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
 V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U", bound=object)
 X = TypeVar("X", bound=object)
+
+
+class Chain(Iterable[T_co]):
+    __slots__ = "_fst", "_snd"
+
+    def __init__(self, fst: Iterable[T_co], snd: Iterable[T_co]):
+        self._fst = fst
+        self._snd = snd
+
+    def __iter__(self) -> Iterator[T_co]:
+        yield from self._fst
+        yield from self._snd
+
+
+class ChainL(Iterable[T_co]):
+    __slots__ = "_fst", "_snd"
+
+    def __init__(self, fst: T_co, snd: Iterable[T_co]):
+        self._fst = fst
+        self._snd = snd
+
+    def __iter__(self) -> Iterator[T_co]:
+        yield self._fst
+        yield from self._snd
+
+
+class ChainR(Iterable[T_co]):
+    __slots__ = "_fst", "_snd"
+
+    def __init__(self, fst: Iterable[T_co], snd: T_co):
+        self._fst = fst
+        self._snd = snd
+
+    def __iter__(self) -> Iterator[T_co]:
+        yield from self._fst
+        yield self._snd
 
 
 @dataclass
@@ -41,21 +77,18 @@ class ParseError(Exception):
 
 class RepairOp:
     pos: int
-    expected: Iterable[str]
 
 
 @dataclass
 class Skip(RepairOp):
     count: int
     pos: int
-    expected: Iterable[str] = ()
 
 
 @dataclass
 class Insert(RepairOp):
     token: str
     pos: int
-    expected: Iterable[str] = ()
 
 
 @dataclass
@@ -64,6 +97,7 @@ class Repair(Generic[V_co]):
     value: V_co
     pos: int
     ops: Iterable[RepairOp]
+    errors: Iterable[Iterable[str]] = ()
 
 
 @final
@@ -90,8 +124,7 @@ class Error:
     expected: Iterable[str] = ()
 
     def unwrap(self, recover: bool = False) -> NoReturn:
-        self.expected = list(self.expected)
-        raise ParseError([ErrorItem(self.pos, self.expected)])
+        raise ParseError([ErrorItem(self.pos, list(self.expected))])
 
     def fmap(self, fn: object) -> "Error":
         return self
@@ -108,20 +141,21 @@ class Recovered(Generic[V_co]):
     expected: Iterable[str] = ()
 
     def unwrap(self, recover: bool = False) -> V_co:
-        self.repairs = list(self.repairs)
-        repair = self.repairs[0]
+        repair = next(iter(self.repairs))
         if recover:
             return repair.value
         errors: List[ErrorItem] = []
-        repair.ops = list(repair.ops)
-        for op in repair.ops:
-            op.expected = list(op.expected)
-            errors.append(ErrorItem(op.pos, op.expected))
+        ops_expected = zip(repair.ops, ChainL(self.expected, repair.errors))
+        for op, expected in ops_expected:
+            errors.append(ErrorItem(op.pos, list(expected)))
         raise ParseError(errors)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U]":
         return Recovered(
-            [Repair(p.cost, fn(p.value), p.pos, p.ops) for p in self.repairs],
+            [
+                Repair(p.cost, fn(p.value), p.pos, p.ops, p.errors)
+                for p in self.repairs
+            ],
             self.pos, self.expected
         )
 
@@ -137,7 +171,7 @@ ParseFn = Callable[[Sequence[T], int, int], Result[V]]
 def merge_expected(pos: int, ra: Result[V], rb: Result[U]) -> Iterable[str]:
     if ra.pos != pos and ra.pos != rb.pos:
         return rb.expected
-    return chain(ra.expected, rb.expected)
+    return Chain(ra.expected, rb.expected)
 
 
 class Parser(Generic[T, V_co]):
@@ -180,14 +214,16 @@ class Parser(Generic[T, V_co]):
                 if type(rb) is Ok:
                     if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                         reps[rb.pos] = Repair(
-                            pa.cost, rb.value, rb.pos, pa.ops)
+                            pa.cost, rb.value, rb.pos, pa.ops, pa.errors
+                        )
                 elif type(rb) is Recovered:
-                    pa_ops = list(pa.ops)
                     for pb in rb.repairs:
                         cost = pa.cost + pb.cost
                         if pb.pos not in reps or cost < reps[pb.pos].cost:
                             reps[pb.pos] = Repair(
-                                cost, pb.value, pb.pos, chain(pa_ops, pb.ops)
+                                cost, pb.value, pb.pos, Chain(pa.ops, pb.ops),
+                                Chain(pa.errors, ChainL(
+                                    rb.expected, pb.errors))
                             )
             if reps:
                 return Recovered(list(reps.values()), ra.pos, ra.expected)
@@ -215,7 +251,7 @@ class Parser(Generic[T, V_co]):
             rb = other_fn(stream, pos, max(pos, bt))
             if rb.pos != pos:
                 return rb
-            expected = chain(ra.expected, rb.expected)
+            expected = Chain(ra.expected, rb.expected)
             if type(ra) is Ok:
                 return Ok(ra.value, pos, expected)
             if type(rb) is Ok:
@@ -289,16 +325,17 @@ def _make_seq(
             if type(rb) is Ok:
                 if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                     reps[rb.pos] = Repair(
-                        pa.cost, fn(pa.value, rb.value), rb.pos, pa.ops
+                        pa.cost, fn(
+                            pa.value, rb.value), rb.pos, pa.ops, pa.errors
                     )
             elif type(rb) is Recovered:
-                pa_ops = list(pa.ops)
                 for pb in rb.repairs:
                     cost = pa.cost + pb.cost
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
                             cost, fn(pa.value, pb.value), pb.pos,
-                            chain(pa_ops, pb.ops)
+                            Chain(pa.ops, pb.ops),
+                            Chain(pa.errors, ChainL(rb.expected, pb.errors))
                         )
         if reps:
             return Recovered(list(reps.values()), ra.pos, ra.expected)
@@ -348,7 +385,7 @@ class Eof(Parser[T, None]):
         if pos > bt:
             skip = len(stream) - pos
             return Recovered([Repair(
-                skip, None, len(stream), [Skip(skip, pos, ["end of file"])]
+                skip, None, len(stream), [Skip(skip, pos)], ()
             )], pos, ["end of file"])
         return Error(pos, ["end of file"])
 
@@ -387,7 +424,7 @@ def sym(s: T) -> Parser[T, T]:
             if t == s:
                 return Ok(t, pos + 1)
         if pos > bt:
-            ins = Repair(1, s, pos, [Insert(rs, pos, expected)])
+            ins = Repair(1, s, pos, [Insert(rs, pos)])
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
@@ -441,20 +478,22 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
             if type(rb) is Ok:
                 if rb.pos not in reps or p.cost < reps[rb.pos].cost:
                     pv = [*value, p.value, *rb.value]
-                    reps[rb.pos] = Repair(p.cost, pv, rb.pos, p.ops)
+                    reps[rb.pos] = Repair(p.cost, pv, rb.pos, p.ops, p.errors)
             elif type(rb) is Recovered:
-                p_ops = list(p.ops)
                 for pb in rb.repairs:
                     cost = p.cost + pb.cost
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         pv = [*value, p.value, *pb.value]
                         reps[pb.pos] = Repair(
-                            cost, pv, pb.pos, chain(p_ops, pb.ops)
+                            cost, pv, pb.pos, Chain(p.ops, pb.ops),
+                            Chain(p.errors, ChainL(rb.expected, pb.errors))
                         )
             elif rb.pos == p.pos:
                 if p.pos not in reps or p.cost < reps[p.pos].cost:
                     pv = [*value, p.value]
-                    reps[rb.pos] = Repair(p.cost, pv, p.pos, p.ops)
+                    reps[rb.pos] = Repair(
+                        p.cost, pv, p.pos, p.ops, ChainR(p.errors, rb.expected)
+                    )
         if reps:
             return Recovered(list(reps.values()), r.pos, r.expected)
         return Error(r.pos, r.expected)
@@ -483,8 +522,8 @@ class InsertValue(Parser[T, V_co]):
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
         if pos > bt:
             return Recovered([Repair(
-                1, self._value, pos, [Insert(self._label, pos, [self._label])]
-            )], pos)
+                1, self._value, pos, [Insert(self._label, pos)]
+            )], pos, [self._label])
         return Error(pos)
 
 

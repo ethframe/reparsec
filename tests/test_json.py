@@ -3,7 +3,7 @@ from typing import List, Tuple
 import pytest
 
 from combinators import json
-from combinators.core import ParseError, Recovered
+from combinators.core import ParseError
 from combinators.lexer import split_tokens
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
@@ -28,7 +28,7 @@ DATA_POSITIVE: List[Tuple[str, object]] = [
 
 @pytest.mark.parametrize("data, expected", DATA_POSITIVE)  # type: ignore
 def test_positive(data: str, expected: object) -> None:
-    assert json.parse(data) == expected
+    assert expected == json.parse(data)
 
 
 DATA_NEGATIVE = [
@@ -49,45 +49,36 @@ DATA_NEGATIVE = [
 def test_negative(data: str, expected: str) -> None:
     with pytest.raises(ParseError) as err:
         json.parse(data)
-    assert str(err.value) == expected
+    assert expected == str(err.value)
 
 
 DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ("1 1", 1, "at 1: expected end of file"),
-    ("{", {}, "at 1: expected Token(kind='punct', value='}')"),
-    ("[1 2]", [1], "at 2: unexpected input"),
+    ("{", {}, "at 1: expected string or '}'"),
+    ("[1 2]", [1], "at 2: expected ',' or ']'"),
     ("[1, , 2]", [1, 1, 2], "at 3: expected value"),
     (
         "[1, [{, 2]", [1, [{}, 2]],
-        "at 5: expected Token(kind='punct', value='}'), " +
-        "at 8: expected Token(kind='punct', value=']')"
+        "at 5: expected string or '}', at 8: expected ']'"
     ),
-    ("[1, }, 2]", [1, {}, 2], "at 3: expected Token(kind='punct', value='{')"),
+    ("[1, }, 2]", [1, {}, 2], "at 3: expected value"),
     ('{"key": }', {"key": 1}, "at 3: expected value"),
-    (
-        '{"key": ]', {"key": []},
-        "at 3: expected Token(kind='punct', value='['), " +
-        "at 4: expected Token(kind='punct', value='}')"
-    ),
+    ('{"key": ]', {"key": []}, "at 3: expected value, at 4: expected '}'"),
     (
         '{"key": 2]', {"key": 2},
-        "at 4: expected Token(kind='punct', value='}'), " +
-        "at 4: expected end of file"
+        "at 4: expected ',' or '}', at 4: expected end of file"
     ),
     (
         '{"key": 0,', {"key": 0, "a": 1},
-        "at 5: expected string, " +
-        "at 5: expected Token(kind='punct', value=':'), " +
-        "at 5: expected value, at 5: expected Token(kind='punct', value='}')"
+        "at 5: expected string, at 5: expected ':', at 5: expected value, " +
+        "at 5: expected '}'"
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 5: expected string, " +
-        "at 5: expected Token(kind='punct', value=':'), " +
-        "at 5: expected Token(kind='punct', value='['), " +
-        "at 6: expected Token(kind='punct', value='}')"
+        "at 5: expected string, at 5: expected ':', at 5: expected value, " +
+        "at 6: expected '}'"
     ),
-    ('{"key": @}', {"key": 1}, "at 3: expected value, at 3: unexpected input"),
+    ('{"key": @}', {"key": 1}, "at 3: expected value, at 3: expected '}'"),
 ]
 
 
@@ -98,4 +89,4 @@ def test_recovery(data: str, value: str, expected: str) -> None:
     assert r.unwrap(recover=True) == value
     with pytest.raises(ParseError) as err:
         r.unwrap()
-    assert str(err.value) == expected
+    assert expected == str(err.value)
