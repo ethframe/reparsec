@@ -1,11 +1,13 @@
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import (
-    Callable, Dict, Generic, Iterable, Iterator, List, NoReturn, Optional,
-    Sequence, Tuple, TypeVar, Union
+    Callable, Dict, Generic, Iterable, List, NoReturn, Optional, Sequence,
+    Tuple, TypeVar, Union
 )
 
 from typing_extensions import final
+
+from .chain import Chain, ChainL, ChainR
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -13,42 +15,6 @@ V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U", bound=object)
 X = TypeVar("X", bound=object)
-
-
-class Chain(Iterable[T_co]):
-    __slots__ = "_fst", "_snd"
-
-    def __init__(self, fst: Iterable[T_co], snd: Iterable[T_co]):
-        self._fst = fst
-        self._snd = snd
-
-    def __iter__(self) -> Iterator[T_co]:
-        yield from self._fst
-        yield from self._snd
-
-
-class ChainL(Iterable[T_co]):
-    __slots__ = "_fst", "_snd"
-
-    def __init__(self, fst: T_co, snd: Iterable[T_co]):
-        self._fst = fst
-        self._snd = snd
-
-    def __iter__(self) -> Iterator[T_co]:
-        yield self._fst
-        yield from self._snd
-
-
-class ChainR(Iterable[T_co]):
-    __slots__ = "_fst", "_snd"
-
-    def __init__(self, fst: Iterable[T_co], snd: T_co):
-        self._fst = fst
-        self._snd = snd
-
-    def __iter__(self) -> Iterator[T_co]:
-        yield from self._fst
-        yield self._snd
 
 
 @dataclass

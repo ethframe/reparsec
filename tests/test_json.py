@@ -86,7 +86,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
     "data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
     r = json.json.parse(split_tokens(data, json.spec), recover=True)
-    assert r.unwrap(recover=True) == value
+    assert value == r.unwrap(recover=True)
     with pytest.raises(ParseError) as err:
         r.unwrap()
     assert expected == str(err.value)
