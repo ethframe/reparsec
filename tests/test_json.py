@@ -3,8 +3,8 @@ from typing import List, Tuple
 import pytest
 
 from combinators import json
-from combinators.core import ParseError
 from combinators.lexer import split_tokens
+from combinators.result import ParseError
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),
