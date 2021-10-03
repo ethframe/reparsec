@@ -67,11 +67,13 @@ class Repair(Generic[V_co]):
 
 
 @final
-@dataclass
 class Ok(Generic[V_co]):
-    value: V_co
-    pos: int
-    expected: Iterable[str] = ()
+    __slots__ = "value", "pos", "expected"
+
+    def __init__(self, value: V_co, pos: int, expected: Iterable[str] = ()):
+        self.value = value
+        self.pos = pos
+        self.expected = expected
 
     def unwrap(self, recover: bool = False) -> V_co:
         return self.value
@@ -84,10 +86,12 @@ class Ok(Generic[V_co]):
 
 
 @final
-@dataclass
 class Error:
-    pos: int
-    expected: Iterable[str] = ()
+    __slots__ = "pos", "expected"
+
+    def __init__(self, pos: int, expected: Iterable[str] = ()):
+        self.pos = pos
+        self.expected = expected
 
     def unwrap(self, recover: bool = False) -> NoReturn:
         raise ParseError([ErrorItem(self.pos, list(self.expected))])
@@ -100,11 +104,15 @@ class Error:
 
 
 @final
-@dataclass
 class Recovered(Generic[V_co]):
-    repairs: Iterable[Repair[V_co]]
-    pos: int
-    expected: Iterable[str] = ()
+    __slots__ = "repairs", "pos", "expected"
+
+    def __init__(
+            self, repairs: Iterable[Repair[V_co]], pos: int,
+            expected: Iterable[str] = ()):
+        self.repairs = repairs
+        self.pos = pos
+        self.expected = expected
 
     def unwrap(self, recover: bool = False) -> V_co:
         repair = next(iter(self.repairs))
@@ -481,9 +489,9 @@ def label(parser: Parser[T, V], x: str) -> Parser[T, V]:
 
 
 class InsertValue(Parser[T, V_co]):
-    def __init__(self, value: V_co, l: str):
+    def __init__(self, value: V_co, label: str):
         self._value = value
-        self._label = l
+        self._label = label
 
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
         if pos > bt:
