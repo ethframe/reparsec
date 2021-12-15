@@ -46,13 +46,32 @@ class Parser(Generic[T, V_co]):
             if type(ra) is Error:
                 return ra
             if type(ra) is Recovered:
-                return recover_bind(stream, ra)
+                return bind_recover(ra, stream)
             rb = fn(ra.value)(stream, ra.pos, bt)
             return rb.expect(merge_expected(pos, ra, rb))
 
-        @_make_recovery_tail_fn
-        def recover_bind(stream: Sequence[T], rep: Repair[V_co]) -> Result[U]:
-            return fn(rep.value)(stream, rep.pos, -1)
+        def bind_recover(
+                ra: Recovered[V_co], stream: Sequence[T]) -> Result[U]:
+            reps: Dict[int, Repair[U]] = {}
+            for pa in ra.repairs:
+                rb = fn(pa.value)(stream, pa.pos, -1)
+                if type(rb) is Ok:
+                    if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
+                        reps[rb.pos] = Repair(
+                            pa.cost, rb.value, rb.pos, pa.ops, pa.errors
+                        )
+                elif type(rb) is Recovered:
+                    for pb in rb.repairs:
+                        cost = pa.cost + pb.cost
+                        if pb.pos not in reps or cost < reps[pb.pos].cost:
+                            reps[pb.pos] = Repair(
+                                cost, pb.value, pb.pos, Chain(pa.ops, pb.ops),
+                                Chain(pa.errors, ChainL(
+                                    rb.expected, pb.errors))
+                            )
+            if reps:
+                return Recovered(list(reps.values()), ra.pos, ra.expected)
+            return Error(ra.pos, ra.expected)
 
         return FnParser(bind)
 
@@ -125,34 +144,6 @@ class FnParser(Parser[T, V_co]):
         return self._fn(stream, pos, bt)
 
 
-def _make_recovery_tail_fn(
-        parse: Callable[[Sequence[T], Repair[V]], Result[U]]) -> Callable[
-            [Sequence[T], Recovered[V]], Result[U]]:
-
-    def _recovery_tail_fn(stream: Sequence[T], ra: Recovered[V]) -> Result[U]:
-        reps: Dict[int, Repair[U]] = {}
-        for pa in ra.repairs:
-            rb = parse(stream, pa)
-            if type(rb) is Ok:
-                if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
-                    reps[rb.pos] = Repair(
-                        pa.cost, rb.value, rb.pos, pa.ops, pa.errors
-                    )
-            elif type(rb) is Recovered:
-                for pb in rb.repairs:
-                    cost = pa.cost + pb.cost
-                    if pb.pos not in reps or cost < reps[pb.pos].cost:
-                        reps[pb.pos] = Repair(
-                            cost, pb.value, pb.pos, Chain(pa.ops, pb.ops),
-                            Chain(pa.errors, ChainL(rb.expected, pb.errors))
-                        )
-        if reps:
-            return Recovered(list(reps.values()), ra.pos, ra.expected)
-        return Error(ra.pos, ra.expected)
-
-    return _recovery_tail_fn
-
-
 def _make_seq(
         parser: Parser[T, V], second: Parser[T, U],
         fn: Callable[[V, U], X]) -> Parser[T, X]:
@@ -164,16 +155,35 @@ def _make_seq(
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
-            return recover_seq(stream, ra)
+            return seq_recover(ra, stream)
         va = ra.value
         rb = second_fn(stream, ra.pos, bt)
         return rb.fmap(lambda vb: fn(va, vb)).expect(
             merge_expected(pos, ra, rb)
         )
 
-    @_make_recovery_tail_fn
-    def recover_seq(stream: Sequence[T], rep: Repair[V]) -> Result[X]:
-        return second_fn(stream, rep.pos, -1).fmap(lambda v: fn(rep.value, v))
+    def seq_recover(ra: Recovered[V], stream: Sequence[T]) -> Result[X]:
+        reps: Dict[int, Repair[X]] = {}
+        for pa in ra.repairs:
+            rb = second_fn(stream, pa.pos, -1)
+            if type(rb) is Ok:
+                if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
+                    reps[rb.pos] = Repair(
+                        pa.cost, fn(
+                            pa.value, rb.value), rb.pos, pa.ops, pa.errors
+                    )
+            elif type(rb) is Recovered:
+                for pb in rb.repairs:
+                    cost = pa.cost + pb.cost
+                    if pb.pos not in reps or cost < reps[pb.pos].cost:
+                        reps[pb.pos] = Repair(
+                            cost, fn(pa.value, pb.value), pb.pos,
+                            Chain(pa.ops, pb.ops),
+                            Chain(pa.errors, ChainL(rb.expected, pb.errors))
+                        )
+        if reps:
+            return Recovered(list(reps.values()), ra.pos, ra.expected)
+        return Error(ra.pos, ra.expected)
 
     return FnParser(seq)
 
