@@ -107,19 +107,12 @@ class RepairError:
 
 
 @dataclass
-class PrefixItem:
-    error: RepairError
-    expected: Iterable[str]
-
-
-@dataclass
 class Repair(Generic[V_co]):
     cost: int
     value: V_co
     pos: int
     error: RepairError
-    expected: Iterable[str]
-    prefix: Iterable[PrefixItem]
+    prefix: Iterable[RepairError]
 
 
 @final
@@ -136,9 +129,7 @@ class Recovered(Generic[V_co]):
             return repair.value
         errors: List[ErrorItem] = []
         for item in repair.prefix:
-            errors.append(
-                ErrorItem(item.error.op.pos, list(item.error.expected))
-            )
+            errors.append(ErrorItem(item.op.pos, list(item.expected)))
         errors.append(
             ErrorItem(repair.error.op.pos, list(repair.error.expected))
         )
@@ -146,7 +137,7 @@ class Recovered(Generic[V_co]):
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U]":
         return Recovered([
-            Repair(p.cost, fn(p.value), p.pos, p.error, p.expected, p.prefix)
+            Repair(p.cost, fn(p.value), p.pos, p.error, p.prefix)
             for p in self.repairs
         ])
 
@@ -156,7 +147,6 @@ class Recovered(Generic[V_co]):
                 p.cost, p.value, p.pos,
                 RepairError(p.error.op, expected)
                 if p.error.op.pos == pos else p.error,
-                expected if p.pos == pos else p.expected,
                 p.prefix
             )
             for p in self.repairs
@@ -169,7 +159,6 @@ class Recovered(Generic[V_co]):
                 p.cost, p.value, p.pos,
                 RepairError(p.error.op, Chain(ra.expected, p.error.expected))
                 if ra_empty or p.error.op.pos == ra.pos else p.error,
-                Chain(ra.expected, p.expected) if ra_empty else p.expected,
                 p.prefix
             )
             for p in self.repairs

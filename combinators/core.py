@@ -5,7 +5,7 @@ from typing import (
 
 from .chain import Chain, ChainR
 from .result import (
-    Error, Insert, Ok, PrefixItem, RepairError, Recovered, Repair, Result, Skip
+    Error, Insert, Ok, RepairError, Recovered, Repair, Result, Skip
 )
 
 T = TypeVar("T")
@@ -56,27 +56,16 @@ class Parser(Generic[T, V_co]):
                 rb = fn(pa.value)(stream, pa.pos, -1)
                 if type(rb) is Ok:
                     if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
-                        if rb.pos != pa.pos:
-                            expected = rb.expected
-                        else:
-                            expected = Chain(pa.expected, rb.expected)
                         reps[rb.pos] = Repair(
-                            pa.cost, rb.value, rb.pos, pa.error, expected,
-                            pa.prefix
+                            pa.cost, rb.value, rb.pos, pa.error, pa.prefix
                         )
                 elif type(rb) is Recovered:
                     for pb in rb.repairs:
                         cost = pa.cost + pb.cost
                         if pb.pos not in reps or cost < reps[pb.pos].cost:
                             reps[pb.pos] = Repair(
-                                cost, pb.value, pb.pos, pb.error, pb.expected,
-                                Chain(
-                                    ChainR(
-                                        pa.prefix,
-                                        PrefixItem(pa.error, pa.expected)
-                                    ),
-                                    pb.prefix
-                                )
+                                cost, pb.value, pb.pos, pb.error,
+                                Chain(ChainR(pa.prefix, pa.error), pb.prefix)
                             )
             if reps:
                 return Recovered(list(reps.values()))
@@ -180,13 +169,9 @@ def _make_seq(
             rb = second_fn(stream, pa.pos, -1)
             if type(rb) is Ok:
                 if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
-                    if rb.pos != pa.pos:
-                        expected = rb.expected
-                    else:
-                        expected = Chain(pa.expected, rb.expected)
                     reps[rb.pos] = Repair(
                         pa.cost, fn(pa.value, rb.value), rb.pos, pa.error,
-                        expected, pa.prefix
+                        pa.prefix
                     )
             elif type(rb) is Recovered:
                 for pb in rb.repairs:
@@ -194,14 +179,7 @@ def _make_seq(
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
                             cost, fn(pa.value, pb.value), pb.pos, pb.error,
-                            pb.expected,
-                            Chain(
-                                ChainR(
-                                    pa.prefix,
-                                    PrefixItem(pa.error, pa.expected)
-                                ),
-                                pb.prefix
-                            )
+                            Chain(ChainR(pa.prefix, pa.error), pb.prefix)
                         )
         if reps:
             return Recovered(list(reps.values()))
@@ -253,7 +231,7 @@ class Eof(Parser[T, None]):
             skip = len(stream) - pos
             return Recovered([Repair(
                 skip, None, len(stream),
-                RepairError(Skip(skip, pos), ["end of file"]), (), ()
+                RepairError(Skip(skip, pos), ["end of file"]), ()
             )])
         return Error(pos, ["end of file"])
 
@@ -274,8 +252,7 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
                 if test(t):
                     skip = cur - pos
                     Recovered([Repair(
-                        skip, t, cur + 1, RepairError(Skip(skip, pos), ()),
-                        (), ()
+                        skip, t, cur + 1, RepairError(Skip(skip, pos), ()), ()
                     )])
                 cur += 1
         return Error(pos)
@@ -293,9 +270,7 @@ def sym(s: T) -> Parser[T, T]:
             if t == s:
                 return Ok(t, pos + 1)
         if pos > bt:
-            ins = Repair(
-                1, s, pos, RepairError(Insert(rs, pos), expected), (), ()
-            )
+            ins = Repair(1, s, pos, RepairError(Insert(rs, pos), expected), ())
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
@@ -305,7 +280,7 @@ def sym(s: T) -> Parser[T, T]:
                         ins,
                         Repair(
                             skip, t, cur + 1,
-                            RepairError(Skip(skip, pos), expected), (), ()
+                            RepairError(Skip(skip, pos), expected), ()
                         )
                     ])
                 cur += 1
@@ -352,13 +327,9 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
             rb = many(stream, p.pos, -1)
             if type(rb) is Ok:
                 if rb.pos not in reps or p.cost < reps[rb.pos].cost:
-                    if rb.pos != p.pos:
-                        expected = rb.expected
-                    else:
-                        expected = Chain(p.expected, rb.expected)
                     reps[rb.pos] = Repair(
                         p.cost, [*value, p.value, *rb.value], rb.pos, p.error,
-                        expected, p.prefix
+                        p.prefix
                     )
             elif type(rb) is Recovered:
                 for pb in rb.repairs:
@@ -366,19 +337,13 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
                             cost, [*value, p.value, *pb.value], pb.pos,
-                            pb.error, pb.expected,
-                            Chain(
-                                ChainR(
-                                    p.prefix, PrefixItem(p.error, p.expected)
-                                ),
-                                pb.prefix
-                            )
+                            pb.error,
+                            Chain(ChainR(p.prefix, p.error), pb.prefix)
                         )
             elif rb.pos == p.pos:
                 if p.pos not in reps or p.cost < reps[p.pos].cost:
                     reps[rb.pos] = Repair(
-                        p.cost, [*value, p.value], rb.pos, p.error,
-                        Chain(p.expected, rb.expected), p.prefix
+                        p.cost, [*value, p.value], rb.pos, p.error, p.prefix
                     )
         if reps:
             return Recovered(list(reps.values()))
@@ -407,7 +372,7 @@ class InsertValue(Parser[T, V_co]):
         if pos > bt:
             return Recovered([Repair(
                 1, self._value, pos,
-                RepairError(Insert(self._label, pos), [self._label]), (), ()
+                RepairError(Insert(self._label, pos), [self._label]), ()
             )])
         return Error(pos)
 
