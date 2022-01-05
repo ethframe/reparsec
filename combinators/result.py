@@ -101,7 +101,7 @@ RepairOp = Union[Skip, Insert]
 
 
 @dataclass
-class RepairError:
+class PrefixItem:
     op: RepairOp
     expected: Iterable[str]
 
@@ -111,8 +111,9 @@ class Repair(Generic[V_co]):
     cost: int
     value: V_co
     pos: int
-    error: RepairError
-    prefix: Iterable[RepairError]
+    op: RepairOp
+    expected: Iterable[str]
+    prefix: Iterable[PrefixItem]
 
 
 @final
@@ -130,23 +131,20 @@ class Recovered(Generic[V_co]):
         errors: List[ErrorItem] = []
         for item in repair.prefix:
             errors.append(ErrorItem(item.op.pos, list(item.expected)))
-        errors.append(
-            ErrorItem(repair.error.op.pos, list(repair.error.expected))
-        )
+        errors.append(ErrorItem(repair.op.pos, list(repair.expected)))
         raise ParseError(errors)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U]":
         return Recovered([
-            Repair(p.cost, fn(p.value), p.pos, p.error, p.prefix)
+            Repair(p.cost, fn(p.value), p.pos, p.op, p.expected, p.prefix)
             for p in self.repairs
         ])
 
     def expect(self, pos: int, expected: Iterable[str]) -> "Recovered[V_co]":
         return Recovered([
             Repair(
-                p.cost, p.value, p.pos,
-                RepairError(p.error.op, expected)
-                if p.error.op.pos == pos else p.error,
+                p.cost, p.value, p.pos, p.op,
+                expected if p.op.pos == pos else p.expected,
                 p.prefix
             )
             for p in self.repairs
@@ -156,9 +154,9 @@ class Recovered(Generic[V_co]):
         ra_empty = ra.pos == pos
         return Recovered([
             Repair(
-                p.cost, p.value, p.pos,
-                RepairError(p.error.op, Chain(ra.expected, p.error.expected))
-                if ra_empty or p.error.op.pos == ra.pos else p.error,
+                p.cost, p.value, p.pos, p.op,
+                Chain(ra.expected, p.expected)
+                if ra_empty or p.op.pos == ra.pos else p.expected,
                 p.prefix
             )
             for p in self.repairs
