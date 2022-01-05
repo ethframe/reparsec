@@ -3,7 +3,7 @@ from typing import Callable, Generic, Iterable, List, NoReturn, TypeVar, Union
 
 from typing_extensions import final
 
-from .chain import Chain, ChainL
+from .chain import Chain
 
 V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
@@ -49,8 +49,15 @@ class Ok(Generic[V_co]):
     def fmap(self, fn: Callable[[V_co], U]) -> "Ok[U]":
         return Ok(fn(self.value), self.pos, self.expected)
 
-    def expect(self, expected: Iterable[str]) -> "Ok[V_co]":
-        return Ok(self.value, self.pos, expected)
+    def expect(self, pos: int, expected: Iterable[str]) -> "Ok[V_co]":
+        if self.pos == pos:
+            return Ok(self.value, self.pos, expected)
+        return self
+
+    def merge_expected(self, pos: int, ra: "LLResult[U]") -> "Ok[V_co]":
+        if ra.pos != pos and ra.pos != self.pos:
+            return self
+        return Ok(self.value, self.pos, Chain(ra.expected, self.expected))
 
 
 @final
@@ -67,24 +74,42 @@ class Error:
     def fmap(self, fn: object) -> "Error":
         return self
 
-    def expect(self, expected: Iterable[str]) -> "Error":
-        return Error(self.pos, expected)
+    def expect(self, pos: int, expected: Iterable[str]) -> "Error":
+        if self.pos == pos:
+            return Error(self.pos, expected)
+        return self
 
-
-class RepairOp:
-    pos: int
+    def merge_expected(self, pos: int, ra: "LLResult[U]") -> "Error":
+        if ra.pos != pos and ra.pos != self.pos:
+            return self
+        return Error(self.pos, Chain(ra.expected, self.expected))
 
 
 @dataclass
-class Skip(RepairOp):
+class Skip:
     count: int
     pos: int
 
 
 @dataclass
-class Insert(RepairOp):
+class Insert:
     token: str
     pos: int
+
+
+RepairOp = Union[Skip, Insert]
+
+
+@dataclass
+class RepairError:
+    op: RepairOp
+    expected: Iterable[str]
+
+
+@dataclass
+class PrefixItem:
+    error: RepairError
+    expected: Iterable[str]
 
 
 @dataclass
@@ -92,48 +117,64 @@ class Repair(Generic[V_co]):
     cost: int
     value: V_co
     pos: int
-    ops: Iterable[RepairOp]
-    errors: Iterable[Iterable[str]] = ()
+    error: RepairError
+    expected: Iterable[str]
+    prefix: Iterable[PrefixItem]
 
 
 @final
 class Recovered(Generic[V_co]):
-    __slots__ = "repairs", "pos", "expected"
+    __slots__ = ("repairs", "pos")
 
-    def __init__(
-            self, repairs: Iterable[Repair[V_co]], pos: int,
-            expected: Iterable[str] = ()):
+    def __init__(self, repairs: Iterable[Repair[V_co]]):
         self.repairs = repairs
-        self.pos = pos
-        self.expected = expected
+        self.pos = -1
 
     def unwrap(self, recover: bool = False) -> V_co:
         repair = next(iter(self.repairs))
         if recover:
             return repair.value
         errors: List[ErrorItem] = []
-        ops_expected = zip(repair.ops, ChainL(self.expected, repair.errors))
-        for op, expected in ops_expected:
-            errors.append(ErrorItem(op.pos, list(expected)))
+        for item in repair.prefix:
+            errors.append(
+                ErrorItem(item.error.op.pos, list(item.error.expected))
+            )
+        errors.append(
+            ErrorItem(repair.error.op.pos, list(repair.error.expected))
+        )
         raise ParseError(errors)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U]":
-        return Recovered(
-            [
-                Repair(p.cost, fn(p.value), p.pos, p.ops, p.errors)
-                for p in self.repairs
-            ],
-            self.pos, self.expected
-        )
+        return Recovered([
+            Repair(p.cost, fn(p.value), p.pos, p.error, p.expected, p.prefix)
+            for p in self.repairs
+        ])
 
-    def expect(self, expected: Iterable[str]) -> "Recovered[V_co]":
-        return Recovered(self.repairs, self.pos, expected)
+    def expect(self, pos: int, expected: Iterable[str]) -> "Recovered[V_co]":
+        return Recovered([
+            Repair(
+                p.cost, p.value, p.pos,
+                RepairError(p.error.op, expected)
+                if p.error.op.pos == pos else p.error,
+                expected if p.pos == pos else p.expected,
+                p.prefix
+            )
+            for p in self.repairs
+        ])
+
+    def merge_expected(self, pos: int, ra: "LLResult[U]") -> "Recovered[V_co]":
+        ra_empty = ra.pos == pos
+        return Recovered([
+            Repair(
+                p.cost, p.value, p.pos,
+                RepairError(p.error.op, Chain(ra.expected, p.error.expected))
+                if ra_empty or p.error.op.pos == ra.pos else p.error,
+                Chain(ra.expected, p.expected) if ra_empty else p.expected,
+                p.prefix
+            )
+            for p in self.repairs
+        ])
 
 
 Result = Union[Recovered[V], Ok[V], Error]
-
-
-def merge_expected(pos: int, ra: Result[V], rb: Result[U]) -> Iterable[str]:
-    if ra.pos != pos and ra.pos != rb.pos:
-        return rb.expected
-    return Chain(ra.expected, rb.expected)
+LLResult = Union[Ok[V], Error]
