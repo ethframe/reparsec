@@ -47,7 +47,7 @@ class Parser(Generic[T, V_co]):
                 return ra
             if type(ra) is Recovered:
                 return bind_recover(ra, stream)
-            return fn(ra.value)(stream, ra.pos, bt).merge_expected(pos, ra)
+            return fn(ra.value)(stream, ra.pos, bt).merge_expected(ra)
 
         def bind_recover(
                 ra: Recovered[V_co], stream: Sequence[T]) -> Result[U]:
@@ -57,15 +57,16 @@ class Parser(Generic[T, V_co]):
                 if type(rb) is Ok:
                     if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                         reps[rb.pos] = Repair(
-                            pa.cost, rb.value, rb.pos, pa.op, pa.expected,
-                            pa.prefix
+                            pa.cost, rb.value, rb.pos, pa.op, pa.consumed,
+                            pa.expected, pa.prefix
                         )
                 elif type(rb) is Recovered:
                     for pb in rb.repairs:
                         cost = pa.cost + pb.cost
                         if pb.pos not in reps or cost < reps[pb.pos].cost:
                             reps[pb.pos] = Repair(
-                                cost, pb.value, pb.pos, pb.op, pb.expected,
+                                cost, pb.value, pb.pos, pb.op, pb.consumed,
+                                pb.expected,
                                 Chain(
                                     ChainR(
                                         pa.prefix,
@@ -77,7 +78,7 @@ class Parser(Generic[T, V_co]):
             if reps:
                 return Recovered(list(reps.values()))
             pa = next(iter(ra.repairs))
-            return Error(pa.op.pos, pa.expected)
+            return Error(pa.op.pos, pa.consumed, pa.expected)
 
         return FnParser(bind)
 
@@ -96,18 +97,16 @@ class Parser(Generic[T, V_co]):
 
         def or_(stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
             ra = self_fn(stream, pos, max(pos, bt))
-            if ra.pos != pos:
+            if ra.consumed is True:
                 return ra
             rb = other_fn(stream, pos, max(pos, bt))
-            if rb.pos != pos:
+            if rb.consumed is True:
                 return rb
-            assert type(ra) is not Recovered
-            assert type(rb) is not Recovered
             expected = Chain(ra.expected, rb.expected)
             if type(ra) is Ok:
-                return Ok(ra.value, pos, expected)
+                return ra.expect(expected)
             if type(rb) is Ok:
-                return Ok(rb.value, pos, expected)
+                return rb.expect(expected)
             if pos > bt:
                 ra = self_fn(stream, pos, -1)
                 rb = other_fn(stream, pos, -1)
@@ -117,10 +116,10 @@ class Parser(Generic[T, V_co]):
                         reps.update((pa.pos, pa) for pa in ra.repairs)
                         # TODO: Merge expected of pa and pb with .pos == pos
                         return Recovered(list(reps.values()))
-                    return ra.expect(pos, expected)
+                    return ra.expect(expected)
                 if type(rb) is Recovered:
-                    return rb.expect(pos, expected)
-            return Error(pos, expected)
+                    return rb.expect(expected)
+            return Error(pos, False, expected)
 
         return FnParser(or_)
 
@@ -168,7 +167,7 @@ def _make_seq(
         va = ra.value
         return second_fn(stream, ra.pos, bt).fmap(
             lambda vb: fn(va, vb)
-        ).merge_expected(pos, ra)
+        ).merge_expected(ra)
 
     def seq_recover(ra: Recovered[V], stream: Sequence[T]) -> Result[X]:
         reps: Dict[int, Repair[X]] = {}
@@ -178,14 +177,14 @@ def _make_seq(
                 if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                     reps[rb.pos] = Repair(
                         pa.cost, fn(pa.value, rb.value), rb.pos, pa.op,
-                        pa.expected, pa.prefix
+                        pa.consumed, pa.expected, pa.prefix
                     )
             elif type(rb) is Recovered:
                 for pb in rb.repairs:
                     cost = pa.cost + pb.cost
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
-                            cost, fn(pa.value, pb.value), pb.pos, pb.op,
+                            cost, fn(pa.value, pb.value), pb.pos, pb.op, True,
                             pb.expected,
                             Chain(
                                 ChainR(
@@ -197,7 +196,7 @@ def _make_seq(
         if reps:
             return Recovered(list(reps.values()))
         pa = next(iter(ra.repairs))
-        return Error(pa.op.pos, pa.expected)
+        return Error(pa.op.pos, pa.consumed, pa.expected)
 
     return FnParser(seq)
 
@@ -219,7 +218,7 @@ class Pure(Parser[T, V_co]):
         self._x = x
 
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
-        return Ok(self._x, pos)
+        return Ok(self._x, pos, False)
 
 
 pure = Pure
@@ -230,7 +229,7 @@ class PureFn(Parser[T, V_co]):
         self._fn = fn
 
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
-        return Ok(self._fn(), pos)
+        return Ok(self._fn(), pos, False)
 
 
 pure_fn = PureFn
@@ -239,13 +238,14 @@ pure_fn = PureFn
 class Eof(Parser[T, None]):
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[None]:
         if pos == len(stream):
-            return Ok(None, pos)
+            return Ok(None, pos, False)
         if pos > bt:
             skip = len(stream) - pos
             return Recovered([Repair(
-                skip, None, len(stream), Skip(skip, pos), ["end of file"], ()
+                skip, None, len(stream), Skip(skip, pos), False,
+                ["end of file"], ()
             )])
-        return Error(pos, ["end of file"])
+        return Error(pos, False, ["end of file"])
 
 
 eof = Eof
@@ -256,7 +256,7 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
         if pos < len(stream):
             t = stream[pos]
             if test(t):
-                return Ok(t, pos + 1)
+                return Ok(t, pos + 1, True)
         if pos > bt:
             cur = pos + 1
             while cur < len(stream):
@@ -264,10 +264,10 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
                 if test(t):
                     skip = cur - pos
                     Recovered([Repair(
-                        skip, t, cur + 1, Skip(skip, pos), (), ()
+                        skip, t, cur + 1, Skip(skip, pos), False, (), ()
                     )])
                 cur += 1
-        return Error(pos)
+        return Error(pos, False)
 
     return FnParser(satisfy)
 
@@ -280,9 +280,9 @@ def sym(s: T) -> Parser[T, T]:
         if pos < len(stream):
             t = stream[pos]
             if t == s:
-                return Ok(t, pos + 1)
+                return Ok(t, pos + 1, True)
         if pos > bt:
-            ins = Repair(1, s, pos, Insert(rs, pos), expected, ())
+            ins = Repair(1, s, pos, Insert(rs, pos), False, expected, ())
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
@@ -290,11 +290,14 @@ def sym(s: T) -> Parser[T, T]:
                     skip = cur - pos
                     return Recovered([
                         ins,
-                        Repair(skip, t, cur + 1, Skip(skip, pos), expected, ())
+                        Repair(
+                            skip, t, cur + 1, Skip(skip, pos), False, expected,
+                            ()
+                        )
                     ])
                 cur += 1
             return Recovered([ins])
-        return Error(pos, expected)
+        return Error(pos, False, expected)
 
     return FnParser(sym)
 
@@ -304,10 +307,9 @@ def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
 
     def maybe(stream: Sequence[T], pos: int, bt: int) -> Result[Optional[V]]:
         r = fn(stream, pos, max(pos, bt))
-        if r.pos != pos or type(r) is Ok:
+        if r.consumed or type(r) is Ok:
             return r
-        assert type(r) is not Recovered
-        return Ok(None, pos, r.expected)
+        return Ok(None, pos, False, r.expected)
 
     return FnParser(maybe)
 
@@ -317,16 +319,17 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
 
     def many(stream: Sequence[T], pos: int, bt: int) -> Result[List[V]]:
         value: List[V] = []
-        r = fn(stream, pos, max(pos, bt))
+        tpos = pos
+        r = fn(stream, tpos, max(tpos, bt))
         while not type(r) is Error:
             if type(r) is Recovered:
                 return many_recover(r, value, stream)
             value.append(r.value)
-            pos = r.pos
-            r = fn(stream, pos, max(pos, bt))
-        if r.pos != pos:
+            tpos = r.pos
+            r = fn(stream, tpos, max(tpos, bt))
+        if r.consumed:
             return r
-        return Ok(value, pos, r.expected)
+        return Ok(value, tpos, pos != tpos, r.expected)
 
     def many_recover(
             r: Recovered[V], value: List[V],
@@ -338,30 +341,30 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
                 if rb.pos not in reps or p.cost < reps[rb.pos].cost:
                     reps[rb.pos] = Repair(
                         p.cost, [*value, p.value, *rb.value], rb.pos, p.op,
-                        p.expected, p.prefix
+                        p.consumed, p.expected, p.prefix
                     )
             elif type(rb) is Recovered:
                 for pb in rb.repairs:
                     cost = p.cost + pb.cost
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
-                            cost, [*value, p.value, *pb.value], pb.pos,
-                            pb.op, pb.expected,
+                            cost, [*value, p.value, *pb.value], pb.pos, pb.op,
+                            True, pb.expected,
                             Chain(
                                 ChainR(p.prefix, PrefixItem(p.op, p.expected)),
                                 pb.prefix
                             )
                         )
-            elif rb.pos == p.pos:
+            elif not rb.consumed:
                 if p.pos not in reps or p.cost < reps[p.pos].cost:
                     reps[rb.pos] = Repair(
-                        p.cost, [*value, p.value], rb.pos, p.op, p.expected,
-                        p.prefix
+                        p.cost, [*value, p.value], rb.pos, p.op, p.consumed,
+                        p.expected, p.prefix
                     )
         if reps:
             return Recovered(list(reps.values()))
         p = next(iter(r.repairs))
-        return Error(p.op.pos, p.expected)
+        return Error(p.op.pos, p.consumed, p.expected)
 
     return FnParser(many)
 
@@ -371,7 +374,7 @@ def label(parser: Parser[T, V], x: str) -> Parser[T, V]:
     expected = [x]
 
     def label(stream: Sequence[T], pos: int, bt: int) -> Result[V]:
-        return fn(stream, pos, bt).expect(pos, expected)
+        return fn(stream, pos, bt).expect(expected)
 
     return FnParser(label)
 
@@ -384,10 +387,10 @@ class InsertValue(Parser[T, V_co]):
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
         if pos > bt:
             return Recovered([Repair(
-                1, self._value, pos, Insert(self._label, pos), [self._label],
-                ()
+                1, self._value, pos, Insert(self._label, pos), False,
+                [self._label], ()
             )])
-        return Error(pos)
+        return Error(pos, False)
 
 
 insert = InsertValue

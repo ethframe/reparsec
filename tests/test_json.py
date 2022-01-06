@@ -26,7 +26,7 @@ DATA_POSITIVE: List[Tuple[str, object]] = [
 ]
 
 
-@pytest.mark.parametrize("data, expected", DATA_POSITIVE)  # type: ignore
+@pytest.mark.parametrize("data, expected", DATA_POSITIVE)
 def test_positive(data: str, expected: object) -> None:
     assert expected == json.parse(data)
 
@@ -45,7 +45,7 @@ DATA_NEGATIVE = [
 ]
 
 
-@pytest.mark.parametrize("data, expected", DATA_NEGATIVE)  # type: ignore
+@pytest.mark.parametrize("data, expected", DATA_NEGATIVE)
 def test_negative(data: str, expected: str) -> None:
     with pytest.raises(ParseError) as err:
         json.parse(data)
@@ -82,8 +82,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
 ]
 
 
-@pytest.mark.parametrize(  # type: ignore
-    "data, value, expected", DATA_RECOVERY)
+@pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
     r = json.json.parse(split_tokens(data, json.spec), recover=True)
     assert value == r.unwrap(recover=True)

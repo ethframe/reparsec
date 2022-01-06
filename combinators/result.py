@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, Iterable, List, NoReturn, TypeVar, Union
 
-from typing_extensions import final
+from typing_extensions import Literal, final
 
 from .chain import Chain
 
@@ -36,36 +36,43 @@ class ParseError(Exception):
 
 @final
 class Ok(Generic[V_co]):
-    __slots__ = "value", "pos", "expected"
+    __slots__ = "value", "pos", "consumed", "expected"
 
-    def __init__(self, value: V_co, pos: int, expected: Iterable[str] = ()):
+    def __init__(
+            self, value: V_co, pos: int, consumed: bool,
+            expected: Iterable[str] = ()):
         self.value = value
         self.pos = pos
+        self.consumed = consumed
         self.expected = expected
 
     def unwrap(self, recover: bool = False) -> V_co:
         return self.value
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Ok[U]":
-        return Ok(fn(self.value), self.pos, self.expected)
+        return Ok(fn(self.value), self.pos, self.consumed, self.expected)
 
-    def expect(self, pos: int, expected: Iterable[str]) -> "Ok[V_co]":
-        if self.pos == pos:
-            return Ok(self.value, self.pos, expected)
-        return self
-
-    def merge_expected(self, pos: int, ra: "LLResult[U]") -> "Ok[V_co]":
-        if ra.pos != pos and ra.pos != self.pos:
+    def expect(self, expected: Iterable[str]) -> "Ok[V_co]":
+        if self.consumed:
             return self
-        return Ok(self.value, self.pos, Chain(ra.expected, self.expected))
+        return Ok(self.value, self.pos, self.consumed, expected)
+
+    def merge_expected(self, ra: "LLResult[U]") -> "Ok[V_co]":
+        if ra.consumed and self.consumed:
+            return self
+        return Ok(
+            self.value, self.pos, ra.consumed or self.consumed,
+            Chain(ra.expected, self.expected)
+        )
 
 
 @final
 class Error:
-    __slots__ = "pos", "expected"
+    __slots__ = "pos", "consumed", "expected"
 
-    def __init__(self, pos: int, expected: Iterable[str] = ()):
+    def __init__(self, pos: int, consumed: bool, expected: Iterable[str] = ()):
         self.pos = pos
+        self.consumed = consumed
         self.expected = expected
 
     def unwrap(self, recover: bool = False) -> NoReturn:
@@ -74,15 +81,18 @@ class Error:
     def fmap(self, fn: object) -> "Error":
         return self
 
-    def expect(self, pos: int, expected: Iterable[str]) -> "Error":
-        if self.pos == pos:
-            return Error(self.pos, expected)
-        return self
-
-    def merge_expected(self, pos: int, ra: "LLResult[U]") -> "Error":
-        if ra.pos != pos and ra.pos != self.pos:
+    def expect(self, expected: Iterable[str]) -> "Error":
+        if self.consumed:
             return self
-        return Error(self.pos, Chain(ra.expected, self.expected))
+        return Error(self.pos, self.consumed, expected)
+
+    def merge_expected(self, ra: "LLResult[U]") -> "Error":
+        if ra.consumed and self.consumed:
+            return self
+        return Error(
+            self.pos, ra.consumed or self.consumed,
+            Chain(ra.expected, self.expected)
+        )
 
 
 @dataclass
@@ -112,17 +122,20 @@ class Repair(Generic[V_co]):
     value: V_co
     pos: int
     op: RepairOp
+    consumed: bool
     expected: Iterable[str]
     prefix: Iterable[PrefixItem]
 
 
 @final
 class Recovered(Generic[V_co]):
-    __slots__ = ("repairs", "pos")
+    __slots__ = "repairs", "consumed"
+
+    consumed: Literal[True]
 
     def __init__(self, repairs: Iterable[Repair[V_co]]):
         self.repairs = repairs
-        self.pos = -1
+        self.consumed = True
 
     def unwrap(self, recover: bool = False) -> V_co:
         repair = next(iter(self.repairs))
@@ -136,27 +149,29 @@ class Recovered(Generic[V_co]):
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U]":
         return Recovered([
-            Repair(p.cost, fn(p.value), p.pos, p.op, p.expected, p.prefix)
-            for p in self.repairs
-        ])
-
-    def expect(self, pos: int, expected: Iterable[str]) -> "Recovered[V_co]":
-        return Recovered([
             Repair(
-                p.cost, p.value, p.pos, p.op,
-                expected if p.op.pos == pos else p.expected,
+                p.cost, fn(p.value), p.pos, p.op, p.consumed, p.expected,
                 p.prefix
             )
             for p in self.repairs
         ])
 
-    def merge_expected(self, pos: int, ra: "LLResult[U]") -> "Recovered[V_co]":
-        ra_empty = ra.pos == pos
+    def expect(self, expected: Iterable[str]) -> "Recovered[V_co]":
         return Recovered([
             Repair(
-                p.cost, p.value, p.pos, p.op,
-                Chain(ra.expected, p.expected)
-                if ra_empty or p.op.pos == ra.pos else p.expected,
+                p.cost, p.value, p.pos, p.op, p.consumed,
+                p.expected if p.consumed else expected,
+                p.prefix
+            )
+            for p in self.repairs
+        ])
+
+    def merge_expected(self, ra: "LLResult[U]") -> "Recovered[V_co]":
+        return Recovered([
+            Repair(
+                p.cost, p.value, p.pos, p.op,  ra.consumed or p.consumed,
+                p.expected if ra.consumed and p.consumed
+                else Chain(ra.expected, p.expected),
                 p.prefix
             )
             for p in self.repairs
