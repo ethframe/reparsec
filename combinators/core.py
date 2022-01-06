@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from typing import (
-    Callable, Dict, Generic, List, Optional, Sequence, Tuple, TypeVar
+    Callable, Dict, Generic, Iterable, List, Optional, Sequence, Tuple, TypeVar
 )
 
-from .chain import Chain, ChainR
+from .chain import Chain, ChainL
 from .result import (
     Error, Insert, Ok, PrefixItem, Recovered, Repair, Result, Skip
 )
@@ -65,15 +65,8 @@ class Parser(Generic[T, V_co]):
                         cost = pa.cost + pb.cost
                         if pb.pos not in reps or cost < reps[pb.pos].cost:
                             reps[pb.pos] = Repair(
-                                cost, pb.value, pb.pos, pb.op, pb.consumed,
-                                pb.expected,
-                                Chain(
-                                    ChainR(
-                                        pa.prefix,
-                                        PrefixItem(pa.op, pa.expected)
-                                    ),
-                                    pb.prefix
-                                )
+                                cost, pb.value, pb.pos, pb.op, True,
+                                pb.expected, _chain_repair_prefix(pa, pb)
                             )
             if reps:
                 return Recovered(list(reps.values()))
@@ -151,6 +144,10 @@ class FnParser(Parser[T, V_co]):
         return self._fn(stream, pos, bt)
 
 
+def _chain_repair_prefix(pa: Repair[V], pb: Repair[U]) -> Iterable[PrefixItem]:
+    return Chain(pa.prefix, ChainL(PrefixItem(pa.op, pa.expected), pb.prefix))
+
+
 def _make_seq(
         parser: Parser[T, V], second: Parser[T, U],
         fn: Callable[[V, U], X]) -> Parser[T, X]:
@@ -184,13 +181,7 @@ def _make_seq(
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
                             cost, fn(pa.value, pb.value), pb.pos, pb.op, True,
-                            pb.expected,
-                            Chain(
-                                ChainR(
-                                    pa.prefix, PrefixItem(pa.op, pa.expected)
-                                ),
-                                pb.prefix
-                            )
+                            pb.expected, _chain_repair_prefix(pa, pb)
                         )
         if reps:
             return Recovered(list(reps.values()))
@@ -347,11 +338,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
                             cost, [*value, p.value, *pb.value], pb.pos, pb.op,
-                            True, pb.expected,
-                            Chain(
-                                ChainR(p.prefix, PrefixItem(p.op, p.expected)),
-                                pb.prefix
-                            )
+                            True, pb.expected, _chain_repair_prefix(p, pb)
                         )
             elif not rb.consumed:
                 if p.pos not in reps or p.cost < reps[p.pos].cost:
