@@ -77,8 +77,7 @@ class Parser(Generic[T, V_co]):
                             )
             if reps:
                 return Recovered(list(reps.values()))
-            pa = next(iter(ra.repairs))
-            return Error(pa.op.pos, pa.consumed, pa.expected)
+            return ra.to_error()
 
         return FnParser(bind)
 
@@ -195,8 +194,7 @@ def _make_seq(
                         )
         if reps:
             return Recovered(list(reps.values()))
-        pa = next(iter(ra.repairs))
-        return Error(pa.op.pos, pa.consumed, pa.expected)
+        return ra.to_error()
 
     return FnParser(seq)
 
@@ -363,8 +361,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
                     )
         if reps:
             return Recovered(list(reps.values()))
-        p = next(iter(r.repairs))
-        return Error(p.op.pos, p.consumed, p.expected)
+        return r.to_error()
 
     return FnParser(many)
 

@@ -137,6 +137,10 @@ class Recovered(Generic[V_co]):
         self.repairs = repairs
         self.consumed = True
 
+    def to_error(self) -> Error:
+        repair = min(self.repairs, key=lambda r: r.cost)
+        return Error(repair.op.pos, repair.consumed, repair.expected)
+
     def unwrap(self, recover: bool = False) -> V_co:
         repair = next(iter(self.repairs))
         if recover:
