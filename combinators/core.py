@@ -135,6 +135,21 @@ def _merge_repair_recovered(
             )
 
 
+def _seq_recover(
+        ra: Recovered[V], parse: Callable[[Repair[V]], Result[U]],
+        fn: Callable[[V, U], X]) -> Result[X]:
+    reps: Dict[int, Repair[X]] = {}
+    for pa in ra.repairs:
+        rb = parse(pa)
+        if type(rb) is Ok:
+            _merge_repair_ok(reps, pa, rb, fn)
+        elif type(rb) is Recovered:
+            _merge_repair_recovered(reps, pa, rb, fn)
+    if reps:
+        return Recovered(list(reps.values()))
+    return ra.to_error()
+
+
 def bind(
         parser: Parser[T, V], fn: Callable[[V], Parser[T, U]]) -> Parser[T, U]:
     parser_fn = parser.to_fn()
@@ -144,20 +159,10 @@ def bind(
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
-            return bind_recover(ra, stream)
+            return _seq_recover(
+                ra, lambda p: fn(p.value)(stream, p.pos, -1), lambda _, v: v
+            )
         return fn(ra.value)(stream, ra.pos, bt).merge_expected(ra)
-
-    def bind_recover(ra: Recovered[V], stream: Sequence[T]) -> Result[U]:
-        reps: Dict[int, Repair[U]] = {}
-        for pa in ra.repairs:
-            rb = fn(pa.value)(stream, pa.pos, -1)
-            if type(rb) is Ok:
-                _merge_repair_ok(reps, pa, rb, lambda _, v: v)
-            elif type(rb) is Recovered:
-                _merge_repair_recovered(reps, pa, rb, lambda _, v: v)
-        if reps:
-            return Recovered(list(reps.values()))
-        return ra.to_error()
 
     return FnParser(bind)
 
@@ -173,23 +178,13 @@ def _make_seq(
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
-            return seq_recover(ra, stream)
+            return _seq_recover(
+                ra, lambda p: second_fn(stream, p.pos, -1), fn
+            )
         va = ra.value
         return second_fn(stream, ra.pos, bt).fmap(
             lambda vb: fn(va, vb)
         ).merge_expected(ra)
-
-    def seq_recover(ra: Recovered[V], stream: Sequence[T]) -> Result[X]:
-        reps: Dict[int, Repair[X]] = {}
-        for pa in ra.repairs:
-            rb = second_fn(stream, pa.pos, -1)
-            if type(rb) is Ok:
-                _merge_repair_ok(reps, pa, rb, fn)
-            elif type(rb) is Recovered:
-                _merge_repair_recovered(reps, pa, rb, fn)
-        if reps:
-            return Recovered(list(reps.values()))
-        return ra.to_error()
 
     return FnParser(seq)
 
