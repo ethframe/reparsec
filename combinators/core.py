@@ -8,7 +8,7 @@ from .result import (
     Error, Insert, Ok, PrefixItem, Recovered, Repair, Result, Skip
 )
 
-T = TypeVar("T")
+T = TypeVar("T", bound=object)
 V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U", bound=object)
@@ -110,41 +110,31 @@ class FnParser(Parser[T, V_co]):
         return self._fn(stream, pos, bt)
 
 
-def _merge_repair_ok(
-        reps: Dict[int, Repair[X]], pa: Repair[V], rb: Ok[U],
-        fn: Callable[[V, U], X]) -> None:
-    if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
-        reps[rb.pos] = Repair(
-            pa.cost, fn(pa.value, rb.value), rb.pos, pa.op, pa.expected,
-            pa.consumed, pa.prefix
-        )
-
-
-def _merge_repair_recovered(
-        reps: Dict[int, Repair[X]], pa: Repair[V], rb: Recovered[U],
-        fn: Callable[[V, U], X]) -> None:
-    for pb in rb.repairs:
-        cost = pa.cost + pb.cost
-        if pb.pos not in reps or cost < reps[pb.pos].cost:
-            reps[pb.pos] = Repair(
-                cost, fn(pa.value, pb.value), pb.pos, pb.op, pb.expected, True,
-                Chain(
-                    pa.prefix,
-                    ChainL(PrefixItem(pa.op, pa.expected), pb.prefix)
-                )
-            )
-
-
-def _seq_recover(
-        ra: Recovered[V], parse: Callable[[Repair[V]], Result[U]],
-        fn: Callable[[V, U], X]) -> Result[X]:
+def _continue_parse(
+        stream: Sequence[T], ra: Recovered[V],
+        parse: Callable[[Sequence[T], Repair[V]], Result[U]],
+        merge: Callable[[V, U], X]) -> Result[X]:
     reps: Dict[int, Repair[X]] = {}
     for pa in ra.repairs:
-        rb = parse(pa)
+        rb = parse(stream, pa)
         if type(rb) is Ok:
-            _merge_repair_ok(reps, pa, rb, fn)
+            if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
+                reps[rb.pos] = Repair(
+                    pa.cost, merge(pa.value, rb.value), rb.pos, pa.op,
+                    pa.expected, pa.consumed, pa.prefix
+                )
         elif type(rb) is Recovered:
-            _merge_repair_recovered(reps, pa, rb, fn)
+            for pb in rb.repairs:
+                cost = pa.cost + pb.cost
+                if pb.pos not in reps or cost < reps[pb.pos].cost:
+                    reps[pb.pos] = Repair(
+                        cost, merge(pa.value, pb.value), pb.pos, pb.op,
+                        pb.expected, True,
+                        Chain(
+                            pa.prefix,
+                            ChainL(PrefixItem(pa.op, pa.expected), pb.prefix)
+                        )
+                    )
     if reps:
         return Recovered(list(reps.values()))
     return ra.to_error()
@@ -159,8 +149,9 @@ def bind(
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
-            return _seq_recover(
-                ra, lambda p: fn(p.value)(stream, p.pos, -1), lambda _, v: v
+            return _continue_parse(
+                stream, ra, lambda s, p: fn(p.value)(s, p.pos, -1),
+                lambda _, v: v
             )
         return fn(ra.value)(stream, ra.pos, bt).merge_expected(ra)
 
@@ -178,8 +169,8 @@ def _make_seq(
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
-            return _seq_recover(
-                ra, lambda p: second_fn(stream, p.pos, -1), fn
+            return _continue_parse(
+                stream, ra, lambda s, p: second_fn(s, p.pos, -1), fn
             )
         va = ra.value
         return second_fn(stream, ra.pos, bt).fmap(
@@ -305,7 +296,9 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
         r = fn(stream, tpos, max(tpos, bt))
         while not type(r) is Error:
             if type(r) is Recovered:
-                return many_recover(r, value, stream)
+                return _continue_parse(
+                    stream, r, parse, lambda a, b: [*value, a, *b]
+                )
             value.append(r.value)
             tpos = r.pos
             r = fn(stream, tpos, max(tpos, bt))
@@ -313,27 +306,11 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
             return r
         return Ok(value, tpos, r.expected, pos != tpos)
 
-    def many_recover(
-            r: Recovered[V], value: List[V],
-            stream: Sequence[T]) -> Result[List[V]]:
-        reps: Dict[int, Repair[List[V]]] = {}
-        for p in r.repairs:
-            rb = many(stream, p.pos, -1)
-            if type(rb) is Ok:
-                _merge_repair_ok(reps, p, rb, lambda a, b: [*value, a, *b])
-            elif type(rb) is Recovered:
-                _merge_repair_recovered(
-                    reps, p, rb, lambda a, b: [*value, a, *b]
-                )
-            elif not rb.consumed:
-                if p.pos not in reps or p.cost < reps[p.pos].cost:
-                    reps[rb.pos] = Repair(
-                        p.cost, [*value, p.value], rb.pos, p.op, p.expected,
-                        p.consumed, p.prefix
-                    )
-        if reps:
-            return Recovered(list(reps.values()))
-        return r.to_error()
+    def parse(stream: Sequence[T], p: Repair[V]) -> Result[List[V]]:
+        r = many(stream, p.pos, -1)
+        if type(r) is Error and r.consumed is False:
+            return Ok[List[V]]([], r.pos, r.expected)
+        return r
 
     return FnParser(many)
 
