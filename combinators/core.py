@@ -57,16 +57,16 @@ class Parser(Generic[T, V_co]):
                 if type(rb) is Ok:
                     if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                         reps[rb.pos] = Repair(
-                            pa.cost, rb.value, rb.pos, pa.op, pa.consumed,
-                            pa.expected, pa.prefix
+                            pa.cost, rb.value, rb.pos, pa.op, pa.expected,
+                            pa.consumed, pa.prefix
                         )
                 elif type(rb) is Recovered:
                     for pb in rb.repairs:
                         cost = pa.cost + pb.cost
                         if pb.pos not in reps or cost < reps[pb.pos].cost:
                             reps[pb.pos] = Repair(
-                                cost, pb.value, pb.pos, pb.op, True,
-                                pb.expected, _chain_repair_prefix(pa, pb)
+                                cost, pb.value, pb.pos, pb.op, pb.expected,
+                                True, _chain_repair_prefix(pa, pb)
                             )
             if reps:
                 return Recovered(list(reps.values()))
@@ -111,7 +111,7 @@ class Parser(Generic[T, V_co]):
                     return ra.expect(expected)
                 if type(rb) is Recovered:
                     return rb.expect(expected)
-            return Error(pos, False, expected)
+            return Error(pos, expected)
 
         return FnParser(or_)
 
@@ -173,15 +173,15 @@ def _make_seq(
                 if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                     reps[rb.pos] = Repair(
                         pa.cost, fn(pa.value, rb.value), rb.pos, pa.op,
-                        pa.consumed, pa.expected, pa.prefix
+                        pa.expected, pa.consumed, pa.prefix
                     )
             elif type(rb) is Recovered:
                 for pb in rb.repairs:
                     cost = pa.cost + pb.cost
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
-                            cost, fn(pa.value, pb.value), pb.pos, pb.op, True,
-                            pb.expected, _chain_repair_prefix(pa, pb)
+                            cost, fn(pa.value, pb.value), pb.pos, pb.op,
+                            pb.expected, True, _chain_repair_prefix(pa, pb)
                         )
         if reps:
             return Recovered(list(reps.values()))
@@ -207,7 +207,7 @@ class Pure(Parser[T, V_co]):
         self._x = x
 
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
-        return Ok(self._x, pos, False)
+        return Ok(self._x, pos)
 
 
 pure = Pure
@@ -218,7 +218,7 @@ class PureFn(Parser[T, V_co]):
         self._fn = fn
 
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
-        return Ok(self._fn(), pos, False)
+        return Ok(self._fn(), pos)
 
 
 pure_fn = PureFn
@@ -227,14 +227,13 @@ pure_fn = PureFn
 class Eof(Parser[T, None]):
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[None]:
         if pos == len(stream):
-            return Ok(None, pos, False)
+            return Ok(None, pos)
         if pos > bt:
             skip = len(stream) - pos
             return Recovered([Repair(
-                skip, None, len(stream), Skip(skip, pos), False,
-                ["end of file"], ()
+                skip, None, len(stream), Skip(skip, pos), ["end of file"]
             )])
-        return Error(pos, False, ["end of file"])
+        return Error(pos, ["end of file"])
 
 
 eof = Eof
@@ -245,18 +244,16 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
         if pos < len(stream):
             t = stream[pos]
             if test(t):
-                return Ok(t, pos + 1, True)
+                return Ok(t, pos + 1, consumed=True)
         if pos > bt:
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
                 if test(t):
                     skip = cur - pos
-                    Recovered([Repair(
-                        skip, t, cur + 1, Skip(skip, pos), False, (), ()
-                    )])
+                    Recovered([Repair(skip, t, cur + 1, Skip(skip, pos))])
                 cur += 1
-        return Error(pos, False)
+        return Error(pos)
 
     return FnParser(satisfy)
 
@@ -269,9 +266,9 @@ def sym(s: T) -> Parser[T, T]:
         if pos < len(stream):
             t = stream[pos]
             if t == s:
-                return Ok(t, pos + 1, True)
+                return Ok(t, pos + 1, consumed=True)
         if pos > bt:
-            ins = Repair(1, s, pos, Insert(rs, pos), False, expected, ())
+            ins = Repair(1, s, pos, Insert(rs, pos), expected)
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
@@ -279,14 +276,11 @@ def sym(s: T) -> Parser[T, T]:
                     skip = cur - pos
                     return Recovered([
                         ins,
-                        Repair(
-                            skip, t, cur + 1, Skip(skip, pos), False, expected,
-                            ()
-                        )
+                        Repair(skip, t, cur + 1, Skip(skip, pos), expected)
                     ])
                 cur += 1
             return Recovered([ins])
-        return Error(pos, False, expected)
+        return Error(pos, expected)
 
     return FnParser(sym)
 
@@ -296,9 +290,9 @@ def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
 
     def maybe(stream: Sequence[T], pos: int, bt: int) -> Result[Optional[V]]:
         r = fn(stream, pos, max(pos, bt))
-        if r.consumed or type(r) is Ok:
+        if r.consumed is True or type(r) is Ok:
             return r
-        return Ok(None, pos, False, r.expected)
+        return Ok(None, pos, r.expected)
 
     return FnParser(maybe)
 
@@ -318,7 +312,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
             r = fn(stream, tpos, max(tpos, bt))
         if r.consumed:
             return r
-        return Ok(value, tpos, pos != tpos, r.expected)
+        return Ok(value, tpos, r.expected, pos != tpos)
 
     def many_recover(
             r: Recovered[V], value: List[V],
@@ -330,7 +324,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
                 if rb.pos not in reps or p.cost < reps[rb.pos].cost:
                     reps[rb.pos] = Repair(
                         p.cost, [*value, p.value, *rb.value], rb.pos, p.op,
-                        p.consumed, p.expected, p.prefix
+                        p.expected, p.consumed, p.prefix
                     )
             elif type(rb) is Recovered:
                 for pb in rb.repairs:
@@ -338,13 +332,13 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
                     if pb.pos not in reps or cost < reps[pb.pos].cost:
                         reps[pb.pos] = Repair(
                             cost, [*value, p.value, *pb.value], pb.pos, pb.op,
-                            True, pb.expected, _chain_repair_prefix(p, pb)
+                            pb.expected, True, _chain_repair_prefix(p, pb)
                         )
             elif not rb.consumed:
                 if p.pos not in reps or p.cost < reps[p.pos].cost:
                     reps[rb.pos] = Repair(
-                        p.cost, [*value, p.value], rb.pos, p.op, p.consumed,
-                        p.expected, p.prefix
+                        p.cost, [*value, p.value], rb.pos, p.op, p.expected,
+                        p.consumed, p.prefix
                     )
         if reps:
             return Recovered(list(reps.values()))
@@ -371,10 +365,9 @@ class InsertValue(Parser[T, V_co]):
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
         if pos > bt:
             return Recovered([Repair(
-                1, self._value, pos, Insert(self._label, pos), False,
-                [self._label], ()
+                1, self._value, pos, Insert(self._label, pos), [self._label]
             )])
-        return Error(pos, False)
+        return Error(pos)
 
 
 insert = InsertValue
