@@ -105,7 +105,7 @@ class Skip:
 
 @dataclass
 class Insert:
-    token: str
+    label: str
     pos: int
 
 
@@ -144,7 +144,7 @@ class Recovered(Generic[V_co]):
         return Error(repair.op.pos, repair.expected, repair.consumed)
 
     def unwrap(self, recover: bool = False) -> V_co:
-        repair = next(iter(self.repairs))
+        repair = min(self.repairs, key=lambda r: r.cost)
         if recover:
             return repair.value
         errors: List[ErrorItem] = []

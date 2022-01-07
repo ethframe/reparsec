@@ -358,14 +358,15 @@ def label(parser: Parser[T, V], x: str) -> Parser[T, V]:
 
 
 class InsertValue(Parser[T, V_co]):
-    def __init__(self, value: V_co, label: str):
+    def __init__(self, value: V_co, expected: Optional[str] = None):
         self._value = value
-        self._label = label
+        self._label = repr(value)
+        self._expected = [] if expected is None else [expected]
 
     def __call__(self, stream: Sequence[T], pos: int, bt: int) -> Result[V_co]:
         if pos > bt:
             return Recovered([Repair(
-                1, self._value, pos, Insert(self._label, pos), [self._label]
+                1, self._value, pos, Insert(self._label, pos), self._expected
             )])
         return Error(pos)
 
