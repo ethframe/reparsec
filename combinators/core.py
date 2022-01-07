@@ -106,7 +106,6 @@ class Parser(Generic[T, V_co]):
                     if type(rb) is Recovered:
                         reps = {pb.pos: pb for pb in rb.repairs}
                         reps.update((pa.pos, pa) for pa in ra.repairs)
-                        # TODO: Merge expected of pa and pb with .pos == pos
                         return Recovered(list(reps.values()))
                     return ra.expect(expected)
                 if type(rb) is Recovered:
