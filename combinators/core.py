@@ -176,7 +176,7 @@ def bind(
             )
         return fn(ra.value)(
             stream, ra.pos, consumed(rm, ra.consumed)
-        ).merge_expected(ra)
+        ).merge_expected(ra.expected, ra.consumed)
 
     return FnParser(bind)
 
@@ -198,7 +198,7 @@ def _make_seq(
         va = ra.value
         return second_fn(stream, ra.pos, consumed(rm, ra.consumed)).fmap(
             lambda vb: fn(va, vb)
-        ).merge_expected(ra)
+        ).merge_expected(ra.expected, ra.consumed)
 
     return FnParser(seq)
 

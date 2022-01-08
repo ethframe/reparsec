@@ -57,12 +57,13 @@ class Ok(Generic[V_co]):
             return self
         return Ok(self.value, self.pos, expected, self.consumed)
 
-    def merge_expected(self, ra: "LLResult[U]") -> "Ok[V_co]":
-        if ra.consumed and self.consumed:
+    def merge_expected(
+            self, expected: Iterable[str], consumed: bool) -> "Ok[V_co]":
+        if consumed and self.consumed:
             return self
         return Ok(
-            self.value, self.pos, Chain(ra.expected, self.expected),
-            ra.consumed or self.consumed
+            self.value, self.pos, Chain(expected, self.expected),
+            consumed or self.consumed
         )
 
 
@@ -88,12 +89,12 @@ class Error:
             return self
         return Error(self.pos, expected, self.consumed)
 
-    def merge_expected(self, ra: "LLResult[U]") -> "Error":
-        if ra.consumed and self.consumed:
+    def merge_expected(
+            self, expected: Iterable[str], consumed: bool) -> "Error":
+        if consumed and self.consumed:
             return self
         return Error(
-            self.pos, Chain(ra.expected, self.expected),
-            ra.consumed or self.consumed
+            self.pos, Chain(expected, self.expected), consumed or self.consumed
         )
 
 
@@ -172,17 +173,18 @@ class Recovered(Generic[V_co]):
             for p in self.repairs
         ])
 
-    def merge_expected(self, ra: "LLResult[U]") -> "Recovered[V_co]":
+    def merge_expected(
+            self, expected: Iterable[str],
+            consumed: bool) -> "Recovered[V_co]":
         return Recovered([
             Repair(
                 p.cost, p.value, p.pos, p.op,
-                p.expected if ra.consumed and p.consumed
-                else Chain(ra.expected, p.expected),
-                ra.consumed or p.consumed, p.prefix
+                p.expected if consumed and p.consumed
+                else Chain(expected, p.expected),
+                consumed or p.consumed, p.prefix
             )
             for p in self.repairs
         ])
 
 
 Result = Union[Recovered[V], Ok[V], Error]
-LLResult = Union[Ok[V], Error]
