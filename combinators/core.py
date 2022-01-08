@@ -18,14 +18,14 @@ X = TypeVar("X", bound=object)
 RecoveryMode = Literal[None, False, True]
 
 
-def choice(rm: RecoveryMode) -> RecoveryMode:
+def disallow_recovery(rm: RecoveryMode) -> RecoveryMode:
     if rm is None:
         return None
     return False
 
 
-def consumed(rm: RecoveryMode, consumed: bool) -> RecoveryMode:
-    if rm is not None and consumed:
+def maybe_allow_recovery(rm: RecoveryMode, r: Result[V]) -> RecoveryMode:
+    if rm is not None and r.consumed:
         return True
     return rm
 
@@ -74,10 +74,10 @@ class Parser(Generic[T, V_co]):
         def or_(
                 stream: Sequence[T], pos: int,
                 rm: RecoveryMode) -> Result[V_co]:
-            ra = self_fn(stream, pos, choice(rm))
+            ra = self_fn(stream, pos, disallow_recovery(rm))
             if ra.consumed is True:
                 return ra
-            rb = other_fn(stream, pos, choice(rm))
+            rb = other_fn(stream, pos, disallow_recovery(rm))
             if rb.consumed is True:
                 return rb
             expected = Chain(ra.expected, rb.expected)
@@ -175,7 +175,7 @@ def bind(
                 lambda _, v: v
             )
         return fn(ra.value).parse_fn(
-            stream, ra.pos, consumed(rm, ra.consumed)
+            stream, ra.pos, maybe_allow_recovery(rm, ra)
         ).merge_expected(ra.expected, ra.consumed)
 
     return FnParser(bind)
@@ -196,7 +196,7 @@ def _make_seq(
                 stream, ra, lambda s, p: second_fn(s, p.pos, True), fn
             )
         va = ra.value
-        return second_fn(stream, ra.pos, consumed(rm, ra.consumed)).fmap(
+        return second_fn(stream, ra.pos, maybe_allow_recovery(rm, ra)).fmap(
             lambda vb: fn(va, vb)
         ).merge_expected(ra.expected, ra.consumed)
 
@@ -310,7 +310,7 @@ def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
     def maybe(
             stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[Optional[V]]:
-        r = fn(stream, pos, choice(rm))
+        r = fn(stream, pos, disallow_recovery(rm))
         if r.consumed is True or type(r) is Ok:
             return r
         return Ok(None, pos, r.expected)
@@ -324,7 +324,7 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
     def many(
             stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[List[V]]:
-        rm = choice(rm)
+        rm = disallow_recovery(rm)
         consumed = False
         value: List[V] = []
         r = fn(stream, pos, rm)
