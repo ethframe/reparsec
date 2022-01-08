@@ -36,16 +36,16 @@ ParseFn = Callable[[Sequence[T], int, RecoveryMode], Result[V]]
 class Parser(Generic[T, V_co]):
     def parse(
             self, stream: Sequence[T], recover: bool = False) -> Result[V_co]:
-        return self(stream, 0, True if recover else None)
+        return self.parse_fn(stream, 0, True if recover else None)
 
     @abstractmethod
-    def __call__(
+    def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         ...
 
     def to_fn(self) -> ParseFn[T, V_co]:
-        return self
+        return self.parse_fn
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Parser[T, U]":
         self_fn = self.to_fn()
@@ -125,7 +125,7 @@ class FnParser(Parser[T, V_co]):
     def to_fn(self) -> ParseFn[T, V_co]:
         return self._fn
 
-    def __call__(
+    def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         return self._fn(stream, pos, rm)
@@ -171,10 +171,10 @@ def bind(
             return ra
         if type(ra) is Recovered:
             return _continue_parse(
-                stream, ra, lambda s, p: fn(p.value)(s, p.pos, True),
+                stream, ra, lambda s, p: fn(p.value).parse_fn(s, p.pos, True),
                 lambda _, v: v
             )
-        return fn(ra.value)(
+        return fn(ra.value).parse_fn(
             stream, ra.pos, consumed(rm, ra.consumed)
         ).merge_expected(ra.expected, ra.consumed)
 
@@ -219,7 +219,7 @@ class Pure(Parser[T, V_co]):
     def __init__(self, x: V_co):
         self._x = x
 
-    def __call__(
+    def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         return Ok(self._x, pos)
@@ -232,7 +232,7 @@ class PureFn(Parser[T, V_co]):
     def __init__(self, fn: Callable[[], V_co]):
         self._fn = fn
 
-    def __call__(
+    def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         return Ok(self._fn(), pos)
@@ -242,7 +242,7 @@ pure_fn = PureFn
 
 
 class Eof(Parser[T, None]):
-    def __call__(
+    def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[None]:
         if pos == len(stream):
@@ -365,7 +365,7 @@ class InsertValue(Parser[T, V_co]):
         self._label = repr(value)
         self._expected = [] if expected is None else [expected]
 
-    def __call__(
+    def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         if rm:
@@ -397,9 +397,9 @@ class Delay(Parser[T, V_co]):
     def to_fn(self) -> ParseFn[T, V_co]:
         if self._defined:
             return self._fn
-        return self
+        return super().to_fn()
 
-    def __call__(
+    def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         return self._fn(stream, pos, rm)
