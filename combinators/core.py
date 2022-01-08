@@ -291,20 +291,20 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
     fn = parser.to_fn()
 
     def many(stream: Sequence[T], pos: int, bt: int) -> Result[List[V]]:
+        consumed = False
         value: List[V] = []
-        tpos = pos
-        r = fn(stream, tpos, max(tpos, bt))
-        while not type(r) is Error:
-            if type(r) is Recovered:
-                return _continue_parse(
-                    stream, r, parse, lambda a, b: [*value, a, *b]
-                )
+        r = fn(stream, pos, max(pos, bt))
+        while type(r) is Ok:
+            consumed |= r.consumed
             value.append(r.value)
-            tpos = r.pos
-            r = fn(stream, tpos, max(tpos, bt))
+            r = fn(stream, r.pos, max(r.pos, bt))
+        if type(r) is Recovered:
+            return _continue_parse(
+                stream, r, parse, lambda a, b: [*value, a, *b]
+            )
         if r.consumed:
             return r
-        return Ok(value, tpos, r.expected, pos != tpos)
+        return Ok(value, r.pos, r.expected, consumed)
 
     def parse(stream: Sequence[T], p: Repair[V]) -> Result[List[V]]:
         r = many(stream, p.pos, -1)
