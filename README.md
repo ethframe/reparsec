@@ -1,3 +1,3 @@
-# combinators
+# reparsec
 
-Small parsec-like parsing combinators library.
+Small parsec-like parser combinators library with semi-automatic error recovery.

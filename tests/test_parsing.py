@@ -2,8 +2,8 @@ from typing import List
 
 import pytest
 
-from combinators.core import Parser, digit, letter, sym
-from combinators.result import ParseError
+from reparsec.core import Parser, digit, letter, sym
+from reparsec.result import ParseError
 
 ident = (
     (letter | sym("_")) + (letter | digit | sym("_")).many()
