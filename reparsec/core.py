@@ -270,7 +270,9 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
                 t = stream[cur]
                 if test(t):
                     skip = cur - pos
-                    Recovered([Repair(skip, t, cur + 1, Skip(skip, pos))])
+                    return Recovered(
+                        [Repair(skip, t, cur + 1, Skip(skip, pos))]
+                    )
                 cur += 1
         return Error(pos)
 
