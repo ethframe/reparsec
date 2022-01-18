@@ -64,6 +64,12 @@ class Parser(Generic[T, V_co]):
     def rseq(self, other: "Parser[T, U]") -> "Parser[T, U]":
         return rseq(self, other)
 
+    def __lshift__(self, other: "Parser[T, U]") -> "Parser[T, V_co]":
+        return lseq(self, other)
+
+    def __rshift__(self, other: "Parser[T, U]") -> "Parser[T, U]":
+        return rseq(self, other)
+
     def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V_co, U]]":
         return seq(self, other)
 
@@ -361,10 +367,10 @@ def label(parser: Parser[T, V], x: str) -> Parser[T, V]:
     return FnParser(label)
 
 
-class InsertValue(Parser[T, V_co]):
-    def __init__(self, value: V_co, expected: Optional[str] = None):
-        self._value = value
-        self._label = repr(value)
+class RecoverValue(Parser[T, V_co]):
+    def __init__(self, x: V_co, expected: Optional[str] = None):
+        self._x = x
+        self._label = repr(x)
         self._expected = [] if expected is None else [expected]
 
     def parse_fn(
@@ -372,12 +378,31 @@ class InsertValue(Parser[T, V_co]):
             rm: RecoveryMode) -> Result[V_co]:
         if rm:
             return Recovered([Repair(
-                1, self._value, pos, Insert(self._label, pos), self._expected
+                1, self._x, pos, Insert(self._label, pos), self._expected
             )])
         return Error(pos)
 
 
-insert = InsertValue
+recover_value = RecoverValue
+
+
+class RecoverFn(Parser[T, V_co]):
+    def __init__(self, fn: Callable[[], V_co], expected: Optional[str] = None):
+        self._fn = fn
+        self._expected = [] if expected is None else [expected]
+
+    def parse_fn(
+            self, stream: Sequence[T], pos: int,
+            rm: RecoveryMode) -> Result[V_co]:
+        if rm:
+            x = self._fn()
+            return Recovered([
+                Repair(1, x, pos, Insert(repr(x), pos), self._expected)
+            ])
+        return Error(pos)
+
+
+recover_fn = RecoverFn
 
 
 class Delay(Parser[T, V_co]):

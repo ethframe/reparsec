@@ -187,4 +187,4 @@ class Recovered(Generic[V_co]):
         ])
 
 
-Result = Union[Recovered[V], Ok[V], Error]
+Result = Union[Recovered[V_co], Ok[V_co], Error]

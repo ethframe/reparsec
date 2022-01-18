@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Iterator, List, Optional, Pattern, Tuple
 
-from .core import Parser, insert, label, satisfy
+from .core import Parser, label, satisfy, recover_value
 
 
 @dataclass(frozen=True)
@@ -45,4 +45,4 @@ def token(k: str) -> Parser[Token, Token]:
 
 
 def token_ins(kind: str, ins_value: str) -> Parser[Token, Token]:
-    return token(kind) | insert(Token(kind, ins_value), kind)
+    return token(kind) | recover_value(Token(kind, ins_value))
