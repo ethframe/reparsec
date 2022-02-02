@@ -30,14 +30,10 @@ def maybe_allow_recovery(rm: RecoveryMode, r: Result[V]) -> RecoveryMode:
     return rm
 
 
-ParseFn = Callable[[Sequence[T], int, RecoveryMode], Result[V]]
+ParseFn = Callable[[Sequence[T], int, RecoveryMode], Result[V_co]]
 
 
-class Parser(Generic[T, V_co]):
-    def parse(
-            self, stream: Sequence[T], recover: bool = False) -> Result[V_co]:
-        return self.parse_fn(stream, 0, True if recover else None)
-
+class ParseObj(Generic[T, V_co]):
     @abstractmethod
     def parse_fn(
             self, stream: Sequence[T], pos: int,
@@ -47,94 +43,40 @@ class Parser(Generic[T, V_co]):
     def to_fn(self) -> ParseFn[T, V_co]:
         return self.parse_fn
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "Parser[T, U]":
-        self_fn = self.to_fn()
 
-        def fmap(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[U]:
-            return self_fn(stream, pos, rm).fmap(fn)
+def fmap(parse_fn: ParseFn[T, V], fn: Callable[[V], U]) -> ParseFn[T, U]:
+    def fmap(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[U]:
+        return parse_fn(stream, pos, rm).fmap(fn)
+    return fmap
 
-        return FnParser(fmap)
 
-    def bind(self, fn: Callable[[V_co], "Parser[T, U]"]) -> "Parser[T, U]":
-        return bind(self, fn)
-
-    def lseq(self, other: "Parser[T, U]") -> "Parser[T, V_co]":
-        return lseq(self, other)
-
-    def rseq(self, other: "Parser[T, U]") -> "Parser[T, U]":
-        return rseq(self, other)
-
-    def __lshift__(self, other: "Parser[T, U]") -> "Parser[T, V_co]":
-        return lseq(self, other)
-
-    def __rshift__(self, other: "Parser[T, U]") -> "Parser[T, U]":
-        return rseq(self, other)
-
-    def __add__(self, other: "Parser[T, U]") -> "Parser[T, Tuple[V_co, U]]":
-        return seq(self, other)
-
-    def __or__(self, other: "Parser[T, V_co]") -> "Parser[T, V_co]":
-        self_fn = self.to_fn()
-        other_fn = other.to_fn()
-
-        def or_(
-                stream: Sequence[T], pos: int,
-                rm: RecoveryMode) -> Result[V_co]:
-            ra = self_fn(stream, pos, disallow_recovery(rm))
-            if ra.consumed is True:
-                return ra
-            rb = other_fn(stream, pos, disallow_recovery(rm))
-            if rb.consumed is True:
-                return rb
-            expected = Chain(ra.expected, rb.expected)
-            if type(ra) is Ok:
-                return ra.expect(expected)
-            if type(rb) is Ok:
-                return rb.expect(expected)
-            if rm:
-                ra = self_fn(stream, pos, True)
-                rb = other_fn(stream, pos, True)
-                if type(ra) is Recovered:
-                    if type(rb) is Recovered:
-                        reps = {pb.pos: pb for pb in rb.repairs}
-                        reps.update((pa.pos, pa) for pa in ra.repairs)
-                        return Recovered(list(reps.values()))
-                    return ra.expect(expected)
+def or_(parse_fn: ParseFn[T, V], second_fn: ParseFn[T, V]) -> ParseFn[T, V]:
+    def or_(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[V]:
+        ra = parse_fn(stream, pos, disallow_recovery(rm))
+        if ra.consumed is True:
+            return ra
+        rb = second_fn(stream, pos, disallow_recovery(rm))
+        if rb.consumed is True:
+            return rb
+        expected = Chain(ra.expected, rb.expected)
+        if type(ra) is Ok:
+            return ra.expect(expected)
+        if type(rb) is Ok:
+            return rb.expect(expected)
+        if rm:
+            ra = parse_fn(stream, pos, True)
+            rb = second_fn(stream, pos, True)
+            if type(ra) is Recovered:
                 if type(rb) is Recovered:
-                    return rb.expect(expected)
-            return Error(pos, expected)
+                    reps = {pb.pos: pb for pb in rb.repairs}
+                    reps.update((pa.pos, pa) for pa in ra.repairs)
+                    return Recovered(list(reps.values()))
+                return ra.expect(expected)
+            if type(rb) is Recovered:
+                return rb.expect(expected)
+        return Error(pos, expected)
 
-        return FnParser(or_)
-
-    def maybe(self) -> "Parser[T, Optional[V_co]]":
-        return maybe(self)
-
-    def many(self) -> "Parser[T, List[V_co]]":
-        return many(self)
-
-    def label(self, expected: str) -> "Parser[T, V_co]":
-        return label(self, expected)
-
-    def sep_by(self, sep: "Parser[T, U]") -> "Parser[T, List[V_co]]":
-        return sep_by(self, sep)
-
-    def between(
-            self, open: "Parser[T, U]",
-            close: "Parser[T, X]") -> "Parser[T, V_co]":
-        return between(open, close, self)
-
-
-class FnParser(Parser[T, V_co]):
-    def __init__(self, fn: ParseFn[T, V_co]):
-        self._fn = fn
-
-    def to_fn(self) -> ParseFn[T, V_co]:
-        return self._fn
-
-    def parse_fn(
-            self, stream: Sequence[T], pos: int,
-            rm: RecoveryMode) -> Result[V_co]:
-        return self._fn(stream, pos, rm)
+    return or_
 
 
 def _continue_parse(
@@ -168,11 +110,10 @@ def _continue_parse(
 
 
 def bind(
-        parser: Parser[T, V], fn: Callable[[V], Parser[T, U]]) -> Parser[T, U]:
-    parser_fn = parser.to_fn()
-
+        parse_fn: ParseFn[T, V],
+        fn: Callable[[V], ParseObj[T, U]]) -> ParseFn[T, U]:
     def bind(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[U]:
-        ra = parser_fn(stream, pos, rm)
+        ra = parse_fn(stream, pos, rm)
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
@@ -184,17 +125,14 @@ def bind(
             stream, ra.pos, maybe_allow_recovery(rm, ra)
         ).merge_expected(ra.expected, ra.consumed)
 
-    return FnParser(bind)
+    return bind
 
 
 def _make_seq(
-        parser: Parser[T, V], second: Parser[T, U],
-        fn: Callable[[V, U], X]) -> Parser[T, X]:
-    parser_fn = parser.to_fn()
-    second_fn = second.to_fn()
-
+        parse_fn: ParseFn[T, V], second_fn: ParseFn[T, U],
+        fn: Callable[[V, U], X]) -> ParseFn[T, X]:
     def seq(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[X]:
-        ra = parser_fn(stream, pos, rm)
+        ra = parse_fn(stream, pos, rm)
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
@@ -206,22 +144,24 @@ def _make_seq(
             lambda vb: fn(va, vb)
         ).merge_expected(ra.expected, ra.consumed)
 
-    return FnParser(seq)
+    return seq
 
 
-def lseq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, V]:
-    return _make_seq(parser, second, lambda l, _: l)
+def lseq(parse_fn: ParseFn[T, V], second_fn: ParseFn[T, U]) -> ParseFn[T, V]:
+    return _make_seq(parse_fn, second_fn, lambda l, _: l)
 
 
-def rseq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, U]:
-    return _make_seq(parser, second, lambda _, r: r)
+def rseq(parse_fn: ParseFn[T, V], second_fn: ParseFn[T, U]) -> ParseFn[T, U]:
+    return _make_seq(parse_fn, second_fn, lambda _, r: r)
 
 
-def seq(parser: Parser[T, V], second: Parser[T, U]) -> Parser[T, Tuple[V, U]]:
-    return _make_seq(parser, second, lambda l, r: (l, r))
+def seq(
+        parse_fn: ParseFn[T, V],
+        second_fn: ParseFn[T, U]) -> ParseFn[T, Tuple[V, U]]:
+    return _make_seq(parse_fn, second_fn, lambda l, r: (l, r))
 
 
-class Pure(Parser[T, V_co]):
+class Pure(ParseObj[T, V_co]):
     def __init__(self, x: V_co):
         self._x = x
 
@@ -234,7 +174,7 @@ class Pure(Parser[T, V_co]):
 pure = Pure
 
 
-class PureFn(Parser[T, V_co]):
+class PureFn(ParseObj[T, V_co]):
     def __init__(self, fn: Callable[[], V_co]):
         self._fn = fn
 
@@ -247,7 +187,7 @@ class PureFn(Parser[T, V_co]):
 pure_fn = PureFn
 
 
-class Eof(Parser[T, None]):
+class Eof(ParseObj[T, None]):
     def parse_fn(
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[None]:
@@ -264,7 +204,7 @@ class Eof(Parser[T, None]):
 eof = Eof
 
 
-def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
+def satisfy(test: Callable[[T], bool]) -> ParseFn[T, T]:
     def satisfy(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[T]:
         if pos < len(stream):
             t = stream[pos]
@@ -282,10 +222,10 @@ def satisfy(test: Callable[[T], bool]) -> Parser[T, T]:
                 cur += 1
         return Error(pos)
 
-    return FnParser(satisfy)
+    return satisfy
 
 
-def sym(s: T) -> Parser[T, T]:
+def sym(s: T) -> ParseFn[T, T]:
     rs = repr(s)
     expected = [rs]
 
@@ -309,37 +249,33 @@ def sym(s: T) -> Parser[T, T]:
             return Recovered([ins])
         return Error(pos, expected)
 
-    return FnParser(sym)
+    return sym
 
 
-def maybe(parser: Parser[T, V]) -> Parser[T, Optional[V]]:
-    fn = parser.to_fn()
-
+def maybe(parse_fn: ParseFn[T, V]) -> ParseFn[T, Optional[V]]:
     def maybe(
             stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[Optional[V]]:
-        r = fn(stream, pos, disallow_recovery(rm))
+        r = parse_fn(stream, pos, disallow_recovery(rm))
         if r.consumed is True or type(r) is Ok:
             return r
         return Ok(None, pos, r.expected)
 
-    return FnParser(maybe)
+    return maybe
 
 
-def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
-    fn = parser.to_fn()
-
+def many(parse_fn: ParseFn[T, V]) -> ParseFn[T, List[V]]:
     def many(
             stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[List[V]]:
         rm = disallow_recovery(rm)
         consumed = False
         value: List[V] = []
-        r = fn(stream, pos, rm)
+        r = parse_fn(stream, pos, rm)
         while type(r) is Ok:
             consumed |= r.consumed
             value.append(r.value)
-            r = fn(stream, r.pos, rm)
+            r = parse_fn(stream, r.pos, rm)
         if type(r) is Recovered:
             return _continue_parse(
                 stream, r, parse, lambda a, b: [*value, a, *b]
@@ -354,20 +290,19 @@ def many(parser: Parser[T, V]) -> Parser[T, List[V]]:
             return Ok[List[V]]([], r.pos, r.expected)
         return r
 
-    return FnParser(many)
+    return many
 
 
-def label(parser: Parser[T, V], x: str) -> Parser[T, V]:
-    fn = parser.to_fn()
+def label(parse_fn: ParseFn[T, V], x: str) -> ParseFn[T, V]:
     expected = [x]
 
     def label(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[V]:
-        return fn(stream, pos, rm).expect(expected)
+        return parse_fn(stream, pos, rm).expect(expected)
 
-    return FnParser(label)
+    return label
 
 
-class RecoverValue(Parser[T, V_co]):
+class RecoverValue(ParseObj[T, V_co]):
     def __init__(self, x: V_co, expected: Optional[str] = None):
         self._x = x
         self._label = repr(x)
@@ -386,7 +321,7 @@ class RecoverValue(Parser[T, V_co]):
 recover_value = RecoverValue
 
 
-class RecoverFn(Parser[T, V_co]):
+class RecoverFn(ParseObj[T, V_co]):
     def __init__(self, fn: Callable[[], V_co], expected: Optional[str] = None):
         self._fn = fn
         self._expected = [] if expected is None else [expected]
@@ -405,7 +340,7 @@ class RecoverFn(Parser[T, V_co]):
 recover_fn = RecoverFn
 
 
-class Delay(Parser[T, V_co]):
+class Delay(ParseObj[T, V_co]):
     def __init__(self) -> None:
         def _fn(
                 stream: Sequence[T], pos: int,
@@ -415,11 +350,11 @@ class Delay(Parser[T, V_co]):
         self._defined = False
         self._fn: ParseFn[T, V_co] = _fn
 
-    def define(self, parser: Parser[T, V_co]) -> None:
+    def define_fn(self, parse_fn: ParseFn[T, V_co]) -> None:
         if self._defined:
             raise RuntimeError("Delayed parser was already defined")
         self._defined = True
-        self._fn = parser.to_fn()
+        self._fn = parse_fn
 
     def to_fn(self) -> ParseFn[T, V_co]:
         if self._defined:
@@ -430,19 +365,3 @@ class Delay(Parser[T, V_co]):
             self, stream: Sequence[T], pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         return self._fn(stream, pos, rm)
-
-
-def sep_by(parser: Parser[T, V], sep: Parser[T, U]) -> Parser[T, List[V]]:
-    return maybe(parser + many(sep.rseq(parser))).fmap(
-        lambda v: [] if v is None else [v[0]] + v[1]
-    )
-
-
-def between(
-        open: Parser[T, U], close: Parser[T, X],
-        parser: Parser[T, V]) -> Parser[T, V]:
-    return open.rseq(parser).lseq(close)
-
-
-letter: Parser[str, str] = satisfy(str.isalpha).label("letter")
-digit: Parser[str, str] = satisfy(str.isdigit).label("digit")

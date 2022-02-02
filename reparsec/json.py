@@ -1,7 +1,7 @@
 import re
 from typing import Match
 
-from .core import Delay, Parser, eof, recover_value, sym
+from .parser import Delay, Parser, eof, recover_value, sym
 from .lexer import Token, split_tokens, token
 
 spec = re.compile(r"""

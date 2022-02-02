@@ -2,7 +2,7 @@ from typing import List
 
 import pytest
 
-from reparsec.core import Parser, digit, letter, sym
+from reparsec.parser import Parser, digit, letter, sym
 from reparsec.result import ParseError
 
 ident = (

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Iterator, List, Optional, Pattern, Tuple
 
-from .core import Parser, label, satisfy, recover_value
+from .parser import Parser, label, satisfy, recover_value
 
 
 @dataclass(frozen=True)

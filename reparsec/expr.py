@@ -1,11 +1,11 @@
 from functools import reduce
 from typing import Callable, List, Tuple, TypeVar
 
-from .core import Parser
+from .parser import Parser
 
-T = TypeVar('T')
-V = TypeVar('V')
-U = TypeVar('U')
+T = TypeVar("T")
+V = TypeVar("V")
+U = TypeVar("U")
 
 
 def infix_left(
