@@ -7,6 +7,7 @@ from .chain import Chain, ChainL
 from .result import Error, Insert, Ok, PrefixItem, Recovered, Repair, Result
 
 S = TypeVar("S", bound=object)
+S_contra = TypeVar("S_contra", contravariant=True)
 V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U", bound=object)
@@ -28,15 +29,17 @@ def maybe_allow_recovery(rm: RecoveryMode, r: Result[V]) -> RecoveryMode:
     return rm
 
 
-ParseFn = Callable[[S, int, RecoveryMode], Result[V_co]]
+ParseFn = Callable[[S_contra, int, RecoveryMode], Result[V_co]]
 
 
-class ParseObj(Generic[S, V_co]):
+class ParseObj(Generic[S_contra, V_co]):
     @abstractmethod
-    def parse_fn(self, stream: S, pos: int, rm: RecoveryMode) -> Result[V_co]:
+    def parse_fn(
+            self, stream: S_contra, pos: int,
+            rm: RecoveryMode) -> Result[V_co]:
         ...
 
-    def to_fn(self) -> ParseFn[S, V_co]:
+    def to_fn(self) -> ParseFn[S_contra, V_co]:
         return self.parse_fn
 
 

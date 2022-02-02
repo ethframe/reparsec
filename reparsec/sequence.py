@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, TypeVar
+from typing import Callable, Sequence, Sized, TypeVar
 
 from .core import ParseFn, ParseObj, RecoveryMode
 from .result import Error, Insert, Ok, Recovered, Repair, Result, Skip
@@ -6,10 +6,9 @@ from .result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 T = TypeVar("T", bound=object)
 
 
-class Eof(ParseObj[Sequence[T], None]):
+class Eof(ParseObj[Sized, None]):
     def parse_fn(
-            self, stream: Sequence[T], pos: int,
-            rm: RecoveryMode) -> Result[None]:
+            self, stream: Sized, pos: int, rm: RecoveryMode) -> Result[None]:
         if pos == len(stream):
             return Ok(None, pos)
         if rm:
