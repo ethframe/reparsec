@@ -3,22 +3,22 @@ from typing import Callable, List, Tuple, TypeVar
 
 from .parser import Parser
 
-T = TypeVar("T")
+S = TypeVar("S")
 V = TypeVar("V")
 U = TypeVar("U")
 
 
 def infix_left(
-        arg: Parser[T, V], op: Parser[T, U],
-        fn: Callable[[U, V, V], V]) -> Parser[T, V]:
+        arg: Parser[S, V], op: Parser[S, U],
+        fn: Callable[[U, V, V], V]) -> Parser[S, V]:
     return (
         arg + (op + arg).many()
     ).fmap(lambda v: reduce(lambda t, o: fn(o[0], t, o[1]), v[1], v[0]))
 
 
 def infix_right(
-        arg: Parser[T, V], op: Parser[T, U],
-        fn: Callable[[U, V, V], V]) -> Parser[T, V]:
+        arg: Parser[S, V], op: Parser[S, U],
+        fn: Callable[[U, V, V], V]) -> Parser[S, V]:
     def build(v: Tuple[V, List[Tuple[U, V]]]) -> V:
         head, tail = v
         rassoc: List[Tuple[V, U]] = []
@@ -31,24 +31,24 @@ def infix_right(
 
 
 def infix_non(
-        arg: Parser[T, V], op: Parser[T, U],
-        fn: Callable[[U, V, V], V]) -> Parser[T, V]:
+        arg: Parser[S, V], op: Parser[S, U],
+        fn: Callable[[U, V, V], V]) -> Parser[S, V]:
     return (
         arg + (op + arg).maybe()
     ).fmap(lambda v: v[0] if v[1] is None else fn(v[1][0], v[0], v[1][1]))
 
 
 def prefix(
-        op: Parser[T, U], arg: Parser[T, V],
-        fn: Callable[[U, V], V]) -> Parser[T, V]:
+        op: Parser[S, U], arg: Parser[S, V],
+        fn: Callable[[U, V], V]) -> Parser[S, V]:
     return (
         op.many() + arg
     ).fmap(lambda v: reduce(lambda t, o: fn(o, t), v[0], v[1]))
 
 
 def postfix(
-        arg: Parser[T, V], op: Parser[T, U],
-        fn: Callable[[V, U], V]) -> Parser[T, V]:
+        arg: Parser[S, V], op: Parser[S, U],
+        fn: Callable[[V, U], V]) -> Parser[S, V]:
     return (
         arg + op.many()
     ).fmap(lambda v: reduce(fn, v[1], v[0]))

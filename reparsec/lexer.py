@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Iterator, List, Optional, Pattern, Tuple
+from typing import Iterator, List, Optional, Pattern, Sequence, Tuple
 
 from .parser import Parser, label, satisfy, recover_value
 
@@ -40,9 +40,9 @@ def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
     return list(iter_tokens(src, spec))
 
 
-def token(k: str) -> Parser[Token, Token]:
+def token(k: str) -> Parser[Sequence[Token], Token]:
     return label(satisfy(lambda t: t.kind == k), k)
 
 
-def token_ins(kind: str, ins_value: str) -> Parser[Token, Token]:
+def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
     return token(kind) | recover_value(Token(kind, ins_value))

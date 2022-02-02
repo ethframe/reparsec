@@ -1,5 +1,5 @@
 import re
-from typing import Match
+from typing import Match, Sequence
 
 from .parser import Delay, Parser, eof, recover_value, sym
 from .lexer import Token, split_tokens, token
@@ -40,13 +40,13 @@ def unescape(s: str) -> str:
     return escape.sub(sub, s)
 
 
-def punct(x: str) -> Parser[Token, Token]:
+def punct(x: str) -> Parser[Sequence[Token], Token]:
     return sym(Token("punct", x)).label(repr(x))
 
 
-JsonParser = Parser[Token, object]
+JsonParser = Parser[Sequence[Token], object]
 
-value: Delay[Token, object] = Delay()
+value: Delay[Sequence[Token], object] = Delay()
 
 string: JsonParser = token("string").fmap(lambda t: unescape(t.value))
 integer: JsonParser = token("integer").fmap(lambda t: int(t.value))
