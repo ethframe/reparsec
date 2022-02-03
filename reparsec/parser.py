@@ -6,8 +6,8 @@ from . import combinators, primitive, scannerless, sequence
 from .core import ParseFn, ParseObj, RecoveryMode
 from .result import Result
 
-T = TypeVar("T", bound=object)
-S = TypeVar("S", bound=object)
+T = TypeVar("T")
+S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
 V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)

@@ -7,9 +7,9 @@ from typing_extensions import Literal, final
 
 from .chain import Chain
 
-V = TypeVar("V", bound=object)
+V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
-U = TypeVar("U", bound=object)
+U = TypeVar("U")
 
 
 @dataclass

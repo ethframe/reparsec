@@ -3,9 +3,9 @@ from typing import Callable, Generic, Literal, TypeVar
 
 from .result import Result
 
-S = TypeVar("S", bound=object)
+S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
-V = TypeVar("V", bound=object)
+V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
 
 

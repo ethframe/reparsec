@@ -3,7 +3,7 @@ from typing import Callable, Sequence, Sized, TypeVar
 from .core import ParseFn, ParseObj, RecoveryMode
 from .result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 
-T = TypeVar("T", bound=object)
+T = TypeVar("T")
 
 
 class Eof(ParseObj[Sized, None]):

@@ -6,12 +6,12 @@ from .core import (
 )
 from .result import Error, Ok, PrefixItem, Recovered, Repair, Result
 
-S = TypeVar("S", bound=object)
+S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
-V = TypeVar("V", bound=object)
+V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
-U = TypeVar("U", bound=object)
-X = TypeVar("X", bound=object)
+U = TypeVar("U")
+X = TypeVar("X")
 
 
 def fmap(parse_fn: ParseFn[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
