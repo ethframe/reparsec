@@ -2,26 +2,27 @@ import re
 from typing import AnyStr, Optional, Union
 
 from .core import ParseFn, RecoveryMode
-from .result import Error, Ok, Recovered, Repair, Result, Skip
+from .result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 
 
 def prefix(s: AnyStr) -> ParseFn[AnyStr, AnyStr]:
-    expected = [repr(s)]
+    ls = len(s)
+    rs = repr(s)
+    expected = [rs]
 
     def prefix(stream: AnyStr, pos: int, rm: RecoveryMode) -> Result[AnyStr]:
         if stream.startswith(s, pos):
-            return Ok(s, pos + len(s), consumed=len(s) != 0)
+            return Ok(s, pos + ls, consumed=ls != 0)
         if rm:
+            reps = {pos: Repair(ls, s, Insert(rs, pos), expected)}
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
                     skip = cur - pos
-                    return Recovered({
-                        cur + len(s): Repair(
-                            skip, s, Skip(skip, pos), expected
-                        )
-                    })
+                    reps[cur + ls] = Repair(skip, s, Skip(skip, pos), expected)
+                    return Recovered(reps)
                 cur += 1
+            return Recovered(reps)
         return Error(pos, expected)
 
     return prefix

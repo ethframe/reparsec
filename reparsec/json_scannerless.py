@@ -1,8 +1,7 @@
 import re
 from typing import Match
 
-from .parser import Delay, Parser, eof, recover_value, regexp
-
+from .parser import Delay, Parser, eof, prefix, recover_value, regexp
 
 escape = re.compile(r"""
 \\(?:(?P<simple>["\\/bfnrt])|u(?P<unicode>[0-9a-fA-F]{4}))
@@ -23,15 +22,15 @@ def unescape(s: str) -> str:
     return escape.sub(sub, s)
 
 
+ows = regexp(r"[ \n\r\t]*")
+
+
 def token(pat: str) -> Parser[str, str]:
-    return regexp(r"[ \n\r\t]*" + pat, 1)
+    return regexp(pat + r"[ \n\r\t]*", 1)
 
 
 def punct(p: str) -> Parser[str, str]:
-    return (
-        regexp(r"[ \n\r\t]*({})".format(re.escape(p)), 1).label(repr(p)) |
-        recover_value(p)
-    )
+    return prefix(p) << ows
 
 
 JsonParser = Parser[str, object]
@@ -39,7 +38,8 @@ JsonParser = Parser[str, object]
 value: Delay[str, object] = Delay()
 
 string: JsonParser = token(
-    r'"(?P<string>(?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))+)"'
+    r'"(?P<string>(?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|'
+    r'\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))+)"'
 ).label("string").fmap(unescape)
 integer: JsonParser = token(
     r"(-?(?:0|[1-9][0-9]*))").label("integer").fmap(int)
@@ -65,7 +65,7 @@ value.define(
     ).label("value")
 )
 
-json = value << regexp(r"[ \n\r\t]*") << eof()
+json = ows >> value << eof()
 
 
 def parse(src: str) -> object:

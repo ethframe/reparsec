@@ -54,15 +54,15 @@ def test_negative(data: str, expected: str) -> None:
 DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ("1 1", 1, "at 2: expected end of file"),
     ("{", {}, "at 1: expected string or '}'"),
-    ("[1 2]", [1], "at 2: expected ',' or ']'"),
-    ("[1, , 2]", [1, 1, 2], "at 3: expected value"),
+    ("[1 2]", [1], "at 3: expected ',' or ']'"),
+    ("[1, , 2]", [1, 1, 2], "at 4: expected value"),
     (
         "[1, [{, 2]", [1, [{}, 2]],
         "at 6: expected string or '}', at 10: expected ']'"
     ),
-    ("[1, }, 2]", [1, {}, 2], "at 3: expected value"),
-    ('{"key": }', {"key": 1}, "at 7: expected value"),
-    ('{"key": ]', {"key": []}, "at 7: expected value, at 9: expected '}'"),
+    ("[1, }, 2]", [1, {}, 2], "at 4: expected value"),
+    ('{"key": }', {"key": 1}, "at 8: expected value"),
+    ('{"key": ]', {"key": []}, "at 8: expected value, at 9: expected '}'"),
     (
         '{"key": 2]', {"key": 2},
         "at 9: expected ',' or '}', at 9: expected end of file"
@@ -74,10 +74,10 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 10: expected string, at 10: expected ':', " +
-        "at 10: expected value, at 12: expected '}'"
+        "at 11: expected string, at 11: expected ':', " +
+        "at 11: expected value, at 12: expected '}'"
     ),
-    ('{"key": @}', {"key": 1}, "at 7: expected value, at 7: expected '}'"),
+    ('{"key": @}', {"key": 1}, "at 8: expected value, at 8: expected '}'"),
 ]
 
 
