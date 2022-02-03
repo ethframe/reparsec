@@ -2,7 +2,7 @@ from typing import (
     AnyStr, Callable, List, Optional, Sequence, Sized, Tuple, TypeVar, Union
 )
 
-from . import core, scannerless, sequence
+from . import combinators, primitive, scannerless, sequence
 from .core import ParseFn, ParseObj, RecoveryMode
 from .result import Result
 
@@ -20,7 +20,7 @@ class Parser(ParseObj[S_contra, V_co]):
         return self.parse_fn(stream, 0, True if recover else None)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Parser[S_contra, U]":
-        return FnParser(core.fmap(self.to_fn(), fn))
+        return FnParser(combinators.fmap(self.to_fn(), fn))
 
     def bind(
             self, fn: Callable[[V_co], ParseObj[S_contra, U]]
@@ -49,7 +49,7 @@ class Parser(ParseObj[S_contra, V_co]):
     def __or__(
             self,
             other: ParseObj[S_contra, V_co]) -> "Parser[S_contra, V_co]":
-        return FnParser(core.or_(self.to_fn(), other.to_fn()))
+        return FnParser(combinators.or_(self.to_fn(), other.to_fn()))
 
     def maybe(self) -> "Parser[S_contra, Optional[V_co]]":
         return maybe(self)
@@ -90,31 +90,31 @@ class FnParser(Parser[S_contra, V_co]):
 def bind(
         parser: ParseObj[S, V],
         fn: Callable[[V], ParseObj[S, U]]) -> Parser[S, U]:
-    return FnParser(core.bind(parser.to_fn(), fn))
+    return FnParser(combinators.bind(parser.to_fn(), fn))
 
 
 def lseq(parser: ParseObj[S, V], second: ParseObj[S, U]) -> Parser[S, V]:
-    return FnParser(core.lseq(parser.to_fn(), second.to_fn()))
+    return FnParser(combinators.lseq(parser.to_fn(), second.to_fn()))
 
 
 def rseq(parser: ParseObj[S, V], second: ParseObj[S, U]) -> Parser[S, U]:
-    return FnParser(core.rseq(parser.to_fn(), second.to_fn()))
+    return FnParser(combinators.rseq(parser.to_fn(), second.to_fn()))
 
 
 def seq(
         parser: ParseObj[S, V],
         second: ParseObj[S, U]) -> Parser[S, Tuple[V, U]]:
-    return FnParser(core.seq(parser.to_fn(), second.to_fn()))
+    return FnParser(combinators.seq(parser.to_fn(), second.to_fn()))
 
 
-class Pure(core.Pure[S, V_co], Parser[S, V_co]):
+class Pure(primitive.Pure[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
 pure = Pure
 
 
-class PureFn(core.PureFn[S, V_co], Parser[S, V_co]):
+class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
@@ -137,37 +137,38 @@ def sym(s: T) -> Parser[Sequence[T], T]:
 
 
 def maybe(parser: ParseObj[S, V]) -> Parser[S, Optional[V]]:
-    return FnParser(core.maybe(parser.to_fn()))
+    return FnParser(combinators.maybe(parser.to_fn()))
 
 
 def many(parser: ParseObj[S, V]) -> Parser[S, List[V]]:
-    return FnParser(core.many(parser.to_fn()))
+    return FnParser(combinators.many(parser.to_fn()))
 
 
 def attempt(parser: ParseObj[S, V]) -> Parser[S, V]:
-    return FnParser(core.attempt(parser.to_fn()))
+    return FnParser(combinators.attempt(parser.to_fn()))
 
 
 def label(parser: ParseObj[S, V], x: str) -> Parser[S, V]:
-    return FnParser(core.label(parser.to_fn(), x))
+    return FnParser(combinators.label(parser.to_fn(), x))
 
 
-class RecoverValue(core.RecoverValue[S, V_co], Parser[S, V_co]):
+class RecoverValue(
+        primitive.RecoverValue[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
 recover_value = RecoverValue
 
 
-class RecoverFn(core.RecoverFn[S, V_co], Parser[S, V_co]):
+class RecoverFn(primitive.RecoverFn[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
 recover_fn = RecoverFn
 
 
-class Delay(core.Delay[S, V_co], Parser[S, V_co]):
-    def define(self, parser: ParseObj[S, V_co]) -> None:
+class Delay(combinators.Delay[S_contra, V_co], Parser[S_contra, V_co]):
+    def define(self, parser: ParseObj[S_contra, V_co]) -> None:
         self.define_fn(parser.to_fn())
 
 
