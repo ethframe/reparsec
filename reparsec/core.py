@@ -217,6 +217,21 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
     return many
 
 
+def attempt(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
+    def attempt(stream: S, pos: int, rm: RecoveryMode) -> Result[V]:
+        r = parse_fn(stream, pos, rm if rm else None)
+        if type(r) is Error:
+            return Error(r.pos, r.expected)
+        if type(r) is Recovered:
+            return Recovered({
+                p: Repair(r.cost, r.value, r.op, r.expected, False, r.prefix)
+                for p, r in r.repairs.items()
+            })
+        return r
+
+    return attempt
+
+
 def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
     expected = [x]
 

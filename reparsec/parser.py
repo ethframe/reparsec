@@ -57,6 +57,9 @@ class Parser(ParseObj[S_contra, V_co]):
     def many(self) -> "Parser[S_contra, List[V_co]]":
         return many(self)
 
+    def attempt(self) -> "Parser[S_contra, V_co]":
+        return attempt(self)
+
     def label(self, expected: str) -> "Parser[S_contra, V_co]":
         return label(self, expected)
 
@@ -139,6 +142,10 @@ def maybe(parser: ParseObj[S, V]) -> Parser[S, Optional[V]]:
 
 def many(parser: ParseObj[S, V]) -> Parser[S, List[V]]:
     return FnParser(core.many(parser.to_fn()))
+
+
+def attempt(parser: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(core.attempt(parser.to_fn()))
 
 
 def label(parser: ParseObj[S, V], x: str) -> Parser[S, V]:
