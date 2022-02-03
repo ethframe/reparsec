@@ -67,9 +67,7 @@ def or_(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
             rb = second_fn(stream, pos, True)
             if type(ra) is Recovered:
                 if type(rb) is Recovered:
-                    reps = {pb.pos: pb for pb in rb.repairs}
-                    reps.update((pa.pos, pa) for pa in ra.repairs)
-                    return Recovered(list(reps.values()))
+                    return Recovered({**rb.repairs, **ra.repairs})
                 return ra.expect(expected)
             if type(rb) is Recovered:
                 return rb.expect(expected)
@@ -80,31 +78,31 @@ def or_(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
 
 def _continue_parse(
         stream: S, ra: Recovered[V],
-        parse: Callable[[S, Repair[V]], Result[U]],
+        parse: Callable[[S, int, Repair[V]], Result[U]],
         merge: Callable[[V, U], X]) -> Result[X]:
     reps: Dict[int, Repair[X]] = {}
-    for pa in ra.repairs:
-        rb = parse(stream, pa)
+    for p, pa in ra.repairs.items():
+        rb = parse(stream, p, pa)
         if type(rb) is Ok:
             if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
                 reps[rb.pos] = Repair(
-                    pa.cost, merge(pa.value, rb.value), rb.pos, pa.op,
-                    pa.expected, pa.consumed, pa.prefix
+                    pa.cost, merge(pa.value, rb.value), pa.op, pa.expected,
+                    pa.consumed, pa.prefix
                 )
         elif type(rb) is Recovered:
-            for pb in rb.repairs:
+            for p, pb in rb.repairs.items():
                 cost = pa.cost + pb.cost
-                if pb.pos not in reps or cost < reps[pb.pos].cost:
-                    reps[pb.pos] = Repair(
-                        cost, merge(pa.value, pb.value), pb.pos, pb.op,
-                        pb.expected, True,
+                if p not in reps or cost < reps[p].cost:
+                    reps[p] = Repair(
+                        cost, merge(pa.value, pb.value), pb.op, pb.expected,
+                        True,
                         Chain(
                             pa.prefix,
                             ChainL(PrefixItem(pa.op, pa.expected), pb.prefix)
                         )
                     )
     if reps:
-        return Recovered(list(reps.values()))
+        return Recovered(reps)
     return ra.to_error()
 
 
@@ -117,7 +115,7 @@ def bind(
             return ra
         if type(ra) is Recovered:
             return _continue_parse(
-                stream, ra, lambda s, p: fn(p.value).parse_fn(s, p.pos, True),
+                stream, ra, lambda s, i, p: fn(p.value).parse_fn(s, i, True),
                 lambda _, v: v
             )
         return fn(ra.value).parse_fn(
@@ -136,7 +134,7 @@ def _make_seq(
             return ra
         if type(ra) is Recovered:
             return _continue_parse(
-                stream, ra, lambda s, p: second_fn(s, p.pos, True), fn
+                stream, ra, lambda s, i, p: second_fn(s, i, True), fn
             )
         va = ra.value
         return second_fn(stream, ra.pos, maybe_allow_recovery(rm, ra)).fmap(
@@ -210,8 +208,8 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
             return r
         return Ok(value, r.pos, r.expected, consumed)
 
-    def parse(stream: S, p: Repair[V]) -> Result[List[V]]:
-        r = many(stream, p.pos, True)
+    def parse(stream: S, pos: int, p: Repair[V]) -> Result[List[V]]:
+        r = many(stream, pos, True)
         if type(r) is Error and r.consumed is False:
             return Ok[List[V]]([], r.pos, r.expected)
         return r
@@ -236,9 +234,11 @@ class RecoverValue(ParseObj[S, V_co]):
 
     def parse_fn(self, stream: S, pos: int, rm: RecoveryMode) -> Result[V_co]:
         if rm:
-            return Recovered([Repair(
-                1, self._x, pos, Insert(self._label, pos), self._expected
-            )])
+            return Recovered({
+                pos: Repair(
+                    1, self._x, Insert(self._label, pos), self._expected
+                )
+            })
         return Error(pos)
 
 
@@ -253,9 +253,9 @@ class RecoverFn(ParseObj[S, V_co]):
     def parse_fn(self, stream: S, pos: int, rm: RecoveryMode) -> Result[V_co]:
         if rm:
             x = self._fn()
-            return Recovered([
-                Repair(1, x, pos, Insert(repr(x), pos), self._expected)
-            ])
+            return Recovered({
+                pos: Repair(1, x, Insert(repr(x), pos), self._expected)
+            })
         return Error(pos)
 
 

@@ -13,9 +13,11 @@ class Eof(ParseObj[Sized, None]):
             return Ok(None, pos)
         if rm:
             skip = len(stream) - pos
-            return Recovered([Repair(
-                skip, None, len(stream), Skip(skip, pos), ["end of file"]
-            )])
+            return Recovered({
+                len(stream): Repair(
+                    skip, None, Skip(skip, pos), ["end of file"]
+                )
+            })
         return Error(pos, ["end of file"])
 
 
@@ -35,7 +37,7 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                 if test(t):
                     skip = cur - pos
                     return Recovered(
-                        [Repair(skip, t, cur + 1, Skip(skip, pos))]
+                        {cur + 1: Repair(skip, t, Skip(skip, pos))}
                     )
                 cur += 1
         return Error(pos)
@@ -53,18 +55,16 @@ def sym(s: T) -> ParseFn[Sequence[T], T]:
             if t == s:
                 return Ok(t, pos + 1, consumed=True)
         if rm:
-            ins = Repair(1, s, pos, Insert(rs, pos), expected)
+            reps = {pos: Repair(1, s, Insert(rs, pos), expected)}
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
                 if t == s:
                     skip = cur - pos
-                    return Recovered([
-                        ins,
-                        Repair(skip, t, cur + 1, Skip(skip, pos), expected)
-                    ])
+                    reps[cur + 1] = Repair(skip, t, Skip(skip, pos), expected)
+                    return Recovered(reps)
                 cur += 1
-            return Recovered([ins])
+            return Recovered(reps)
         return Error(pos, expected)
 
     return sym

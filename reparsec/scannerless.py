@@ -10,22 +10,19 @@ def prefix(s: AnyStr) -> ParseFn[AnyStr, AnyStr]:
 
     def prefix(stream: AnyStr, pos: int, rm: RecoveryMode) -> Result[AnyStr]:
         if stream.startswith(s, pos):
-            return Ok(s, pos + len(s), consumed=bool(s))
+            return Ok(s, pos + len(s), consumed=len(s) != 0)
         if rm:
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
                     skip = cur - pos
-                    return Recovered(
-                        [
-                            Repair(
-                                skip, s, cur + len(s), Skip(skip, pos),
-                                expected
-                            )
-                        ]
-                    )
+                    return Recovered({
+                        cur + len(s): Repair(
+                            skip, s, Skip(skip, pos), expected
+                        )
+                    })
                 cur += 1
-        return Error(pos)
+        return Error(pos, expected)
 
     return prefix
 
@@ -38,7 +35,8 @@ def regexp(pat: AnyStr, group: Union[int, str] = 0) -> ParseFn[AnyStr, AnyStr]:
         if r is not None:
             v: Optional[AnyStr] = r.group(group)
             if v is not None:
-                return Ok(v, r.end(), consumed=bool(v))
+                p = r.end()
+                return Ok(v, p, consumed=p != pos)
         if rm:
             cur = pos + 1
             while cur < len(stream):
@@ -48,7 +46,7 @@ def regexp(pat: AnyStr, group: Union[int, str] = 0) -> ParseFn[AnyStr, AnyStr]:
                     if v is not None:
                         skip = cur - pos
                         return Recovered(
-                            [Repair(skip, v, r.end(), Skip(skip, pos))]
+                            {r.end(): Repair(skip, v, Skip(skip, pos))}
                         )
                 cur += 1
         return Error(pos)

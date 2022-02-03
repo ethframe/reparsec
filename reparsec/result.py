@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Callable, Generic, Iterable, List, NoReturn, TypeVar, Union
+from typing import (
+    Callable, Generic, Iterable, List, Mapping, NoReturn, TypeVar, Union
+)
 
 from typing_extensions import Literal, final
 
@@ -123,7 +125,6 @@ class PrefixItem:
 class Repair(Generic[V_co]):
     cost: int
     value: V_co
-    pos: int
     op: RepairOp
     expected: Iterable[str] = ()
     consumed: bool = False
@@ -136,16 +137,16 @@ class Recovered(Generic[V_co]):
 
     consumed: Literal[True]
 
-    def __init__(self, repairs: Iterable[Repair[V_co]]):
+    def __init__(self, repairs: Mapping[int, Repair[V_co]]):
         self.repairs = repairs
         self.consumed = True
 
     def to_error(self) -> Error:
-        repair = min(self.repairs, key=lambda r: r.cost)
+        repair = min(self.repairs.values(), key=lambda r: (r.cost, r.op.pos))
         return Error(repair.op.pos, repair.expected, repair.consumed)
 
     def unwrap(self, recover: bool = False) -> V_co:
-        repair = min(self.repairs, key=lambda r: r.cost)
+        repair = min(self.repairs.values(), key=lambda r: (r.cost, r.op.pos))
         if recover:
             return repair.value
         errors: List[ErrorItem] = []
@@ -155,36 +156,34 @@ class Recovered(Generic[V_co]):
         raise ParseError(errors)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U]":
-        return Recovered([
-            Repair(
-                p.cost, fn(p.value), p.pos, p.op, p.expected,  p.consumed,
-                p.prefix
+        return Recovered({
+            p: Repair(
+                r.cost, fn(r.value), r.op, r.expected,  r.consumed, r.prefix
             )
-            for p in self.repairs
-        ])
+            for p, r in self.repairs.items()
+        })
 
     def expect(self, expected: Iterable[str]) -> "Recovered[V_co]":
-        return Recovered([
-            Repair(
-                p.cost, p.value, p.pos, p.op,
-                p.expected if p.consumed else expected,
-                p.consumed, p.prefix
+        return Recovered({
+            p: Repair(
+                r.cost, r.value, r.op, r.expected if r.consumed else expected,
+                r.consumed, r.prefix
             )
-            for p in self.repairs
-        ])
+            for p, r in self.repairs.items()
+        })
 
     def merge_expected(
             self, expected: Iterable[str],
             consumed: bool) -> "Recovered[V_co]":
-        return Recovered([
-            Repair(
-                p.cost, p.value, p.pos, p.op,
-                p.expected if consumed and p.consumed
-                else Chain(expected, p.expected),
-                consumed or p.consumed, p.prefix
+        return Recovered({
+            p: Repair(
+                r.cost, r.value, r.op,
+                r.expected if consumed and r.consumed
+                else Chain(expected, r.expected),
+                consumed or r.consumed, r.prefix
             )
-            for p in self.repairs
-        ])
+            for p, r in self.repairs.items()
+        })
 
 
 Result = Union[Recovered[V_co], Ok[V_co], Error]
