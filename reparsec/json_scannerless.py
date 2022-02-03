@@ -3,22 +3,6 @@ from typing import Match
 
 from .parser import Delay, Parser, eof, recover_value, regexp
 
-spec = re.compile(r"""
-[ \n\r\t]+
-|(?P<punct>[{}:,[\]])
-|(?P<bool>true|false)
-|(?P<null>null)
-|(?P<float>-?(?:0|[1-9][0-9]*)(?:
-    (?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)|(?:\.[0-9]+)
-))
-|(?P<integer>-?(?:0|[1-9][0-9]*))
-|"(?P<string>(?:
-    [\x20\x21\x23-\x5B\x5D-\U0010FFFF]
-    |\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4})
-)+)"
-|(?P<_>.)
-""", re.VERBOSE)
-
 
 escape = re.compile(r"""
 \\(?:(?P<simple>["\\/bfnrt])|u(?P<unicode>[0-9a-fA-F]{4}))

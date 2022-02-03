@@ -111,7 +111,7 @@ class Pure(core.Pure[S, V_co], Parser[S, V_co]):
 pure = Pure
 
 
-class PureFn(core.Pure[S, V_co], Parser[S, V_co]):
+class PureFn(core.PureFn[S, V_co], Parser[S, V_co]):
     pass
 
 
