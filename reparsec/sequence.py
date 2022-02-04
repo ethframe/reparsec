@@ -1,14 +1,13 @@
 from typing import Callable, Sequence, Sized, TypeVar
 
-from .core import ParseFn, ParseObj, RecoveryMode
+from .core import ParseFn, RecoveryMode
 from .result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 
 T = TypeVar("T")
 
 
-class Eof(ParseObj[Sized, None]):
-    def parse_fn(
-            self, stream: Sized, pos: int, rm: RecoveryMode) -> Result[None]:
+def eof() -> ParseFn[Sized, None]:
+    def eof(stream: Sized, pos: int, rm: RecoveryMode) -> Result[None]:
         if pos == len(stream):
             return Ok(None, pos)
         if rm:
@@ -23,8 +22,7 @@ class Eof(ParseObj[Sized, None]):
             )
         return Error(pos, ["end of file"])
 
-
-eof = Eof
+    return eof
 
 
 def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:

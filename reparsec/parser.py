@@ -121,11 +121,8 @@ class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
 pure_fn = PureFn
 
 
-class Eof(sequence.Eof, Parser[Sized, None]):
-    pass
-
-
-eof = Eof
+def eof() -> Parser[Sized, None]:
+    return FnParser(sequence.eof())
 
 
 def satisfy(test: Callable[[T], bool]) -> Parser[Sequence[T], T]:
