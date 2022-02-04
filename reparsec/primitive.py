@@ -47,11 +47,14 @@ class RecoverValue(ParseObj[S_contra, V_co]):
             self, stream: S_contra, pos: int,
             rm: RecoveryMode) -> Result[V_co]:
         if rm:
-            return Recovered({
-                pos: Repair(
-                    1, self._x, Insert(self._label, pos), self._expected
-                )
-            })
+            return Recovered(
+                {
+                    pos: Repair(
+                        1, self._x, Insert(self._label, pos), self._expected
+                    )
+                },
+                pos, self._expected
+            )
         return Error(pos)
 
 
@@ -68,9 +71,10 @@ class RecoverFn(ParseObj[S_contra, V_co]):
             rm: RecoveryMode) -> Result[V_co]:
         if rm:
             x = self._fn()
-            return Recovered({
-                pos: Repair(1, x, Insert(repr(x), pos), self._expected)
-            })
+            return Recovered(
+                {pos: Repair(1, x, Insert(repr(x), pos), self._expected)}, pos,
+                self._expected
+            )
         return Error(pos)
 
 

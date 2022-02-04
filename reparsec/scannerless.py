@@ -20,9 +20,9 @@ def prefix(s: AnyStr) -> ParseFn[AnyStr, AnyStr]:
                 if stream.startswith(s, cur):
                     skip = cur - pos
                     reps[cur + ls] = Repair(skip, s, Skip(skip, pos), expected)
-                    return Recovered(reps)
+                    return Recovered(reps, pos, expected)
                 cur += 1
-            return Recovered(reps)
+            return Recovered(reps, pos, expected)
         return Error(pos, expected)
 
     return prefix
@@ -47,7 +47,7 @@ def regexp(pat: AnyStr, group: Union[int, str] = 0) -> ParseFn[AnyStr, AnyStr]:
                     if v is not None:
                         skip = cur - pos
                         return Recovered(
-                            {r.end(): Repair(skip, v, Skip(skip, pos))}
+                            {r.end(): Repair(skip, v, Skip(skip, pos))}, pos
                         )
                 cur += 1
         return Error(pos)

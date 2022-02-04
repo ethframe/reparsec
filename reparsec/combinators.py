@@ -38,7 +38,9 @@ def or_(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
             rb = second_fn(stream, pos, True)
             if type(ra) is Recovered:
                 if type(rb) is Recovered:
-                    return Recovered({**rb.repairs, **ra.repairs})
+                    return Recovered(
+                        {**rb.repairs, **ra.repairs}, ra.pos, ra.expected
+                    )
                 return ra.expect(expected)
             if type(rb) is Recovered:
                 return rb.expect(expected)
@@ -73,7 +75,7 @@ def _continue_parse(
                         )
                     )
     if reps:
-        return Recovered(reps)
+        return Recovered(reps, ra.pos, ra.expected)
     return ra.to_error()
 
 
@@ -172,10 +174,15 @@ def attempt(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
         if type(r) is Error:
             return Error(r.pos, r.expected)
         if type(r) is Recovered:
-            return Recovered({
-                p: Repair(r.cost, r.value, r.op, r.expected, False, r.prefix)
-                for p, r in r.repairs.items()
-            })
+            return Recovered(
+                {
+                    p: Repair(
+                        r.cost, r.value, r.op, r.expected, False, r.prefix
+                    )
+                    for p, r in r.repairs.items()
+                },
+                r.pos, r.expected
+            )
         return r
 
     return attempt
