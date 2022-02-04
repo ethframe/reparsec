@@ -5,12 +5,13 @@ from ..core import ParseFn, RecoveryMode
 from ..result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 
 
-def prefix(s: AnyStr) -> ParseFn[AnyStr, AnyStr]:
+def prefix(s: AnyStr) -> ParseFn[AnyStr, int, AnyStr]:
     ls = len(s)
     rs = repr(s)
     expected = [rs]
 
-    def prefix(stream: AnyStr, pos: int, rm: RecoveryMode) -> Result[AnyStr]:
+    def prefix(
+            stream: AnyStr, pos: int, rm: RecoveryMode) -> Result[int, AnyStr]:
         if stream.startswith(s, pos):
             return Ok(s, pos + ls, consumed=ls != 0)
         if rm:
@@ -28,10 +29,13 @@ def prefix(s: AnyStr) -> ParseFn[AnyStr, AnyStr]:
     return prefix
 
 
-def regexp(pat: AnyStr, group: Union[int, str] = 0) -> ParseFn[AnyStr, AnyStr]:
+def regexp(
+        pat: AnyStr,
+        group: Union[int, str] = 0) -> ParseFn[AnyStr, int, AnyStr]:
     match = re.compile(pat).match
 
-    def regexp(stream: AnyStr, pos: int, rm: RecoveryMode) -> Result[AnyStr]:
+    def regexp(
+            stream: AnyStr, pos: int, rm: RecoveryMode) -> Result[int, AnyStr]:
         r = match(stream, pos=pos)
         if r is not None:
             v: Optional[AnyStr] = r.group(group)

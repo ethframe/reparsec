@@ -6,8 +6,8 @@ from ..result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 T = TypeVar("T")
 
 
-def eof() -> ParseFn[Sized, None]:
-    def eof(stream: Sized, pos: int, rm: RecoveryMode) -> Result[None]:
+def eof() -> ParseFn[Sized, int, None]:
+    def eof(stream: Sized, pos: int, rm: RecoveryMode) -> Result[int, None]:
         if pos == len(stream):
             return Ok(None, pos)
         if rm:
@@ -25,8 +25,9 @@ def eof() -> ParseFn[Sized, None]:
     return eof
 
 
-def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
-    def satisfy(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[T]:
+def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], int, T]:
+    def satisfy(
+            stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[int, T]:
         if pos < len(stream):
             t = stream[pos]
             if test(t):
@@ -46,11 +47,11 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
     return satisfy
 
 
-def sym(s: T) -> ParseFn[Sequence[T], T]:
+def sym(s: T) -> ParseFn[Sequence[T], int, T]:
     rs = repr(s)
     expected = [rs]
 
-    def sym(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[T]:
+    def sym(stream: Sequence[T], pos: int, rm: RecoveryMode) -> Result[int, T]:
         if pos < len(stream):
             t = stream[pos]
             if t == s:

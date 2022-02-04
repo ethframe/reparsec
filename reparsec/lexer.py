@@ -40,9 +40,10 @@ def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
     return list(iter_tokens(src, spec))
 
 
-def token(k: str) -> Parser[Sequence[Token], Token]:
+def token(k: str) -> Parser[Sequence[Token], int, Token]:
     return label(satisfy(lambda t: t.kind == k), k)
 
 
-def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
+def token_ins(
+        kind: str, ins_value: str) -> Parser[Sequence[Token], int, Token]:
     return token(kind) | recover_value(Token(kind, ins_value))

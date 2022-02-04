@@ -25,17 +25,17 @@ def unescape(s: str) -> str:
 ows = regexp(r"[ \n\r\t]*")
 
 
-def token(pat: str) -> Parser[str, str]:
+def token(pat: str) -> Parser[str, int, str]:
     return regexp(r"[ \n\r\t]*" + pat, 1)
 
 
-def punct(p: str) -> Parser[str, str]:
+def punct(p: str) -> Parser[str, int, str]:
     return (ows >> prefix(p)).attempt()
 
 
-JsonParser = Parser[str, object]
+JsonParser = Parser[str, int, object]
 
-value: Delay[str, object] = Delay()
+value: Delay[str, int, object] = Delay()
 
 string: JsonParser = token(
     r'"(?P<string>(?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|'
