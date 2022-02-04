@@ -3,6 +3,7 @@ from typing import List, Tuple
 import pytest
 
 from reparsec import json_scannerless
+from reparsec.parser import run
 from reparsec.result import ParseError
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
@@ -83,7 +84,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
 
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
-    r = json_scannerless.json.parse(data, recover=True)
+    r = run(json_scannerless.json, data, recover=True)
     assert value == r.unwrap(recover=True)
     with pytest.raises(ParseError) as err:
         r.unwrap()

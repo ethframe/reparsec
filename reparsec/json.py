@@ -1,8 +1,8 @@
 import re
 from typing import Match, Sequence
 
-from .parser import Delay, Parser, eof, recover_value, sym
 from .lexer import Token, split_tokens, token
+from .parser import Delay, Parser, eof, recover_value, run, sym
 
 spec = re.compile(r"""
 [ \n\r\t]+
@@ -73,4 +73,4 @@ json = value.lseq(eof())
 
 
 def parse(src: str) -> object:
-    return json.parse(split_tokens(src, spec)).unwrap()
+    return run(json, split_tokens(src, spec)).unwrap()

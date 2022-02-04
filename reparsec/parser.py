@@ -16,9 +16,6 @@ X = TypeVar("X", bound=object)
 
 
 class Parser(ParseObj[S_contra, V_co]):
-    def parse(self, stream: S_contra, recover: bool = False) -> Result[V_co]:
-        return self.parse_fn(stream, 0, True if recover else None)
-
     def fmap(self, fn: Callable[[V_co], U]) -> "Parser[S_contra, U]":
         return FnParser(combinators.fmap(self.to_fn(), fn))
 
@@ -191,3 +188,7 @@ def between(
 
 letter: Parser[Sequence[str], str] = satisfy(str.isalpha).label("letter")
 digit: Parser[Sequence[str], str] = satisfy(str.isdigit).label("digit")
+
+
+def run(parser: Parser[S, V], stream: S, recover: bool = False) -> Result[V]:
+    return parser.parse_fn(stream, 0, True if recover else None)

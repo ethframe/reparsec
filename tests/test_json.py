@@ -4,6 +4,7 @@ import pytest
 
 from reparsec import json
 from reparsec.lexer import split_tokens
+from reparsec.parser import run
 from reparsec.result import ParseError
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
@@ -84,7 +85,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
 
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
-    r = json.json.parse(split_tokens(data, json.spec), recover=True)
+    r = run(json.json, split_tokens(data, json.spec), recover=True)
     assert value == r.unwrap(recover=True)
     with pytest.raises(ParseError) as err:
         r.unwrap()

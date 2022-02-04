@@ -1,7 +1,7 @@
 import re
 from typing import Match
 
-from .parser import Delay, Parser, eof, prefix, recover_value, regexp
+from .parser import Delay, Parser, eof, prefix, recover_value, regexp, run
 
 escape = re.compile(r"""
 \\(?:(?P<simple>["\\/bfnrt])|u(?P<unicode>[0-9a-fA-F]{4}))
@@ -69,4 +69,4 @@ json = value << ows << eof()
 
 
 def parse(src: str) -> object:
-    return json.parse(src).unwrap()
+    return run(json, src).unwrap()
