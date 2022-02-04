@@ -1,7 +1,7 @@
 from typing import Callable, Optional, TypeVar
 
-from .core import ParseObj, RecoveryMode
-from .result import Error, Insert, Ok, Recovered, Repair, Result
+from ..core import ParseObj, RecoveryMode
+from ..result import Error, Insert, Ok, Recovered, Repair, Result
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)

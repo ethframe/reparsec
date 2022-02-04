@@ -1,7 +1,7 @@
 from typing import Callable, Sequence, Sized, TypeVar
 
-from .core import ParseFn, RecoveryMode
-from .result import Error, Insert, Ok, Recovered, Repair, Result, Skip
+from ..core import ParseFn, RecoveryMode
+from ..result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 
 T = TypeVar("T")
 

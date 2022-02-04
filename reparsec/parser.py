@@ -2,8 +2,8 @@ from typing import (
     AnyStr, Callable, List, Optional, Sequence, Sized, Tuple, TypeVar, Union
 )
 
-from . import combinators, primitive, scannerless, sequence
 from .core import ParseFn, ParseObj, RecoveryMode
+from .impl import combinators, primitive, scannerless, sequence
 from .result import Result
 
 T = TypeVar("T")

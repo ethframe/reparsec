@@ -1,8 +1,8 @@
 import re
 from typing import AnyStr, Optional, Union
 
-from .core import ParseFn, RecoveryMode
-from .result import Error, Insert, Ok, Recovered, Repair, Result, Skip
+from ..core import ParseFn, RecoveryMode
+from ..result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 
 
 def prefix(s: AnyStr) -> ParseFn[AnyStr, AnyStr]:

@@ -1,10 +1,10 @@
 from typing import Callable, Dict, List, Optional, Tuple, TypeVar
 
-from .chain import Chain, ChainL
-from .core import (
+from ..chain import Chain, ChainL
+from ..core import (
     ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
 )
-from .result import Error, Ok, PrefixItem, Recovered, Repair, Result
+from ..result import Error, Ok, PrefixItem, Recovered, Repair, Result
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
