@@ -45,7 +45,7 @@ def continue_parse(
                     )
     if reps:
         return Recovered(reps, ra.pos, ra.expected)
-    return ra.to_error()
+    return Error(ra.pos, ra.expected, True)
 
 
 def fmap(parse_fn: ParseFn[S, P, V], fn: Callable[[V], U]) -> ParseFn[S, P, U]:

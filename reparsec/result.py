@@ -1,8 +1,5 @@
 from dataclasses import dataclass
-from typing import (
-    Callable, Generic, Iterable, List, Mapping, NoReturn, Optional, TypeVar,
-    Union
-)
+from typing import Callable, Generic, Iterable, Mapping, TypeVar, Union
 
 from typing_extensions import Literal, final
 
@@ -12,30 +9,6 @@ P = TypeVar("P", bound=object)
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U")
-
-
-@dataclass
-class ErrorItem:
-    pos: object
-    expected: List[str]
-
-    def msg(self) -> str:
-        if not self.expected:
-            return "at {!r}: unexpected input".format(self.pos)
-        if len(self.expected) == 1:
-            return "at {!r}: expected {}".format(self.pos, self.expected[0])
-        return "at {!r}: expected {} or {}".format(
-            self.pos, ', '.join(self.expected[:-1]), self.expected[-1]
-        )
-
-
-class ParseError(Exception):
-    def __init__(self, errors: List[ErrorItem]):
-        super().__init__(errors)
-        self.errors = errors
-
-    def __str__(self) -> str:
-        return ", ".join(error.msg() for error in self.errors)
 
 
 @final
@@ -81,9 +54,6 @@ class Error(Generic[P]):
         self.pos = pos
         self.expected = expected
         self.consumed = consumed
-
-    def unwrap(self, recover: bool = False) -> NoReturn:
-        raise ParseError([ErrorItem(self.pos, list(self.expected))])
 
     def fmap(self, fn: object) -> "Error[P]":
         return self
@@ -146,19 +116,6 @@ class Recovered(Generic[P, V_co]):
         self.pos = pos
         self.expected = expected
         self.consumed = True
-
-    def to_error(self) -> Error[P]:
-        return Error(self.pos, self.expected, True)
-
-    def unwrap(self, recover: bool = False) -> V_co:
-        repair = min(self.repairs.values(), key=lambda r: r.cost)
-        if recover:
-            return repair.value
-        errors: List[ErrorItem] = []
-        for item in repair.prefix:
-            errors.append(ErrorItem(item.op.pos, list(item.expected)))
-        errors.append(ErrorItem(repair.op.pos, list(repair.expected)))
-        raise ParseError(errors)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[P, U]":
         return Recovered(

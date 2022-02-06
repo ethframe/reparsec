@@ -4,8 +4,8 @@ import pytest
 
 from reparsec import json
 from reparsec.lexer import split_tokens
+from reparsec.output import ParseError
 from reparsec.parser import run
-from reparsec.result import ParseError
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),

@@ -2,8 +2,8 @@ from typing import List
 
 import pytest
 
+from reparsec.output import ParseError
 from reparsec.parser import Parser, digit, letter, run, sym
-from reparsec.result import ParseError
 
 ident = (
     (letter | sym("_")) + (letter | digit | sym("_")).many()

@@ -3,8 +3,8 @@ from typing import List, Tuple
 import pytest
 
 from reparsec import json_scannerless
+from reparsec.output import ParseError
 from reparsec.parser import run
-from reparsec.result import ParseError
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),

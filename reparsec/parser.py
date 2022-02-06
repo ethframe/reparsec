@@ -4,6 +4,7 @@ from typing import (
 
 from .core import ParseFn, ParseObj, RecoveryMode
 from .impl import combinators, primitive, scannerless, sequence
+from .output import ParseResult
 from .result import Result
 
 T = TypeVar("T")
@@ -207,5 +208,5 @@ digit: Parser[Sequence[str], int, str] = satisfy(str.isdigit).label("digit")
 
 def run(
         parser: Parser[S, int, V], stream: S,
-        recover: bool = False) -> Result[int, V]:
-    return parser.parse_fn(stream, 0, True if recover else None)
+        recover: bool = False) -> ParseResult[int, V]:
+    return ParseResult(parser.parse_fn(stream, 0, True if recover else None))
