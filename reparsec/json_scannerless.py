@@ -1,7 +1,7 @@
 import re
 from typing import Match
 
-from .parser import Delay, Parser, eof, prefix, recover_value, regexp, run
+from .parser import Delay, Parser, eof, insert, prefix, regexp, run
 
 escape = re.compile(r"""
 \\(?:(?P<simple>["\\/bfnrt])|u(?P<unicode>[0-9a-fA-F]{4}))
@@ -50,7 +50,7 @@ boolean: JsonParser = token(r"(true|false)").label("bool").fmap(
     lambda s: s == "true")
 null: JsonParser = token(r"(null)").label("null").fmap(lambda _: None)
 json_dict: JsonParser = (
-    ((string | recover_value("a")) << punct(":")) + value
+    ((string | insert("a")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")
@@ -60,7 +60,7 @@ json_list: JsonParser = value.sep_by(punct(",")).between(
 
 value.define(
     (
-        number | integer | boolean | null | string | recover_value(1)
+        number | integer | boolean | null | string | insert(1)
         | json_dict | json_list
     ).label("value")
 )

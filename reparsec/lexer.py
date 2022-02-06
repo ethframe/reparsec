@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Iterator, List, Optional, Pattern, Sequence, Tuple
 
-from .parser import Parser, label, satisfy, recover_value
+from .parser import Parser, insert, label, satisfy
 
 
 @dataclass(frozen=True)
@@ -46,4 +46,4 @@ def token(k: str) -> Parser[Sequence[Token], int, Token]:
 
 def token_ins(
         kind: str, ins_value: str) -> Parser[Sequence[Token], int, Token]:
-    return token(kind) | recover_value(Token(kind, ins_value))
+    return token(kind) | insert(Token(kind, ins_value))

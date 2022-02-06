@@ -2,7 +2,7 @@ import re
 from typing import Match, Sequence
 
 from .lexer import Token, split_tokens, token
-from .parser import Delay, Parser, eof, recover_value, run, sym
+from .parser import Delay, Parser, eof, insert, run, sym
 
 spec = re.compile(r"""
 [ \n\r\t]+
@@ -54,7 +54,7 @@ number: JsonParser = token("float").fmap(lambda t: float(t.value))
 boolean: JsonParser = token("bool").fmap(lambda t: t.value == "true")
 null: JsonParser = token("null").fmap(lambda t: None)
 json_dict: JsonParser = (
-    ((string | recover_value("a")) << punct(":")) + value
+    ((string | insert("a")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")
@@ -64,7 +64,7 @@ json_list: JsonParser = value.sep_by(punct(",")).between(
 
 value.define(
     (
-        integer | number | boolean | null | string | recover_value(1)
+        integer | number | boolean | null | string | insert(1)
         | json_dict | json_list
     ).label("value")
 )

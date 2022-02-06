@@ -156,20 +156,20 @@ def label(parser: ParseObj[S, P, V], x: str) -> Parser[S, P, V]:
     return FnParser(combinators.label(parser.to_fn(), x))
 
 
-class RecoverValue(
-        primitive.RecoverValue[S_contra, P, V_co], Parser[S_contra, P, V_co]):
+class InsertValue(
+        primitive.InsertValue[S_contra, P, V_co], Parser[S_contra, P, V_co]):
     pass
 
 
-recover_value = RecoverValue
+insert = InsertValue
 
 
-class RecoverFn(
-        primitive.RecoverFn[S_contra, P, V_co], Parser[S_contra, P, V_co]):
+class InsertFn(
+        primitive.InsertFn[S_contra, P, V_co], Parser[S_contra, P, V_co]):
     pass
 
 
-recover_fn = RecoverFn
+insert_fn = InsertFn
 
 
 class Delay(combinators.Delay[S_contra, P, V_co], Parser[S_contra, P, V_co]):

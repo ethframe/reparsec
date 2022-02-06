@@ -38,7 +38,7 @@ class PureFn(ParseObj[S_contra, P, V_co]):
 pure_fn = PureFn
 
 
-class RecoverValue(ParseObj[S_contra, P, V_co]):
+class InsertValue(ParseObj[S_contra, P, V_co]):
     def __init__(self, x: V_co, expected: Optional[str] = None):
         self._x = x
         self._label = repr(x)
@@ -59,10 +59,10 @@ class RecoverValue(ParseObj[S_contra, P, V_co]):
         return Error(pos)
 
 
-recover_value = RecoverValue
+insert = InsertValue
 
 
-class RecoverFn(ParseObj[S_contra, P, V_co]):
+class InsertFn(ParseObj[S_contra, P, V_co]):
     def __init__(self, fn: Callable[[], V_co], expected: Optional[str] = None):
         self._fn = fn
         self._expected = [] if expected is None else [expected]
@@ -79,4 +79,4 @@ class RecoverFn(ParseObj[S_contra, P, V_co]):
         return Error(pos)
 
 
-recover_fn = RecoverFn
+insert_fn = InsertFn
