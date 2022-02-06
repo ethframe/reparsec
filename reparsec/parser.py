@@ -1,9 +1,10 @@
 from typing import (
-    AnyStr, Callable, List, Optional, Sequence, Sized, Tuple, TypeVar, Union
+    Callable, List, Optional, Sequence, Sized, Tuple, TypeVar, Union
 )
 
 from .core import ParseFn, ParseObj, RecoveryMode
 from .impl import combinators, primitive, scannerless, sequence
+from .impl.scannerless import Pos as Pos
 from .output import ParseResult
 from .result import Result
 
@@ -178,13 +179,15 @@ class Delay(combinators.Delay[S_contra, P, V_co], Parser[S_contra, P, V_co]):
         self.define_fn(parser.to_fn())
 
 
-def prefix(s: AnyStr) -> Parser[AnyStr, int, AnyStr]:
+def sl_eof() -> Parser[str, Pos, None]:
+    return FnParser(scannerless.eof())
+
+
+def prefix(s: str) -> Parser[str, Pos, str]:
     return FnParser(scannerless.prefix(s))
 
 
-def regexp(
-        pat: AnyStr,
-        group: Union[int, str] = 0) -> Parser[AnyStr, int, AnyStr]:
+def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, Pos, str]:
     return FnParser(scannerless.regexp(pat, group))
 
 
@@ -209,4 +212,17 @@ digit: Parser[Sequence[str], int, str] = satisfy(str.isdigit).label("digit")
 def run(
         parser: Parser[S, int, V], stream: S,
         recover: bool = False) -> ParseResult[int, V]:
-    return ParseResult(parser.parse_fn(stream, 0, True if recover else None))
+    return ParseResult(
+        parser.parse_fn(stream, 0, True if recover else None), repr
+    )
+
+
+def sl_run(
+        parser: Parser[str, Pos, V], stream: str,
+        recover: bool = False) -> ParseResult[Pos, V]:
+    return ParseResult(
+        parser.parse_fn(
+            stream, scannerless.start(), True if recover else None
+        ),
+        lambda p: "{!r}:{!r}".format(p[1] + 1, p[2] + 1)
+    )

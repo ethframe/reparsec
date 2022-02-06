@@ -1,7 +1,7 @@
 import re
 from typing import Match
 
-from .parser import Delay, Parser, eof, insert, prefix, regexp, run
+from .parser import Delay, Parser, Pos, insert, prefix, regexp, sl_run, sl_eof
 
 escape = re.compile(r"""
 \\(?:(?P<simple>["\\/bfnrt])|u(?P<unicode>[0-9a-fA-F]{4}))
@@ -25,17 +25,17 @@ def unescape(s: str) -> str:
 ows = regexp(r"[ \n\r\t]*")
 
 
-def token(pat: str) -> Parser[str, int, str]:
+def token(pat: str) -> Parser[str, Pos, str]:
     return regexp(r"[ \n\r\t]*" + pat, 1)
 
 
-def punct(p: str) -> Parser[str, int, str]:
+def punct(p: str) -> Parser[str, Pos, str]:
     return (ows >> prefix(p)).attempt()
 
 
-JsonParser = Parser[str, int, object]
+JsonParser = Parser[str, Pos, object]
 
-value: Delay[str, int, object] = Delay()
+value: Delay[str, Pos, object] = Delay()
 
 string: JsonParser = token(
     r'"(?P<string>(?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|'
@@ -65,8 +65,8 @@ value.define(
     ).label("value")
 )
 
-json = value << ows << eof()
+json = value << ows << sl_eof()
 
 
 def parse(src: str) -> object:
-    return run(json, src).unwrap()
+    return sl_run(json, src).unwrap()

@@ -4,7 +4,7 @@ import pytest
 
 from reparsec import json_scannerless
 from reparsec.output import ParseError
-from reparsec.parser import run
+from reparsec.parser import sl_run
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),
@@ -32,16 +32,16 @@ def test_positive(data: str, expected: object) -> None:
 
 
 DATA_NEGATIVE = [
-    ("", "at 0: expected value"),
-    ("1 1", "at 2: expected end of file"),
-    ("{", "at 1: expected string or '}'"),
-    ('{"key"', "at 6: expected ':'"),
-    ('{"key":', "at 7: expected value"),
-    ('{"key": 0', "at 9: expected ',' or '}'"),
-    ('{"key": 0,', "at 10: expected string"),
-    ("[", "at 1: expected value or ']'"),
-    ("[0", "at 2: expected ',' or ']'"),
-    ("[0,", "at 3: expected value"),
+    ("", "at 1:1: expected value"),
+    ("1 1", "at 1:3: expected end of file"),
+    ("{", "at 1:2: expected string or '}'"),
+    ('{"key"', "at 1:7: expected ':'"),
+    ('{"key":', "at 1:8: expected value"),
+    ('{"key": 0', "at 1:10: expected ',' or '}'"),
+    ('{"key": 0,', "at 1:11: expected string"),
+    ("[", "at 1:2: expected value or ']'"),
+    ("[0", "at 1:3: expected ',' or ']'"),
+    ("[0,", "at 1:4: expected value"),
 ]
 
 
@@ -53,38 +53,41 @@ def test_negative(data: str, expected: str) -> None:
 
 
 DATA_RECOVERY: List[Tuple[str, object, str]] = [
-    ("1 1", 1, "at 2: expected end of file"),
-    ("{", {}, "at 1: expected string or '}'"),
-    ("[1 2]", [1], "at 3: expected ',' or ']'"),
-    ("[1, , 2]", [1, 1, 2], "at 3: expected value"),
+    ("1 1", 1, "at 1:3: expected end of file"),
+    ("{", {}, "at 1:2: expected string or '}'"),
+    ("[1 2]", [1], "at 1:4: expected ',' or ']'"),
+    ("[1, , 2]", [1, 1, 2], "at 1:4: expected value"),
     (
         "[1, [{, 2]", [1, [{}, 2]],
-        "at 6: expected string or '}', at 10: expected ']'"
+        "at 1:7: expected string or '}', at 1:11: expected ']'"
     ),
-    ("[1, }, 2]", [1, {}, 2], "at 4: expected value"),
-    ('{"key": }', {"key": 1}, "at 7: expected value"),
-    ('{"key": ]', {"key": []}, "at 8: expected value, at 9: expected '}'"),
+    ("[1, }, 2]", [1, {}, 2], "at 1:5: expected value"),
+    ('{"key": }', {"key": 1}, "at 1:8: expected value"),
+    (
+        '{"key": ]', {"key": []},
+        "at 1:9: expected value, at 1:10: expected '}'"
+    ),
     (
         '{"key": 2]', {"key": 2},
-        "at 9: expected ',' or '}', at 9: expected end of file"
+        "at 1:10: expected ',' or '}', at 1:10: expected end of file"
     ),
     (
         '{"key": 0,', {"key": 0, "a": 1},
-        "at 10: expected string, at 10: expected ':', " +
-        "at 10: expected value, at 10: expected '}'"
+        "at 1:11: expected string, at 1:11: expected ':', " +
+        "at 1:11: expected value, at 1:11: expected '}'"
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 10: expected string, at 11: expected ':', " +
-        "at 11: expected value, at 12: expected '}'"
+        "at 1:11: expected string, at 1:12: expected ':', " +
+        "at 1:12: expected value, at 1:13: expected '}'"
     ),
-    ('{"key": @}', {"key": 1}, "at 7: expected value, at 8: expected '}'"),
+    ('{"key": @}', {"key": 1}, "at 1:8: expected value, at 1:9: expected '}'"),
 ]
 
 
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
-    r = run(json_scannerless.json, data, recover=True)
+    r = sl_run(json_scannerless.json, data, recover=True)
     assert value == r.unwrap(recover=True)
     with pytest.raises(ParseError) as err:
         r.unwrap()
