@@ -1,5 +1,7 @@
 from abc import abstractmethod
-from typing import Callable, Generic, Literal, TypeVar
+from typing import Callable, Generic, TypeVar
+
+from typing_extensions import Literal
 
 from .result import Result
 
