@@ -1,9 +1,10 @@
 import re
 from typing import Optional, Tuple, TypeVar, Union
 
-from ..core import ParseFn, RecoveryMode
+from ..core import ParseObjC, RecoveryMode
 from ..result import Error, Insert, Ok, Recovered, Repair, Result, Skip
 
+C = TypeVar("C")
 V = TypeVar("V")
 Pos = Tuple[int, int, int]
 
@@ -23,82 +24,93 @@ def _update_pos(stream: str, pos: Pos, end: int) -> Pos:
     return (end, line, col)
 
 
-def eof() -> ParseFn[str, Pos, None]:
-    def eof(stream: str, pos: Pos, rm: RecoveryMode) -> Result[Pos, None]:
+class EofC(ParseObjC[str, Pos, C, None]):
+    def parse_fn(
+            self, stream: str, pos: Pos, ctx: C,
+            rm: RecoveryMode) -> Result[Pos, C, None]:
         start = pos[0]
         if start == len(stream):
-            return Ok(None, pos)
+            return Ok(None, pos, ctx)
         if rm:
             skip = len(stream) - start
             return Recovered(
                 {
                     _update_pos(stream, pos, len(stream)): Repair(
-                        skip, None, Skip(skip, pos), ["end of file"]
+                        skip, None, ctx, Skip(skip, pos), ["end of file"]
                     )
                 },
                 pos, ["end of file"]
             )
         return Error(pos, ["end of file"])
 
-    return eof
 
+class PrefixC(ParseObjC[str, Pos, C, str]):
+    def __init__(self, s: str):
+        self._s = s
+        self._ls = len(s)
+        self._rs = repr(s)
+        self._expected = [self._rs]
 
-def prefix(s: str) -> ParseFn[str, Pos, str]:
-    ls = len(s)
-    rs = repr(s)
-    expected = [rs]
-
-    def prefix(stream: str, pos: Pos, rm: RecoveryMode) -> Result[Pos, str]:
+    def parse_fn(
+            self, stream: str, pos: Pos, ctx: C,
+            rm: RecoveryMode) -> Result[Pos, C, str]:
         start = pos[0]
-        if stream.startswith(s, start):
+        if stream.startswith(self._s, start):
             return Ok(
-                s, _update_pos(stream, pos, start + ls), consumed=ls != 0
+                self._s, _update_pos(stream, pos, start + self._ls), ctx,
+                consumed=self._ls != 0
             )
         if rm:
-            reps = {pos: Repair(ls, s, Insert(rs, pos), expected)}
+            reps = {
+                pos: Repair(
+                    self._ls, self._s, ctx, Insert(self._rs, pos),
+                    self._expected
+                )
+            }
             cur = start + 1
             while cur < len(stream):
-                if stream.startswith(s, cur):
+                if stream.startswith(self._s, cur):
                     skip = cur - start
-                    reps[_update_pos(stream, pos, cur + ls)] = Repair(
-                        skip, s, Skip(skip, pos), expected
+                    reps[_update_pos(stream, pos, cur + self._ls)] = Repair(
+                        skip, self._s, ctx, Skip(skip, pos), self._expected
                     )
-                    return Recovered(reps, pos, expected)
+                    return Recovered(reps, pos, self._expected)
                 cur += 1
-            return Recovered(reps, pos, expected)
-        return Error(pos, expected)
-
-    return prefix
+            return Recovered(reps, pos, self._expected)
+        return Error(pos, self._expected)
 
 
-def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, Pos, str]:
-    match = re.compile(pat).match
+class RegexpC(ParseObjC[str, Pos, C, str]):
+    def __init__(self, pat: str, group: Union[int, str] = 0):
+        self._match = re.compile(pat).match
+        self._group = group
 
-    def regexp(
-            stream: str, pos: Pos, rm: RecoveryMode) -> Result[Pos, str]:
+    def parse_fn(
+            self, stream: str, pos: Pos, ctx: C,
+            rm: RecoveryMode) -> Result[Pos, C, str]:
         start = pos[0]
-        r = match(stream, pos=start)
+        r = self._match(stream, pos=start)
         if r is not None:
-            v: Optional[str] = r.group(group)
+            v: Optional[str] = r.group(self._group)
             if v is not None:
                 p = r.end()
-                return Ok(v, _update_pos(stream, pos, p), consumed=p != start)
+                return Ok(
+                    v, _update_pos(stream, pos, p), ctx, consumed=p != start
+                )
         if rm:
             cur = start + 1
             while cur < len(stream):
-                r = match(stream, pos=cur)
+                r = self._match(stream, pos=cur)
                 if r is not None:
-                    v = r.group(group)
+                    v = r.group(self._group)
                     if v is not None:
                         skip = cur - start
                         return Recovered(
                             {
                                 _update_pos(stream, pos, r.end()): Repair(
-                                    skip, v, Skip(skip, pos)
+                                    skip, v, ctx, Skip(skip, pos)
                                 )
                             }, pos
                         )
                 cur += 1
         return Error(pos)
-
-    return regexp

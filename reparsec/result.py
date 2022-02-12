@@ -6,40 +6,41 @@ from typing_extensions import Literal, final
 from .chain import Chain
 
 P = TypeVar("P", bound=object)
+C = TypeVar("C")
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U")
 
 
 @final
-class Ok(Generic[P, V_co]):
-    __slots__ = "value", "pos", "expected", "consumed"
+class Ok(Generic[P, C, V_co]):
+    __slots__ = "value", "pos", "ctx", "expected", "consumed"
 
     def __init__(
-            self, value: V_co, pos: P, expected: Iterable[str] = (),
+            self, value: V_co, pos: P, ctx: C, expected: Iterable[str] = (),
             consumed: bool = False):
         self.value = value
         self.pos = pos
+        self.ctx = ctx
         self.expected = expected
         self.consumed = consumed
 
-    def unwrap(self, recover: bool = False) -> V_co:
-        return self.value
+    def fmap(self, fn: Callable[[V_co], U]) -> "Ok[P, C, U]":
+        return Ok(
+            fn(self.value), self.pos, self.ctx, self.expected, self.consumed
+        )
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "Ok[P, U]":
-        return Ok(fn(self.value), self.pos, self.expected, self.consumed)
-
-    def expect(self, expected: Iterable[str]) -> "Ok[P, V_co]":
+    def expect(self, expected: Iterable[str]) -> "Ok[P, C, V_co]":
         if self.consumed:
             return self
-        return Ok(self.value, self.pos, expected, self.consumed)
+        return Ok(self.value, self.pos, self.ctx, expected, self.consumed)
 
     def merge_expected(
-            self, expected: Iterable[str], consumed: bool) -> "Ok[P, V_co]":
+            self, expected: Iterable[str], consumed: bool) -> "Ok[P, C, V_co]":
         if consumed and self.consumed:
             return self
         return Ok(
-            self.value, self.pos, Chain(expected, self.expected),
+            self.value, self.pos, self.ctx, Chain(expected, self.expected),
             consumed or self.consumed
         )
 
@@ -94,9 +95,10 @@ class PrefixItem(Generic[P]):
 
 
 @dataclass
-class Repair(Generic[P, V_co]):
+class Repair(Generic[P, C, V_co]):
     cost: int
     value: V_co
+    ctx: C
     op: RepairOp[P]
     expected: Iterable[str] = ()
     consumed: bool = False
@@ -104,24 +106,24 @@ class Repair(Generic[P, V_co]):
 
 
 @final
-class Recovered(Generic[P, V_co]):
+class Recovered(Generic[P, C, V_co]):
     __slots__ = "repairs", "pos", "expected", "consumed"
 
     consumed: Literal[True]
 
     def __init__(
-            self, repairs: Mapping[P, Repair[P, V_co]], pos: P,
+            self, repairs: Mapping[P, Repair[P, C, V_co]], pos: P,
             expected: Iterable[str] = ()):
         self.repairs = repairs
         self.pos = pos
         self.expected = expected
         self.consumed = True
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[P, U]":
+    def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[P, C, U]":
         return Recovered(
             {
                 p: Repair(
-                    r.cost, fn(r.value), r.op, r.expected, r.consumed,
+                    r.cost, fn(r.value), r.ctx, r.op, r.expected, r.consumed,
                     r.prefix
                 )
                 for p, r in self.repairs.items()
@@ -129,11 +131,11 @@ class Recovered(Generic[P, V_co]):
             self.pos, self.expected
         )
 
-    def expect(self, expected: Iterable[str]) -> "Recovered[P, V_co]":
+    def expect(self, expected: Iterable[str]) -> "Recovered[P, C, V_co]":
         return Recovered(
             {
                 p: Repair(
-                    r.cost, r.value, r.op,
+                    r.cost, r.value, r.ctx, r.op,
                     r.expected if r.consumed else expected,
                     r.consumed, r.prefix
                 )
@@ -144,11 +146,11 @@ class Recovered(Generic[P, V_co]):
 
     def merge_expected(
             self, expected: Iterable[str],
-            consumed: bool) -> "Recovered[P, V_co]":
+            consumed: bool) -> "Recovered[P, C, V_co]":
         return Recovered(
             {
                 p: Repair(
-                    r.cost, r.value, r.op,
+                    r.cost, r.value, r.ctx, r.op,
                     r.expected if consumed and r.consumed
                     else Chain(expected, r.expected),
                     consumed or r.consumed, r.prefix
@@ -159,4 +161,4 @@ class Recovered(Generic[P, V_co]):
         )
 
 
-Result = Union[Recovered[P, V], Ok[P, V], Error[P]]
+Result = Union[Recovered[P, C, V], Ok[P, C, V], Error[P]]

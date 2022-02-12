@@ -1,7 +1,9 @@
 import re
 from typing import Match
 
-from .parser import Delay, Parser, Pos, insert, prefix, regexp, sl_run, sl_eof
+from .parser import (
+    Delay, DelayC, InsertValue, Parser, Pos, prefix, regexp, sl_eof, sl_run
+)
 
 escape = re.compile(r"""
 \\(?:(?P<simple>["\\/bfnrt])|u(?P<unicode>[0-9a-fA-F]{4}))
@@ -35,7 +37,7 @@ def punct(p: str) -> Parser[str, Pos, str]:
 
 JsonParser = Parser[str, Pos, object]
 
-value: Delay[str, Pos, object] = Delay()
+value: Delay[str, Pos, object] = DelayC()
 
 string: JsonParser = token(
     r'"(?P<string>(?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|'
@@ -50,7 +52,7 @@ boolean: JsonParser = token(r"(true|false)").label("bool").fmap(
     lambda s: s == "true")
 null: JsonParser = token(r"(null)").label("null").fmap(lambda _: None)
 json_dict: JsonParser = (
-    ((string | insert("a")) << punct(":")) + value
+    ((string | InsertValue[str, Pos, str]("a")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")
@@ -60,7 +62,8 @@ json_list: JsonParser = value.sep_by(punct(",")).between(
 
 value.define(
     (
-        number | integer | boolean | null | string | insert(1)
+        number | integer | boolean | null | string
+        | InsertValue[str, Pos, object](1)
         | json_dict | json_list
     ).label("value")
 )

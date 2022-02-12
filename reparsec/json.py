@@ -2,7 +2,7 @@ import re
 from typing import Match, Sequence
 
 from .lexer import Token, split_tokens, token
-from .parser import Delay, Parser, eof, insert, run, sym
+from .parser import Delay, DelayC, InsertValue, Parser, eof, label, run, sym
 
 spec = re.compile(r"""
 [ \n\r\t]+
@@ -41,12 +41,12 @@ def unescape(s: str) -> str:
 
 
 def punct(x: str) -> Parser[Sequence[Token], int, Token]:
-    return sym(Token("punct", x)).label(repr(x))
+    return label(sym(Token("punct", x)), repr(x))
 
 
 JsonParser = Parser[Sequence[Token], int, object]
 
-value: Delay[Sequence[Token], int, object] = Delay()
+value: Delay[Sequence[Token], int, object] = DelayC()
 
 string: JsonParser = token("string").fmap(lambda t: unescape(t.value))
 integer: JsonParser = token("integer").fmap(lambda t: int(t.value))
@@ -54,7 +54,9 @@ number: JsonParser = token("float").fmap(lambda t: float(t.value))
 boolean: JsonParser = token("bool").fmap(lambda t: t.value == "true")
 null: JsonParser = token("null").fmap(lambda t: None)
 json_dict: JsonParser = (
-    ((string | insert("a")) << punct(":")) + value
+    (
+        (string | InsertValue[Sequence[Token], int, str]("a")) << punct(":")
+    ) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")
@@ -64,7 +66,8 @@ json_list: JsonParser = value.sep_by(punct(",")).between(
 
 value.define(
     (
-        integer | number | boolean | null | string | insert(1)
+        integer | number | boolean | null | string
+        | InsertValue[Sequence[Token], int, object](1)
         | json_dict | json_list
     ).label("value")
 )

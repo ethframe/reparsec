@@ -4,6 +4,7 @@ from typing import Callable, Generic, List, TypeVar
 from .result import Error, Ok, Result
 
 P = TypeVar("P")
+C = TypeVar("C")
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U")
 
@@ -35,12 +36,12 @@ class ParseError(Exception):
 FmtPos = Callable[[P], str]
 
 
-class ParseResult(Generic[P, V_co]):
-    def __init__(self, result: Result[P, V_co], fmt_pos: FmtPos[P]):
+class ParseResult(Generic[P, C, V_co]):
+    def __init__(self, result: Result[P, C, V_co], fmt_pos: FmtPos[P]):
         self._result = result
         self._fmt_pos = fmt_pos
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "ParseResult[P, U]":
+    def fmap(self, fn: Callable[[V_co], U]) -> "ParseResult[P, C, U]":
         return ParseResult(self._result.fmap(fn), self._fmt_pos)
 
     def unwrap(self, recover: bool = False) -> V_co:
