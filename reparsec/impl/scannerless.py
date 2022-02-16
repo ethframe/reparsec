@@ -18,7 +18,7 @@ def _update_pos(stream: str, pos: Pos, end: int) -> Pos:
     nlc = stream.count("\n", start, end)
     if nlc:
         line += nlc
-        col = (end - start) - stream.rfind("\n", start, end) - 1
+        col = end - stream.rfind("\n", start, end) - 1
     else:
         col += (end - start)
     return (end, line, col)

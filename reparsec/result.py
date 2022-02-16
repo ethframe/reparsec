@@ -7,6 +7,7 @@ from .chain import Chain
 
 P = TypeVar("P", bound=object)
 C = TypeVar("C")
+CO = TypeVar("CO")
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U")
@@ -28,6 +29,11 @@ class Ok(Generic[P, C, V_co]):
     def fmap(self, fn: Callable[[V_co], U]) -> "Ok[P, C, U]":
         return Ok(
             fn(self.value), self.pos, self.ctx, self.expected, self.consumed
+        )
+
+    def fmap_ctx(self, fn: Callable[[C], CO]) -> "Ok[P, CO, V_co]":
+        return Ok(
+            self.value, self.pos, fn(self.ctx), self.expected, self.consumed
         )
 
     def expect(self, expected: Iterable[str]) -> "Ok[P, C, V_co]":
@@ -57,6 +63,9 @@ class Error(Generic[P]):
         self.consumed = consumed
 
     def fmap(self, fn: object) -> "Error[P]":
+        return self
+
+    def fmap_ctx(self, fn: object) -> "Error[P]":
         return self
 
     def expect(self, expected: Iterable[str]) -> "Error[P]":
@@ -124,6 +133,18 @@ class Recovered(Generic[P, C, V_co]):
             {
                 p: Repair(
                     r.cost, fn(r.value), r.ctx, r.op, r.expected, r.consumed,
+                    r.prefix
+                )
+                for p, r in self.repairs.items()
+            },
+            self.pos, self.expected
+        )
+
+    def fmap_ctx(self, fn: Callable[[C], CO]) -> "Recovered[P, CO, V_co]":
+        return Recovered(
+            {
+                p: Repair(
+                    r.cost, r.value, fn(r.ctx), r.op, r.expected, r.consumed,
                     r.prefix
                 )
                 for p, r in self.repairs.items()

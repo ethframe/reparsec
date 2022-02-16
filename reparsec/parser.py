@@ -3,7 +3,9 @@ from typing import (
 )
 
 from .core import ParseFnC, ParseObjC, RecoveryMode
-from .impl import combinators, primitive, scannerless, sequence
+from .impl import combinators, layout, primitive, scannerless, sequence
+from .impl.layout import Ctx as Ctx
+from .impl.layout import GetLevelFn as GetLevelFn
 from .impl.scannerless import Pos as Pos
 from .output import FmtPos, ParseResult
 from .result import Result
@@ -240,20 +242,20 @@ def sl_eof() -> Parser[str, Pos, None]:
     return SlEofC()
 
 
-class Prefix(scannerless.PrefixC[C], ParserC[str, Pos, C, str]):
+class PrefixC(scannerless.PrefixC[C], ParserC[str, Pos, C, str]):
     pass
 
 
 def prefix(s: str) -> Parser[str, Pos, str]:
-    return Prefix(s)
+    return PrefixC(s)
 
 
-class Regexp(scannerless.RegexpC[C], ParserC[str, Pos, C, str]):
+class RegexpC(scannerless.RegexpC[C], ParserC[str, Pos, C, str]):
     pass
 
 
 def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, Pos, str]:
-    return Regexp(pat, group)
+    return RegexpC(pat, group)
 
 
 def sep_by(
@@ -268,6 +270,24 @@ def between(
         open: ParseObjC[S, P, C, U], close: ParseObjC[S, P, C, X],
         parser: ParseObjC[S, P, C, V]) -> ParserC[S, P, C, V]:
     return rseq(open, lseq(parser, close))
+
+
+def block(
+        parser: ParseObjC[S, P, Ctx, V],
+        fn: GetLevelFn[S, P]) -> ParserC[S, P, Ctx, V]:
+    return FnParserC(layout.block(parser.to_fn(), fn))
+
+
+def same(
+        parser: ParseObjC[S, P, Ctx, V],
+        fn: GetLevelFn[S, P]) -> ParserC[S, P, Ctx, V]:
+    return FnParserC(layout.same(parser.to_fn(), fn))
+
+
+def indented(
+        delta: int, parser: ParseObjC[S, P, Ctx, V],
+        fn: GetLevelFn[S, P]) -> ParserC[S, P, Ctx, V]:
+    return FnParserC(layout.indented(delta, parser.to_fn(), fn))
 
 
 letter: Parser[Sequence[str], int, str] = satisfy(str.isalpha).label("letter")
