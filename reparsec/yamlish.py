@@ -1,27 +1,19 @@
-
 from typing import Tuple
 
-from .parser import (
-    Ctx, DelayC, ParserC, Pos, RegexpC, SlEofC, alt, indented, same, sl_run_c
-)
+from .parser import Delay, Parser, alt, eof, indented, regexp, same, sl_run
 
-
-def get_level(_: str, pos: Pos) -> int:
-    return pos[2]
-
-
-eol = RegexpC[Ctx](r"\n\s*")
-ows = RegexpC[Ctx](r"\s*")
-ident = RegexpC[Ctx](r"[a-zA-Z_][a-zA-Z_0-9]*")
-pair: DelayC[str, Pos, Ctx, Tuple[str, object]] = DelayC()
-value: ParserC[str, Pos, Ctx, object] = alt(
+eol = regexp(r"\n\s*")
+ows = regexp(r"\s*")
+ident = regexp(r"[a-zA-Z_][a-zA-Z_0-9]*")
+pair: Delay[str, Tuple[str, object]] = Delay()
+value: Parser[str, object] = alt(
     ident << eol.maybe(),
-    (eol >> indented(4, pair.many(), get_level)).fmap(lambda kvs: dict(kvs))
+    (eol >> indented(4, pair.many())).fmap(lambda kvs: dict(kvs))
 )
-pair.define((same(ident, get_level) << RegexpC[Ctx]("[ \t]*:[ \t]*")) + value)
+pair.define((same(ident) << regexp("[ \t]*:[ \t]*")) + value)
 
-parser = ows >> pair.many().fmap(lambda kvs: dict(kvs)) << SlEofC[Ctx]()
+parser = ows >> pair.many().fmap(lambda kvs: dict(kvs)) << eof()
 
 
 def parse(source: str) -> object:
-    return sl_run_c(parser, source, 0).unwrap()
+    return sl_run(parser, source).unwrap()

@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from typing import Callable, Generic, List, TypeVar
 
 from .result import Error, Ok, Result
+from .state import Loc
 
-P = TypeVar("P")
-C = TypeVar("C")
+S = TypeVar("S")
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U")
 
@@ -33,16 +33,13 @@ class ParseError(Exception):
         return ", ".join(error.msg() for error in self.errors)
 
 
-FmtPos = Callable[[P], str]
-
-
-class ParseResult(Generic[P, C, V_co]):
-    def __init__(self, result: Result[P, C, V_co], fmt_pos: FmtPos[P]):
+class ParseResult(Generic[V_co, S]):
+    def __init__(self, result: Result[V_co, S], fmt_loc: Callable[[Loc], str]):
         self._result = result
-        self._fmt_pos = fmt_pos
+        self._fmt_loc = fmt_loc
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "ParseResult[P, C, U]":
-        return ParseResult(self._result.fmap(fn), self._fmt_pos)
+    def fmap(self, fn: Callable[[V_co], U]) -> "ParseResult[U, S]":
+        return ParseResult(self._result.fmap(fn), self._fmt_loc)
 
     def unwrap(self, recover: bool = False) -> V_co:
         if type(self._result) is Ok:
@@ -51,7 +48,7 @@ class ParseResult(Generic[P, C, V_co]):
         if type(self._result) is Error:
             raise ParseError([
                 ErrorItem(
-                    self._fmt_pos(self._result.pos),
+                    self._fmt_loc(self._result.loc),
                     list(self._result.expected)
                 )
             ])
@@ -62,9 +59,9 @@ class ParseResult(Generic[P, C, V_co]):
         errors: List[ErrorItem] = []
         for item in repair.prefix:
             errors.append(
-                ErrorItem(self._fmt_pos(item.op.pos), list(item.expected))
+                ErrorItem(self._fmt_loc(item.op.loc), list(item.expected))
             )
         errors.append(
-            ErrorItem(self._fmt_pos(repair.op.pos), list(repair.expected))
+            ErrorItem(self._fmt_loc(repair.op.loc), list(repair.expected))
         )
         raise ParseError(errors)

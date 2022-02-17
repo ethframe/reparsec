@@ -1,54 +1,44 @@
-from typing import Callable, TypeVar
+from typing import TypeVar
 
-from ..core import ParseFnC, RecoveryMode
+from ..core import ParseFn, RecoveryMode
 from ..result import Error, Result
+from ..state import Ctx
 
 S = TypeVar("S")
-P = TypeVar("P")
 V = TypeVar("V")
 U = TypeVar("U")
 
 
-Ctx = int
-
-GetLevelFn = Callable[[S, P], Ctx]
-
-
-def block(
-        parse_fn: ParseFnC[S, P, Ctx, V],
-        fn: GetLevelFn[S, P]) -> ParseFnC[S, P, Ctx, V]:
+def block(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     def block(
-            stream: S, pos: P, ctx: Ctx,
-            rm: RecoveryMode) -> Result[P, Ctx, V]:
-        return parse_fn(
-            stream, pos, fn(stream, pos), rm
-        ).fmap_ctx(lambda _: ctx)
+            stream: S, pos: int, ctx: Ctx[S],
+            rm: RecoveryMode) -> Result[V, S]:
+        ctx, inner = ctx.set_anchor(stream, pos)
+        return parse_fn(stream, pos, inner, rm).with_ctx(ctx)
 
     return block
 
 
-def same(
-        parse_fn: ParseFnC[S, P, Ctx, V],
-        fn: GetLevelFn[S, P]) -> ParseFnC[S, P, Ctx, V]:
+def same(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     def same(
-            stream: S, pos: P, ctx: Ctx,
-            rm: RecoveryMode) -> Result[P, Ctx, V]:
-        if fn(stream, pos) == ctx:
+            stream: S, pos: int, ctx: Ctx[S],
+            rm: RecoveryMode) -> Result[V, S]:
+        ctx, loc = ctx.get_loc(stream, pos)
+        if ctx.anchor == loc.col:
             return parse_fn(stream, pos, ctx, rm)
-        return Error(pos, ["indentation"])
+        return Error(pos, loc, ["indentation"])
 
     return same
 
 
-def indented(
-        delta: int, parse_fn: ParseFnC[S, P, Ctx, V],
-        fn: GetLevelFn[S, P]) -> ParseFnC[S, P, Ctx, V]:
+def indented(delta: int, parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     def indented(
-            stream: S, pos: P, ctx: Ctx,
-            rm: RecoveryMode) -> Result[P, Ctx, V]:
-        expected = ctx + delta
-        if fn(stream, pos) == expected:
-            return parse_fn(stream, pos, expected, rm).fmap_ctx(lambda _: ctx)
-        return Error(pos, ["indentation"])
+            stream: S, pos: int, ctx: Ctx[S],
+            rm: RecoveryMode) -> Result[V, S]:
+        ctx, inner = ctx.set_anchor(stream, pos)
+        if ctx.anchor + delta == inner.anchor:
+            return parse_fn(stream, pos, inner, rm).with_ctx(ctx)
+        ctx, loc = ctx.get_loc(stream, pos)
+        return Error(pos, loc, ["indentation"])
 
     return indented

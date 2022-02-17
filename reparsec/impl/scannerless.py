@@ -1,116 +1,93 @@
 import re
 from typing import Optional, Tuple, TypeVar, Union
 
-from ..core import ParseObjC, RecoveryMode
+from ..core import ParseFn, RecoveryMode
 from ..result import Error, Insert, Ok, Recovered, Repair, Result, Skip
+from ..state import Ctx, Loc
 
 C = TypeVar("C")
 V = TypeVar("V")
-Pos = Tuple[int, int, int]
 
 
-def start() -> Pos:
-    return (0, 0, 0)
-
-
-def _update_pos(stream: str, pos: Pos, end: int) -> Pos:
-    start, line, col = pos
+def _update_loc(stream: str, loc: Loc, end: int) -> Loc:
+    start, line, col = loc
     nlc = stream.count("\n", start, end)
     if nlc:
         line += nlc
         col = end - stream.rfind("\n", start, end) - 1
     else:
         col += (end - start)
-    return (end, line, col)
+    return Loc(end, line, col)
 
 
-class EofC(ParseObjC[str, Pos, C, None]):
-    def parse_fn(
-            self, stream: str, pos: Pos, ctx: C,
-            rm: RecoveryMode) -> Result[Pos, C, None]:
-        start = pos[0]
-        if start == len(stream):
-            return Ok(None, pos, ctx)
+class SlCtx(Ctx[str]):
+    def get_loc(self, stream: str, pos: int) -> Tuple[Ctx[str], Loc]:
+        loc = _update_loc(stream, self.loc, pos)
+        return SlCtx(self.anchor, loc), loc
+
+    def set_anchor(self, stream: str, pos: int) -> Tuple[Ctx[str], Ctx[str]]:
+        loc = _update_loc(stream, self.loc, pos)
+        return SlCtx(self.anchor, loc), SlCtx(loc.col, loc)
+
+
+def prefix(s: str) -> ParseFn[str, str]:
+    if len(s) == 0:
+        raise ValueError("Expected non-empty value")
+
+    ls = len(s)
+    rs = repr(s)
+    expected = [rs]
+
+    def prefix(
+            stream: str, pos: int, ctx: Ctx[str],
+            rm: RecoveryMode) -> Result[str, str]:
+        if stream.startswith(s, pos):
+            return Ok(s, pos + ls, ctx, consumed=True)
+        ctx, loc = ctx.get_loc(stream, pos)
         if rm:
-            skip = len(stream) - start
-            return Recovered(
-                {
-                    _update_pos(stream, pos, len(stream)): Repair(
-                        skip, None, ctx, Skip(skip, pos), ["end of file"]
-                    )
-                },
-                pos, ["end of file"]
-            )
-        return Error(pos, ["end of file"])
-
-
-class PrefixC(ParseObjC[str, Pos, C, str]):
-    def __init__(self, s: str):
-        self._s = s
-        self._ls = len(s)
-        self._rs = repr(s)
-        self._expected = [self._rs]
-
-    def parse_fn(
-            self, stream: str, pos: Pos, ctx: C,
-            rm: RecoveryMode) -> Result[Pos, C, str]:
-        start = pos[0]
-        if stream.startswith(self._s, start):
-            return Ok(
-                self._s, _update_pos(stream, pos, start + self._ls), ctx,
-                consumed=self._ls != 0
-            )
-        if rm:
-            reps = {
-                pos: Repair(
-                    self._ls, self._s, ctx, Insert(self._rs, pos),
-                    self._expected
-                )
-            }
-            cur = start + 1
+            reps = {pos: Repair(ls, s, ctx, Insert(rs, loc), expected)}
+            cur = pos + 1
             while cur < len(stream):
-                if stream.startswith(self._s, cur):
-                    skip = cur - start
-                    reps[_update_pos(stream, pos, cur + self._ls)] = Repair(
-                        skip, self._s, ctx, Skip(skip, pos), self._expected
+                if stream.startswith(s, cur):
+                    skip = cur - pos
+                    reps[cur + ls] = Repair(
+                        skip, s, ctx, Skip(skip, loc), expected
                     )
-                    return Recovered(reps, pos, self._expected)
+                    return Recovered(reps, pos, loc, expected)
                 cur += 1
-            return Recovered(reps, pos, self._expected)
-        return Error(pos, self._expected)
+            return Recovered(reps, pos, loc, expected)
+        return Error(pos, loc, expected)
+
+    return prefix
 
 
-class RegexpC(ParseObjC[str, Pos, C, str]):
-    def __init__(self, pat: str, group: Union[int, str] = 0):
-        self._match = re.compile(pat).match
-        self._group = group
+def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
+    match = re.compile(pat).match
+    group = group
 
-    def parse_fn(
-            self, stream: str, pos: Pos, ctx: C,
-            rm: RecoveryMode) -> Result[Pos, C, str]:
-        start = pos[0]
-        r = self._match(stream, pos=start)
+    def regexp(
+            stream: str, pos: int, ctx: Ctx[str],
+            rm: RecoveryMode) -> Result[str, str]:
+        r = match(stream, pos=pos)
         if r is not None:
-            v: Optional[str] = r.group(self._group)
+            v: Optional[str] = r.group(group)
             if v is not None:
-                p = r.end()
-                return Ok(
-                    v, _update_pos(stream, pos, p), ctx, consumed=p != start
-                )
+                end = r.end()
+                return Ok(v, end, ctx, consumed=end != pos)
+        ctx, loc = ctx.get_loc(stream, pos)
         if rm:
-            cur = start + 1
+            cur = pos + 1
             while cur < len(stream):
-                r = self._match(stream, pos=cur)
+                r = match(stream, pos=cur)
                 if r is not None:
-                    v = r.group(self._group)
+                    v = r.group(group)
                     if v is not None:
-                        skip = cur - start
+                        skip = cur - pos
                         return Recovered(
-                            {
-                                _update_pos(stream, pos, r.end()): Repair(
-                                    skip, v, ctx, Skip(skip, pos)
-                                )
-                            }, pos
+                            {r.end(): Repair(skip, v, ctx, Skip(skip, loc))},
+                            pos, loc
                         )
                 cur += 1
-        return Error(pos)
+        return Error(pos, loc)
+
+    return regexp

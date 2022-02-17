@@ -1,68 +1,69 @@
 from typing import Callable, Optional, TypeVar
 
-from ..core import ParseObjC, RecoveryMode
+from ..core import ParseObj, RecoveryMode
 from ..result import Error, Insert, Ok, Recovered, Repair, Result
+from ..state import Ctx
 
 S_contra = TypeVar("S_contra", contravariant=True)
-P = TypeVar("P")
-C = TypeVar("C")
 V_co = TypeVar("V_co", covariant=True)
 
 
-class PureC(ParseObjC[S_contra, P, C, V_co]):
+class Pure(ParseObj[S_contra, V_co]):
     def __init__(self, x: V_co):
         self._x = x
 
     def parse_fn(
-            self, stream: S_contra, pos: P, ctx: C,
-            rm: RecoveryMode) -> Result[P, C, V_co]:
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
+            rm: RecoveryMode) -> Result[V_co, S_contra]:
         return Ok(self._x, pos, ctx)
 
 
-class PureFnC(ParseObjC[S_contra, P, C, V_co]):
+class PureFn(ParseObj[S_contra, V_co]):
     def __init__(self, fn: Callable[[], V_co]):
         self._fn = fn
 
     def parse_fn(
-            self, stream: S_contra, pos: P, ctx: C,
-            rm: RecoveryMode) -> Result[P, C, V_co]:
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
+            rm: RecoveryMode) -> Result[V_co, S_contra]:
         return Ok(self._fn(), pos, ctx)
 
 
-class InsertValueC(ParseObjC[S_contra, P, C, V_co]):
+class InsertValue(ParseObj[S_contra, V_co]):
     def __init__(self, x: V_co, expected: Optional[str] = None):
         self._x = x
         self._label = repr(x)
         self._expected = [] if expected is None else [expected]
 
     def parse_fn(
-            self, stream: S_contra, pos: P, ctx: C,
-            rm: RecoveryMode) -> Result[P, C, V_co]:
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
+            rm: RecoveryMode) -> Result[V_co, S_contra]:
+        ctx, loc = ctx.get_loc(stream, pos)
         if rm:
             return Recovered(
                 {
                     pos: Repair(
-                        1, self._x, ctx, Insert(self._label, pos),
+                        1, self._x, ctx, Insert(self._label, loc),
                         self._expected
                     )
                 },
-                pos, self._expected
+                pos, loc, self._expected
             )
-        return Error(pos)
+        return Error(pos, loc)
 
 
-class InsertFnC(ParseObjC[S_contra, P, C, V_co]):
+class InsertFn(ParseObj[S_contra, V_co]):
     def __init__(self, fn: Callable[[], V_co], expected: Optional[str] = None):
         self._fn = fn
         self._expected = [] if expected is None else [expected]
 
     def parse_fn(
-            self, stream: S_contra, pos: P, ctx: C,
-            rm: RecoveryMode) -> Result[P, C, V_co]:
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
+            rm: RecoveryMode) -> Result[V_co, S_contra]:
+        ctx, loc = ctx.get_loc(stream, pos)
         if rm:
             x = self._fn()
             return Recovered(
-                {pos: Repair(1, x, ctx, Insert(repr(x), pos), self._expected)},
-                pos, self._expected
+                {pos: Repair(1, x, ctx, Insert(repr(x), loc), self._expected)},
+                pos, loc, self._expected
             )
-        return Error(pos)
+        return Error(pos, loc)

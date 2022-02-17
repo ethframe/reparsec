@@ -2,328 +2,247 @@ from typing import (
     Callable, List, Optional, Sequence, Sized, Tuple, TypeVar, Union
 )
 
-from .core import ParseFnC, ParseObjC, RecoveryMode
+from .core import ParseFn, ParseObj, RecoveryMode
 from .impl import combinators, layout, primitive, scannerless, sequence
-from .impl.layout import Ctx as Ctx
-from .impl.layout import GetLevelFn as GetLevelFn
-from .impl.scannerless import Pos as Pos
-from .output import FmtPos, ParseResult
+from .output import ParseResult
 from .result import Result
+from .state import Ctx, Loc
 
 T = TypeVar("T")
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
-P = TypeVar("P")
-C = TypeVar("C")
 V = TypeVar("V", bound=object)
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U", bound=object)
 X = TypeVar("X", bound=object)
 
 
-class ParserC(ParseObjC[S_contra, P, C, V_co]):
-    def fmap(self, fn: Callable[[V_co], U]) -> "ParserC[S_contra, P, C, U]":
+class Parser(ParseObj[S_contra, V_co]):
+    def fmap(self, fn: Callable[[V_co], U]) -> "Parser[S_contra, U]":
         return fmap(self, fn)
 
     def bind(
-            self, fn: Callable[[V_co], ParseObjC[S_contra, P, C, U]]
-    ) -> "ParserC[S_contra, P, C, U]":
+            self, fn: Callable[[V_co], ParseObj[S_contra, U]]
+    ) -> "Parser[S_contra, U]":
         return bind(self, fn)
 
-    def lseq(
-            self, other: ParseObjC[S_contra, P, C, U]
-    ) -> "ParserC[S_contra, P, C, V_co]":
+    def lseq(self, other: ParseObj[S_contra, U]) -> "Parser[S_contra, V_co]":
         return lseq(self, other)
 
-    def rseq(
-            self, other: ParseObjC[S_contra, P, C, U]
-    ) -> "ParserC[S_contra, P, C, U]":
+    def rseq(self, other: ParseObj[S_contra, U]) -> "Parser[S_contra, U]":
         return rseq(self, other)
 
     def __lshift__(
-            self, other: ParseObjC[S_contra, P, C, U]
-    ) -> "ParserC[S_contra, P, C, V_co]":
+            self, other: ParseObj[S_contra, U]
+    ) -> "Parser[S_contra, V_co]":
         return lseq(self, other)
 
     def __rshift__(
-            self, other: ParseObjC[S_contra, P, C, U]
-    ) -> "ParserC[S_contra, P, C, U]":
+            self, other: ParseObj[S_contra, U]
+    ) -> "Parser[S_contra, U]":
         return rseq(self, other)
 
     def __add__(
-            self, other: ParseObjC[S_contra, P, C, U]
-    ) -> "ParserC[S_contra, P, C, Tuple[V_co, U]]":
+            self, other: ParseObj[S_contra, U]
+    ) -> "Parser[S_contra, Tuple[V_co, U]]":
         return seq(self, other)
 
     def __or__(
-            self, other: ParseObjC[S_contra, P, C, V_co]
-    ) -> "ParserC[S_contra, P, C, V_co]":
+            self, other: ParseObj[S_contra, V_co]
+    ) -> "Parser[S_contra, V_co]":
         return alt(self, other)
 
-    def maybe(self) -> "ParserC[S_contra, P, C, Optional[V_co]]":
+    def maybe(self) -> "Parser[S_contra, Optional[V_co]]":
         return maybe(self)
 
     def many(
-            self: ParseObjC[S_contra, P, C, V_co]
-    ) -> "ParserC[S_contra, P, C, List[V_co]]":
+            self: ParseObj[S_contra, V_co]
+    ) -> "Parser[S_contra, List[V_co]]":
         return many(self)
 
-    def attempt(self) -> "ParserC[S_contra, P, C, V_co]":
+    def attempt(self) -> "Parser[S_contra, V_co]":
         return attempt(self)
 
-    def label(self, expected: str) -> "ParserC[S_contra, P, C, V_co]":
+    def label(self, expected: str) -> "Parser[S_contra, V_co]":
         return label(self, expected)
 
     def sep_by(
-            self, sep: ParseObjC[S_contra, P, C, U]
-    ) -> "ParserC[S_contra, P, C, List[V_co]]":
+            self, sep: ParseObj[S_contra, U]
+    ) -> "Parser[S_contra, List[V_co]]":
         return sep_by(self, sep)
 
     def between(
             self,
-            open: ParseObjC[S_contra, P, C, U],
-            close: ParseObjC[S_contra, P, C, X]
-    ) -> "ParserC[S_contra, P, C, V_co]":
+            open: ParseObj[S_contra, U],
+            close: ParseObj[S_contra, X]
+    ) -> "Parser[S_contra, V_co]":
         return between(open, close, self)
 
 
-Parser = ParserC[S_contra, P, None, V_co]
-
-
-class FnParserC(ParserC[S_contra, P, C, V_co]):
-    def __init__(self, fn: ParseFnC[S_contra, P, C, V_co]):
+class FnParser(Parser[S_contra, V_co]):
+    def __init__(self, fn: ParseFn[S_contra, V_co]):
         self._fn = fn
 
-    def to_fn(self) -> ParseFnC[S_contra, P, C, V_co]:
+    def to_fn(self) -> ParseFn[S_contra, V_co]:
         return self._fn
 
     def parse_fn(
-            self, stream: S_contra, pos: P, ctx: C,
-            rm: RecoveryMode) -> Result[P, C, V_co]:
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
+            rm: RecoveryMode) -> Result[V_co, S_contra]:
         return self._fn(stream, pos, ctx, rm)
 
 
-FnParser = FnParserC[S_contra, P, None, V_co]
-
-
-def fmap(
-        parser: ParseObjC[S, P, C, V],
-        fn: Callable[[V], U]) -> ParserC[S, P, C, U]:
-    return FnParserC(combinators.fmap(parser.to_fn(), fn))
+def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> Parser[S, U]:
+    return FnParser(combinators.fmap(parser.to_fn(), fn))
 
 
 def bind(
-        parser: ParseObjC[S, P, C, V],
-        fn: Callable[[V], ParseObjC[S, P, C, U]]) -> ParserC[S, P, C, U]:
-    return FnParserC(combinators.bind(parser.to_fn(), fn))
+        parser: ParseObj[S, V],
+        fn: Callable[[V], ParseObj[S, U]]) -> Parser[S, U]:
+    return FnParser(combinators.bind(parser.to_fn(), fn))
 
 
-def lseq(
-        parser: ParseObjC[S, P, C, V],
-        second: ParseObjC[S, P, C, U]) -> ParserC[S, P, C, V]:
-    return FnParserC(combinators.lseq(parser.to_fn(), second.to_fn()))
+def lseq(parser: ParseObj[S, V], second: ParseObj[S, U]) -> Parser[S, V]:
+    return FnParser(combinators.lseq(parser.to_fn(), second.to_fn()))
 
 
-def rseq(
-        parser: ParseObjC[S, P, C, V],
-        second: ParseObjC[S, P, C, U]) -> ParserC[S, P, C, U]:
-    return FnParserC(combinators.rseq(parser.to_fn(), second.to_fn()))
+def rseq(parser: ParseObj[S, V], second: ParseObj[S, U]) -> Parser[S, U]:
+    return FnParser(combinators.rseq(parser.to_fn(), second.to_fn()))
 
 
 def seq(
-        parser: ParseObjC[S, P, C, V],
-        second: ParseObjC[S, P, C, U]
-) -> ParserC[S, P, C, Tuple[V, U]]:
-    return FnParserC(combinators.seq(parser.to_fn(), second.to_fn()))
+        parser: ParseObj[S, V],
+        second: ParseObj[S, U]) -> Parser[S, Tuple[V, U]]:
+    return FnParser(combinators.seq(parser.to_fn(), second.to_fn()))
 
 
-def alt(
-        parser: ParseObjC[S, P, C, V],
-        second: ParseObjC[S, P, C, V]) -> ParserC[S, P, C, V]:
-    return FnParserC(combinators.alt(parser.to_fn(), second.to_fn()))
+def alt(parser: ParseObj[S, V], second: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(combinators.alt(parser.to_fn(), second.to_fn()))
 
 
-class PureC(
-        primitive.PureC[S_contra, P, C, V_co], ParserC[S_contra, P, C, V_co]):
+class Pure(primitive.Pure[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
-Pure = PureC[S_contra, P, None, V_co]
-
-
-class PureFnC(
-        primitive.PureFnC[S_contra, P, C, V_co],
-        ParserC[S_contra, P, C, V_co]):
+class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
-PureFn = PureFnC[S_contra, P, None, V_co]
+def eof() -> Parser[Sized, None]:
+    return FnParser(sequence.eof())
 
 
-class EofC(sequence.EofC[C], ParserC[Sized, int, C, None]):
+def satisfy(test: Callable[[T], bool]) -> Parser[Sequence[T], T]:
+    return FnParser(sequence.satisfy(test))
+
+
+def sym(s: T) -> Parser[Sequence[T], T]:
+    return FnParser(sequence.sym(s))
+
+
+def maybe(parser: ParseObj[S, V]) -> Parser[S, Optional[V]]:
+    return FnParser(combinators.maybe(parser.to_fn()))
+
+
+def many(parser: ParseObj[S, V]) -> Parser[S, List[V]]:
+    return FnParser(combinators.many(parser.to_fn()))
+
+
+def attempt(parser: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(combinators.attempt(parser.to_fn()))
+
+
+def label(parser: ParseObj[S, V], x: str) -> Parser[S, V]:
+    return FnParser(combinators.label(parser.to_fn(), x))
+
+
+class InsertValue(
+        primitive.InsertValue[S_contra, V_co],
+        Parser[S_contra, V_co]):
     pass
 
 
-def eof() -> Parser[Sized, int, None]:
-    return EofC[None]()
-
-
-class SatisfyC(sequence.SatisfyC[T, C], ParserC[Sequence[T], int, C, T]):
+class InsertFn(primitive.InsertFn[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
-def satisfy(test: Callable[[T], bool]) -> Parser[Sequence[T], int, T]:
-    return SatisfyC[T, None](test)
-
-
-class SymC(sequence.SymC[T, C], ParserC[Sequence[T], int, C, T]):
-    pass
-
-
-Sym = SymC[T, None]
-
-
-def sym(s: T) -> Parser[Sequence[T], int, T]:
-    return Sym[T](s)
-
-
-def maybe(parser: ParseObjC[S, P, C, V]) -> ParserC[S, P, C, Optional[V]]:
-    return FnParserC(combinators.maybe(parser.to_fn()))
-
-
-def many(parser: ParseObjC[S, P, C, V]) -> ParserC[S, P, C, List[V]]:
-    return FnParserC(combinators.many(parser.to_fn()))
-
-
-def attempt(
-        parser: ParseObjC[S, P, C, V]) -> ParserC[S, P, C, V]:
-    return FnParserC(combinators.attempt(parser.to_fn()))
-
-
-def label(
-        parser: ParseObjC[S, P, C, V],
-        x: str) -> ParserC[S, P, C, V]:
-    return FnParserC(combinators.label(parser.to_fn(), x))
-
-
-class InsertValueC(
-        primitive.InsertValueC[S_contra, P, C, V_co],
-        ParserC[S_contra, P, C, V_co]):
-    pass
-
-
-InsertValue = InsertValueC[S_contra, P, None, V_co]
-
-
-class InsertFnC(
-        primitive.InsertFnC[S_contra, P, C, V_co],
-        ParserC[S_contra, P, C, V_co]):
-    pass
-
-
-InsertFn = InsertFnC[S_contra, P, None, V_co]
-
-
-class DelayC(
-        combinators.DelayC[S_contra, P, C, V_co],
-        ParserC[S_contra, P, C, V_co]):
-    def define(self, parser: ParseObjC[S_contra, P, C, V_co]) -> None:
+class Delay(combinators.Delay[S_contra, V_co], Parser[S_contra, V_co]):
+    def define(self, parser: ParseObj[S_contra, V_co]) -> None:
         self.define_fn(parser.to_fn())
 
 
-Delay = DelayC[S_contra, P, None, V_co]
+def prefix(s: str) -> Parser[str, str]:
+    return FnParser(scannerless.prefix(s))
 
 
-class SlEofC(scannerless.EofC[C], ParserC[str, Pos, C, None]):
-    pass
+def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, str]:
+    return FnParser(scannerless.regexp(pat, group))
 
 
-def sl_eof() -> Parser[str, Pos, None]:
-    return SlEofC()
-
-
-class PrefixC(scannerless.PrefixC[C], ParserC[str, Pos, C, str]):
-    pass
-
-
-def prefix(s: str) -> Parser[str, Pos, str]:
-    return PrefixC(s)
-
-
-class RegexpC(scannerless.RegexpC[C], ParserC[str, Pos, C, str]):
-    pass
-
-
-def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, Pos, str]:
-    return RegexpC(pat, group)
-
-
-def sep_by(
-        parser: ParseObjC[S, P, C, V],
-        sep: ParseObjC[S, P, C, U]) -> ParserC[S, P, C, List[V]]:
+def sep_by(parser: ParseObj[S, V], sep: ParseObj[S, U]) -> Parser[S, List[V]]:
     return maybe(seq(parser, many(rseq(sep, parser)))).fmap(
         lambda v: [] if v is None else [v[0]] + v[1]
     )
 
 
 def between(
-        open: ParseObjC[S, P, C, U], close: ParseObjC[S, P, C, X],
-        parser: ParseObjC[S, P, C, V]) -> ParserC[S, P, C, V]:
+        open: ParseObj[S, U], close: ParseObj[S, X],
+        parser: ParseObj[S, V]) -> Parser[S, V]:
     return rseq(open, lseq(parser, close))
 
 
-def block(
-        parser: ParseObjC[S, P, Ctx, V],
-        fn: GetLevelFn[S, P]) -> ParserC[S, P, Ctx, V]:
-    return FnParserC(layout.block(parser.to_fn(), fn))
+def block(parser: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(layout.block(parser.to_fn()))
 
 
-def same(
-        parser: ParseObjC[S, P, Ctx, V],
-        fn: GetLevelFn[S, P]) -> ParserC[S, P, Ctx, V]:
-    return FnParserC(layout.same(parser.to_fn(), fn))
+def same(parser: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(layout.same(parser.to_fn()))
 
 
-def indented(
-        delta: int, parser: ParseObjC[S, P, Ctx, V],
-        fn: GetLevelFn[S, P]) -> ParserC[S, P, Ctx, V]:
-    return FnParserC(layout.indented(delta, parser.to_fn(), fn))
+def indented(delta: int, parser: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(layout.indented(delta, parser.to_fn()))
 
 
-letter: Parser[Sequence[str], int, str] = satisfy(str.isalpha).label("letter")
-digit: Parser[Sequence[str], int, str] = satisfy(str.isdigit).label("digit")
+letter: Parser[Sequence[str], str] = satisfy(str.isalpha).label("letter")
+digit: Parser[Sequence[str], str] = satisfy(str.isdigit).label("digit")
 
 
 def _run_parser(
-        parser: ParserC[S, P, C, V], stream: S, pos: P, ctx: C,
-        recover: bool, fmt_pos: FmtPos[P]) -> ParseResult[P, C, V]:
+        parser: Parser[S, V], stream: S, ctx: Ctx[S],
+        recover: bool, fmt_loc: Callable[[Loc], str]) -> ParseResult[V, S]:
     return ParseResult(
-        parser.parse_fn(stream, pos, ctx, True if recover else None), fmt_pos
+        parser.parse_fn(stream, 0, ctx, True if recover else None), fmt_loc
     )
 
 
 def run_c(
-        parser: ParserC[S, int, C, V], stream: S, ctx: C,
-        recover: bool = False) -> ParseResult[int, C, V]:
-    return _run_parser(parser, stream, 0, ctx, recover, repr)
+        parser: Parser[S, V], stream: S, ctx: Ctx[S],
+        recover: bool = False) -> ParseResult[V, S]:
+    return _run_parser(parser, stream, ctx, recover, lambda loc: repr(loc.pos))
+
+
+class _PosCtx(Ctx[S_contra]):
+    def get_loc(self, stream: S_contra, pos: int) -> Tuple[Ctx[S_contra], Loc]:
+        loc = Loc(pos, 0, 0)
+        return _PosCtx(self.anchor, loc), loc
+
+    def set_anchor(
+            self, stream: S_contra,
+            pos: int) -> Tuple[Ctx[S_contra], Ctx[S_contra]]:
+        loc = Loc(pos, 0, 0)
+        return _PosCtx(self.anchor, loc), _PosCtx(0, loc)
 
 
 def run(
-        parser: Parser[S, int, V], stream: S,
-        recover: bool = False) -> ParseResult[int, None, V]:
-    return run_c(parser, stream, None, recover)
-
-
-def sl_run_c(
-        parser: ParserC[str, Pos, C, V], stream: str, ctx: C,
-        recover: bool = False) -> ParseResult[Pos, C, V]:
-    return _run_parser(
-        parser, stream, scannerless.start(), ctx, recover,
-        lambda p: "{!r}:{!r}".format(p[1] + 1, p[2] + 1)
-    )
+        parser: Parser[S, V], stream: S,
+        recover: bool = False) -> ParseResult[V, S]:
+    return run_c(parser, stream, _PosCtx(0, Loc(0, 0, 0)), recover)
 
 
 def sl_run(
-        parser: Parser[str, Pos, V], stream: str,
-        recover: bool = False) -> ParseResult[Pos, None, V]:
-    return sl_run_c(parser, stream, None, recover)
+        parser: Parser[str, V], stream: str,
+        recover: bool = False) -> ParseResult[V, str]:
+    return _run_parser(
+        parser, stream, scannerless.SlCtx(0, Loc(0, 0, 0)), recover,
+        lambda l: "{!r}:{!r}".format(l.line + 1, l.col + 1)
+    )

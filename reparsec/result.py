@@ -4,45 +4,42 @@ from typing import Callable, Generic, Iterable, Mapping, TypeVar, Union
 from typing_extensions import Literal, final
 
 from .chain import Chain
+from .state import Ctx, Loc
 
-P = TypeVar("P", bound=object)
-C = TypeVar("C")
-CO = TypeVar("CO")
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U")
+S = TypeVar("S")
 
 
 @final
-class Ok(Generic[P, C, V_co]):
+class Ok(Generic[V_co, S]):
     __slots__ = "value", "pos", "ctx", "expected", "consumed"
 
     def __init__(
-            self, value: V_co, pos: P, ctx: C, expected: Iterable[str] = (),
-            consumed: bool = False):
+            self, value: V_co, pos: int, ctx: Ctx[S],
+            expected: Iterable[str] = (), consumed: bool = False):
         self.value = value
         self.pos = pos
         self.ctx = ctx
         self.expected = expected
         self.consumed = consumed
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "Ok[P, C, U]":
+    def fmap(self, fn: Callable[[V_co], U]) -> "Ok[U, S]":
         return Ok(
             fn(self.value), self.pos, self.ctx, self.expected, self.consumed
         )
 
-    def fmap_ctx(self, fn: Callable[[C], CO]) -> "Ok[P, CO, V_co]":
-        return Ok(
-            self.value, self.pos, fn(self.ctx), self.expected, self.consumed
-        )
+    def with_ctx(self, ctx: Ctx[S]) -> "Ok[V_co, S]":
+        return Ok(self.value, self.pos, ctx, self.expected, self.consumed)
 
-    def expect(self, expected: Iterable[str]) -> "Ok[P, C, V_co]":
+    def expect(self, expected: Iterable[str]) -> "Ok[V_co, S]":
         if self.consumed:
             return self
         return Ok(self.value, self.pos, self.ctx, expected, self.consumed)
 
     def merge_expected(
-            self, expected: Iterable[str], consumed: bool) -> "Ok[P, C, V_co]":
+            self, expected: Iterable[str], consumed: bool) -> "Ok[V_co, S]":
         if consumed and self.consumed:
             return self
         return Ok(
@@ -52,83 +49,86 @@ class Ok(Generic[P, C, V_co]):
 
 
 @final
-class Error(Generic[P]):
-    __slots__ = "pos", "expected", "consumed"
+class Error:
+    __slots__ = "pos", "loc", "expected", "consumed"
 
     def __init__(
-            self, pos: P, expected: Iterable[str] = (),
+            self, pos: int, loc: Loc, expected: Iterable[str] = (),
             consumed: bool = False):
         self.pos = pos
+        self.loc = loc
         self.expected = expected
         self.consumed = consumed
 
-    def fmap(self, fn: object) -> "Error[P]":
+    def fmap(self, fn: object) -> "Error":
         return self
 
-    def fmap_ctx(self, fn: object) -> "Error[P]":
+    def with_ctx(self, ctx: object) -> "Error":
         return self
 
-    def expect(self, expected: Iterable[str]) -> "Error[P]":
+    def expect(self, expected: Iterable[str]) -> "Error":
         if self.consumed:
             return self
-        return Error(self.pos, expected, self.consumed)
+        return Error(self.pos, self.loc, expected, self.consumed)
 
     def merge_expected(
-            self, expected: Iterable[str], consumed: bool) -> "Error[P]":
+            self, expected: Iterable[str], consumed: bool) -> "Error":
         if consumed and self.consumed:
             return self
         return Error(
-            self.pos, Chain(expected, self.expected), consumed or self.consumed
+            self.pos, self.loc, Chain(expected, self.expected),
+            consumed or self.consumed
         )
 
 
 @dataclass
-class Skip(Generic[P]):
+class Skip:
     count: int
-    pos: P
+    loc: Loc
 
 
 @dataclass
-class Insert(Generic[P]):
+class Insert:
     label: str
-    pos: P
+    loc: Loc
 
 
-RepairOp = Union[Skip[P], Insert[P]]
+RepairOp = Union[Skip, Insert]
 
 
 @dataclass
-class PrefixItem(Generic[P]):
-    op: RepairOp[P]
+class PrefixItem:
+    op: RepairOp
     expected: Iterable[str]
 
 
 @dataclass
-class Repair(Generic[P, C, V_co]):
+class Repair(Generic[V_co, S]):
     cost: int
     value: V_co
-    ctx: C
-    op: RepairOp[P]
+    ctx: Ctx[S]
+    op: RepairOp
     expected: Iterable[str] = ()
     consumed: bool = False
-    prefix: Iterable[PrefixItem[P]] = tuple()
+    prefix: Iterable[PrefixItem] = ()
 
 
 @final
-class Recovered(Generic[P, C, V_co]):
-    __slots__ = "repairs", "pos", "expected", "consumed"
+class Recovered(Generic[V_co, S]):
+    __slots__ = "repairs", "pos", "loc", "expected", "consumed"
 
     consumed: Literal[True]
 
     def __init__(
-            self, repairs: Mapping[P, Repair[P, C, V_co]], pos: P,
+            self, repairs: Mapping[int, Repair[V_co, S]], pos: int, loc: Loc,
             expected: Iterable[str] = ()):
         self.repairs = repairs
         self.pos = pos
+        self.loc = loc
         self.expected = expected
         self.consumed = True
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[P, C, U]":
+    def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U, S]":
         return Recovered(
             {
                 p: Repair(
@@ -137,22 +137,22 @@ class Recovered(Generic[P, C, V_co]):
                 )
                 for p, r in self.repairs.items()
             },
-            self.pos, self.expected
+            self.pos, self.loc, self.expected
         )
 
-    def fmap_ctx(self, fn: Callable[[C], CO]) -> "Recovered[P, CO, V_co]":
+    def with_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
         return Recovered(
             {
                 p: Repair(
-                    r.cost, r.value, fn(r.ctx), r.op, r.expected, r.consumed,
+                    r.cost, r.value, ctx, r.op, r.expected, r.consumed,
                     r.prefix
                 )
                 for p, r in self.repairs.items()
             },
-            self.pos, self.expected
+            self.pos, self.loc, self.expected
         )
 
-    def expect(self, expected: Iterable[str]) -> "Recovered[P, C, V_co]":
+    def expect(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
         return Recovered(
             {
                 p: Repair(
@@ -162,12 +162,12 @@ class Recovered(Generic[P, C, V_co]):
                 )
                 for p, r in self.repairs.items()
             },
-            self.pos, self.expected
+            self.pos, self.loc, self.expected
         )
 
     def merge_expected(
             self, expected: Iterable[str],
-            consumed: bool) -> "Recovered[P, C, V_co]":
+            consumed: bool) -> "Recovered[V_co, S]":
         return Recovered(
             {
                 p: Repair(
@@ -178,8 +178,8 @@ class Recovered(Generic[P, C, V_co]):
                 )
                 for p, r in self.repairs.items()
             },
-            self.pos, self.expected
+            self.pos, self.loc, self.expected
         )
 
 
-Result = Union[Recovered[P, C, V], Ok[P, C, V], Error[P]]
+Result = Union[Recovered[V, S], Ok[V, S], Error]
