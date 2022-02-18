@@ -10,17 +10,20 @@ V = TypeVar("V")
 
 
 class SlCtx(Ctx[str]):
-    def update_loc(self, stream: str, pos: int) -> Ctx[str]:
+    def get_loc(self, stream: str, pos: int) -> Loc:
         start, line, col = self.loc
-        if pos == start:
-            return self
         nlc = stream.count("\n", start, pos)
         if nlc:
             line += nlc
             col = pos - stream.rfind("\n", start, pos) - 1
         else:
             col += (pos - start)
-        return SlCtx(self.anchor, Loc(pos, line, col))
+        return Loc(pos, line, col)
+
+    def update_loc(self, stream: str, pos: int) -> Ctx[str]:
+        if pos == self.loc.pos:
+            return self
+        return SlCtx(self.anchor, self.get_loc(stream, pos))
 
     def set_anchor(self, anchor: int) -> Ctx[str]:
         return SlCtx(anchor, self.loc)
@@ -41,21 +44,21 @@ def prefix(s: str) -> ParseFn[str, str]:
             return Ok(
                 s, pos + ls, ctx.update_loc(stream, pos + ls), consumed=True
             )
-        ctx = ctx.update_loc(stream, pos)
+        loc = ctx.get_loc(stream, pos)
         if rm:
-            reps = {pos: Repair(ls, s, ctx, Insert(rs, ctx.loc), expected)}
+            reps = {pos: Repair(ls, s, ctx, Insert(rs, loc), expected)}
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
                     skip = cur - pos
                     reps[cur + ls] = Repair(
                         skip, s, ctx.update_loc(stream, cur + ls),
-                        Skip(skip, ctx.loc), expected
+                        Skip(skip, loc), expected
                     )
-                    return Recovered(reps, pos, ctx.loc, expected)
+                    return Recovered(reps, pos, loc, expected)
                 cur += 1
-            return Recovered(reps, pos, ctx.loc, expected)
-        return Error(pos, ctx.loc, expected)
+            return Recovered(reps, pos, loc, expected)
+        return Error(pos, loc, expected)
 
     return prefix
 
@@ -75,7 +78,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                 return Ok(
                     v, end, ctx.update_loc(stream, end), consumed=end != pos
                 )
-        ctx = ctx.update_loc(stream, pos)
+        loc = ctx.get_loc(stream, pos)
         if rm:
             cur = pos + 1
             while cur < len(stream):
@@ -89,12 +92,12 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                             {
                                 end: Repair(
                                     skip, v, ctx.update_loc(stream, end),
-                                    Skip(skip, ctx.loc)
+                                    Skip(skip, loc)
                                 )
                             },
-                            pos, ctx.loc
+                            pos, loc
                         )
                 cur += 1
-        return Error(pos, ctx.loc)
+        return Error(pos, loc)
 
     return regexp

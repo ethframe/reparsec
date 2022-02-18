@@ -14,18 +14,18 @@ def eof() -> ParseFn[Sized, None]:
             rm: RecoveryMode) -> Result[None, Sized]:
         if pos == len(stream):
             return Ok(None, pos, ctx)
-        ctx = ctx.update_loc(stream, pos)
+        loc = ctx.get_loc(stream, pos)
         if rm:
             skip = len(stream) - pos
             return Recovered(
                 {
                     len(stream): Repair(
-                        skip, None, ctx, Skip(skip, ctx.loc), ["end of file"]
+                        skip, None, ctx, Skip(skip, loc), ["end of file"]
                     )
                 },
-                pos, ctx.loc, ["end of file"]
+                pos, loc, ["end of file"]
             )
-        return Error(pos, ctx.loc, ["end of file"])
+        return Error(pos, loc, ["end of file"])
 
     return eof
 
@@ -38,7 +38,7 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
             t = stream[pos]
             if test(t):
                 return Ok(t, pos + 1, ctx, consumed=True)
-        ctx = ctx.update_loc(stream, pos)
+        loc = ctx.get_loc(stream, pos)
         if rm:
             cur = pos + 1
             while cur < len(stream):
@@ -49,13 +49,13 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                         {
                             cur + 1: Repair(
                                 skip, t, ctx.update_loc(stream, cur+1),
-                                Skip(skip, ctx.loc)
+                                Skip(skip, loc)
                             )
                         },
-                        pos, ctx.loc
+                        pos, loc
                     )
                 cur += 1
-        return Error(pos, ctx.loc)
+        return Error(pos, loc)
 
     return satisfy
 
@@ -71,9 +71,9 @@ def sym(s: T) -> ParseFn[Sequence[T], T]:
             t = stream[pos]
             if t == s:
                 return Ok(t, pos + 1, ctx, consumed=True)
-        ctx = ctx.update_loc(stream, pos)
+        loc = ctx.get_loc(stream, pos)
         if rm:
-            reps = {pos: Repair(1, s, ctx, Insert(rs, ctx.loc), expected)}
+            reps = {pos: Repair(1, s, ctx, Insert(rs, loc), expected)}
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
@@ -81,11 +81,11 @@ def sym(s: T) -> ParseFn[Sequence[T], T]:
                     skip = cur - pos
                     reps[cur + 1] = Repair(
                         skip, t, ctx.update_loc(stream, cur + 1),
-                        Skip(skip, ctx.loc), expected
+                        Skip(skip, loc), expected
                     )
-                    return Recovered(reps, pos, ctx.loc, expected)
+                    return Recovered(reps, pos, loc, expected)
                 cur += 1
-            return Recovered(reps, pos, ctx.loc, expected)
-        return Error(pos, ctx.loc, expected)
+            return Recovered(reps, pos, loc, expected)
+        return Error(pos, loc, expected)
 
     return sym

@@ -222,11 +222,14 @@ def run_c(
 
 
 class _PosCtx(Ctx[S_contra]):
+    def get_loc(self, stream: S_contra, pos: int) -> Loc:
+        return Loc(pos, 0, 0)
+
     def update_loc(self, stream: S_contra, pos: int) -> Ctx[S_contra]:
-        return _PosCtx(self.anchor, Loc(pos, 0, 0))
+        return self
 
     def set_anchor(self, anchor: int) -> Ctx[S_contra]:
-        return _PosCtx(anchor, self.loc)
+        return self
 
 
 def run(

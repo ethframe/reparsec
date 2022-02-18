@@ -37,18 +37,18 @@ class InsertValue(ParseObj[S_contra, V_co]):
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
             rm: RecoveryMode) -> Result[V_co, S_contra]:
-        ctx = ctx.update_loc(stream, pos)
+        loc = ctx.get_loc(stream, pos)
         if rm:
             return Recovered(
                 {
                     pos: Repair(
-                        1, self._x, ctx, Insert(self._label, ctx.loc),
+                        1, self._x, ctx, Insert(self._label, loc),
                         self._expected
                     )
                 },
-                pos, ctx.loc, self._expected
+                pos, loc, self._expected
             )
-        return Error(pos, ctx.loc)
+        return Error(pos, loc)
 
 
 class InsertFn(ParseObj[S_contra, V_co]):
@@ -59,15 +59,15 @@ class InsertFn(ParseObj[S_contra, V_co]):
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
             rm: RecoveryMode) -> Result[V_co, S_contra]:
-        ctx = ctx.update_loc(stream, pos)
+        loc = ctx.get_loc(stream, pos)
         if rm:
             x = self._fn()
             return Recovered(
                 {
                     pos: Repair(
-                        1, x, ctx, Insert(repr(x), ctx.loc), self._expected
+                        1, x, ctx, Insert(repr(x), loc), self._expected
                     )
                 },
-                pos, ctx.loc, self._expected
+                pos, loc, self._expected
             )
-        return Error(pos, ctx.loc)
+        return Error(pos, loc)

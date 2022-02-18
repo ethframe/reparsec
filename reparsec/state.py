@@ -18,6 +18,10 @@ class Ctx(Generic[S_contra]):
         self.loc = loc
 
     @abstractmethod
+    def get_loc(self, stream: S_contra, pos: int) -> Loc:
+        ...
+
+    @abstractmethod
     def update_loc(self, stream: S_contra, pos: int) -> "Ctx[S_contra]":
         ...
 
