@@ -222,15 +222,11 @@ def run_c(
 
 
 class _PosCtx(Ctx[S_contra]):
-    def get_loc(self, stream: S_contra, pos: int) -> Tuple[Ctx[S_contra], Loc]:
-        loc = Loc(pos, 0, 0)
-        return _PosCtx(self.anchor, loc), loc
+    def update_loc(self, stream: S_contra, pos: int) -> Ctx[S_contra]:
+        return _PosCtx(self.anchor, Loc(pos, 0, 0))
 
-    def set_anchor(
-            self, stream: S_contra,
-            pos: int) -> Tuple[Ctx[S_contra], Ctx[S_contra]]:
-        loc = Loc(pos, 0, 0)
-        return _PosCtx(self.anchor, loc), _PosCtx(0, loc)
+    def set_anchor(self, anchor: int) -> Ctx[S_contra]:
+        return _PosCtx(anchor, self.loc)
 
 
 def run(

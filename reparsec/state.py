@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Generic, NamedTuple, Tuple, TypeVar
+from typing import Generic, NamedTuple, TypeVar
 
 S_contra = TypeVar("S_contra", contravariant=True)
 
@@ -18,12 +18,9 @@ class Ctx(Generic[S_contra]):
         self.loc = loc
 
     @abstractmethod
-    def get_loc(
-            self, stream: S_contra, pos: int) -> Tuple["Ctx[S_contra]", Loc]:
+    def update_loc(self, stream: S_contra, pos: int) -> "Ctx[S_contra]":
         ...
 
     @abstractmethod
-    def set_anchor(
-            self, stream: S_contra,
-            pos: int) -> Tuple["Ctx[S_contra]", "Ctx[S_contra]"]:
+    def set_anchor(self, anchor: int) -> "Ctx[S_contra]":
         ...
