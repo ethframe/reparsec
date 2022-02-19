@@ -1,0 +1,48 @@
+name: Tests
+
+on: [push]
+
+jobs:
+  linters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install tox and any other packages
+        run: pip install tox
+      - name: Run tox
+        run: tox -e typecheck,lint
+
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install tox and any other packages
+        run: pip install tox
+      - name: Run tox
+        run: tox -e py
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install tox and any other packages
+        run: pip install tox
+      - name: Run tox
+        run: tox -e coverage
+      - name: Report coverage
+        uses: codecov/codecov-action@v2
