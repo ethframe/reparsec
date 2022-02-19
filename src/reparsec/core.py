@@ -27,7 +27,10 @@ def maybe_allow_recovery(rm: RecoveryMode, r: Result[V, S]) -> RecoveryMode:
     return rm
 
 
-ParseFn = Callable[[S_contra, int, Ctx, RecoveryMode], Result[V_co, S_contra]]
+ParseFn = Callable[
+    [S_contra, int, Ctx[S_contra], RecoveryMode],
+    Result[V_co, S_contra]
+]
 
 
 class ParseObj(Generic[S_contra, V_co]):
