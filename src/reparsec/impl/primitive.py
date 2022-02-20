@@ -40,12 +40,13 @@ class InsertValue(ParseObj[S_contra, V_co]):
         loc = ctx.get_loc(stream, pos)
         if rm:
             return Recovered(
-                {
-                    pos: Repair(
-                        1, self._x, ctx, Insert(self._label, loc),
+                None,
+                [
+                    Repair(
+                        self._x, pos, ctx, Insert(self._label, loc),
                         self._expected
                     )
-                },
+                ],
                 pos, loc, self._expected
             )
         return Error(pos, loc)
@@ -63,11 +64,8 @@ class InsertFn(ParseObj[S_contra, V_co]):
         if rm:
             x = self._fn()
             return Recovered(
-                {
-                    pos: Repair(
-                        1, x, ctx, Insert(repr(x), loc), self._expected
-                    )
-                },
+                None,
+                [Repair(x, pos, ctx, Insert(repr(x), loc), self._expected)],
                 pos, loc, self._expected
             )
         return Error(pos, loc)

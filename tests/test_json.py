@@ -29,7 +29,7 @@ DATA_POSITIVE: List[Tuple[str, object]] = [
 
 @pytest.mark.parametrize("data, expected", DATA_POSITIVE)
 def test_positive(data: str, expected: object) -> None:
-    assert expected == json.parse(data)
+    assert json.parse(data) == expected
 
 
 DATA_NEGATIVE = [
@@ -50,7 +50,7 @@ DATA_NEGATIVE = [
 def test_negative(data: str, expected: str) -> None:
     with pytest.raises(ParseError) as err:
         json.parse(data)
-    assert expected == str(err.value)
+    assert str(err.value) == expected
 
 
 DATA_RECOVERY: List[Tuple[str, object, str]] = [
@@ -62,9 +62,9 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
         "[1, [{, 2]", [1, [{}, 2]],
         "at 5: expected string or '}', at 8: expected ']'"
     ),
-    ("[1, }, 2]", [1, {}, 2], "at 3: expected value"),
-    ('{"key": }', {"key": 1}, "at 3: expected value"),
-    ('{"key": ]', {"key": []}, "at 3: expected value, at 4: expected '}'"),
+    ("[1, }, 2]", [1, {}, 2], "at 3: expected '{'"),
+    ('{"key": }', {"key": {}}, "at 3: expected '{', at 4: expected '}'"),
+    ('{"key": ]', {"key": []}, "at 3: expected '[', at 4: expected '}'"),
     (
         '{"key": 2]', {"key": 2},
         "at 4: expected ',' or '}', at 4: expected end of file"
@@ -76,7 +76,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 5: expected string, at 5: expected ':', at 5: expected value, " +
+        "at 5: expected string, at 5: expected ':', at 5: expected '[', " +
         "at 6: expected '}'"
     ),
     ('{"key": @}', {"key": 1}, "at 3: expected value, at 3: expected '}'"),
@@ -86,7 +86,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
     r = run(json.json, split_tokens(data, json.spec), recover=True)
-    assert value == r.unwrap(recover=True)
+    assert r.unwrap(recover=True) == value
     with pytest.raises(ParseError) as err:
         r.unwrap()
-    assert expected == str(err.value)
+    assert str(err.value) == expected

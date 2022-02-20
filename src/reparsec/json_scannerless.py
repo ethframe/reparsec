@@ -38,7 +38,7 @@ JsonParser = Parser[str, object]
 value: Delay[str, object] = Delay()
 
 string: JsonParser = token(
-    r'"(?P<string>(?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|'
+    r'"((?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|'
     r'\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))+)"'
 ).label("string").fmap(unescape)
 integer: JsonParser = token(

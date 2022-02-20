@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Callable, Generic, List, TypeVar
+from typing import Callable, Generic, List, Optional, TypeVar
 
-from .result import Error, Ok, Result
+from .result import BaseRepair, Error, Ok, Result
 from .state import Loc
 
 S = TypeVar("S")
@@ -53,7 +53,9 @@ class ParseResult(Generic[V_co, S]):
                 )
             ])
 
-        repair = min(self._result.repairs.values(), key=lambda r: r.cost)
+        repair: Optional[BaseRepair[V_co, S]] = self._result.selected
+        if repair is None:
+            repair = self._result.pending[0]
         if recover:
             return repair.value
         errors: List[ErrorItem] = []

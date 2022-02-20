@@ -34,4 +34,4 @@ qux: quux
 
 @pytest.mark.parametrize("data, expected", DATA_POSITIVE)
 def test_positive(data: str, expected: object) -> None:
-    assert expected == yamlish.parse(data)
+    assert yamlish.parse(data) == expected
