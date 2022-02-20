@@ -19,43 +19,9 @@ ContinueFn = Callable[[V, S, int, Ctx[S]], Result[U, S]]
 MergeFn = Callable[[V, U], X]
 
 
-def continue_parse(  # noqa: C901
+def continue_parse(
         stream: S, ra: Recovered[V, S], parse: ContinueFn[V, S, U],
         merge: MergeFn[V, U, X]) -> Result[X, S]:
-
-    selected: Optional[Selected[X, S]] = None
-    pending: List[Repair[X, S]] = []
-
-    def _handle_selected(rep: Selected[V, S]) -> Optional[Selected[X, S]]:
-        rb = parse(rep.value, stream, rep.pos, rep.ctx)
-        if type(rb) is Ok:
-            return Selected(
-                rep.selected, merge(rep.value, rb.value), rb.pos, rb.ctx,
-                rep.op, rep.expected, rep.consumed or rb.consumed, rep.prefix
-            )
-        elif type(rb) is Recovered:
-            pending.extend(
-                Repair(
-                    merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
-                    pb.expected, pb.consumed,
-                    Chain(
-                        rep.prefix,
-                        ChainL(PrefixItem(rep.op, rep.expected), pb.prefix)
-                    )
-                )
-                for pb in rb.pending
-            )
-            if rb.selected is not None:
-                repb = rb.selected
-                return Selected(
-                    rep.selected, merge(rep.value, repb.value), repb.pos,
-                    repb.ctx, repb.op, repb.expected, repb.consumed,
-                    Chain(
-                        rep.prefix,
-                        ChainL(PrefixItem(rep.op, rep.expected), repb.prefix)
-                    )
-                )
-        return None
 
     def _handle_pending(rep: Repair[V, S]) -> Optional[Selected[X, S]]:
         rb = parse(rep.value, stream, rep.pos, rep.ctx)
@@ -93,8 +59,13 @@ def continue_parse(  # noqa: C901
                     )
         return selected
 
-    if ra.selected is not None:
-        selected = _handle_selected(ra.selected)
+    sel = ra.selected
+    if sel is not None:
+        rb = parse(sel.value, stream, sel.pos, sel.ctx)
+        selected, pending = _merge_selected(sel, rb, merge)
+    else:
+        selected = None
+        pending = []
 
     for pa in ra.pending:
         selected = _handle_pending(pa)
@@ -103,6 +74,47 @@ def continue_parse(  # noqa: C901
         return Recovered(selected, pending, ra.pos, ra.loc, ra.expected)
 
     return Error(ra.pos, ra.loc, ra.expected, True)
+
+
+def _merge_selected(
+        rep: Selected[V, S], rb: Result[U, S],
+        merge: MergeFn[V, U, X]) -> Tuple[
+            Optional[Selected[X, S]], List[Repair[X, S]]]:
+    if type(rb) is Ok:
+        return (
+            Selected(
+                rep.selected, merge(rep.value, rb.value), rb.pos, rb.ctx,
+                rep.op, rep.expected, rep.consumed or rb.consumed, rep.prefix
+            ),
+            []
+        )
+    elif type(rb) is Recovered:
+        pending = [
+            Repair(
+                merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
+                pb.expected, pb.consumed,
+                Chain(
+                    rep.prefix,
+                    ChainL(PrefixItem(rep.op, rep.expected), pb.prefix)
+                )
+            )
+            for pb in rb.pending
+        ]
+        if rb.selected is not None:
+            repb = rb.selected
+            return (
+                Selected(
+                    rep.selected, merge(rep.value, repb.value), repb.pos,
+                    repb.ctx, repb.op, repb.expected, repb.consumed,
+                    Chain(
+                        rep.prefix,
+                        ChainL(PrefixItem(rep.op, rep.expected), repb.prefix)
+                    )
+                ),
+                pending
+            )
+        return None, pending
+    return None, []
 
 
 def fmap(parse_fn: ParseFn[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
