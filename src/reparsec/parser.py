@@ -6,7 +6,6 @@ from .core.state import Ctx, Loc
 from .core.types import ParseFn, ParseObj, RecoveryMode
 from .output import ParseResult
 
-
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
 V = TypeVar("V", bound=object)

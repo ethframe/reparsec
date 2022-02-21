@@ -1,6 +1,6 @@
 from typing import Callable, List, Optional, Tuple, TypeVar
 
-from .chain import Chain, ChainL
+from .chain import Append, Cons
 from .result import Error, Ok, PrefixItem, Recovered, Repair, Result, Selected
 from .state import Ctx
 from .types import ParseFn, ParseObj, RecoveryMode
@@ -47,9 +47,9 @@ def continue_parse(
                 Repair(
                     merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
                     pb.expected, pb.consumed,
-                    Chain(
+                    Append(
                         rep.prefix,
-                        ChainL(PrefixItem(rep.op, rep.expected), pb.prefix)
+                        Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
                     )
                 )
                 for pb in rb.pending
@@ -60,11 +60,9 @@ def continue_parse(
                     return Selected(
                         repb.selected, merge(rep.value, repb.value), repb.pos,
                         repb.ctx, repb.op, repb.expected, repb.consumed,
-                        Chain(
+                        Append(
                             rep.prefix,
-                            ChainL(
-                                PrefixItem(rep.op, rep.expected), repb.prefix
-                            )
+                            Cons(PrefixItem(rep.op, rep.expected), repb.prefix)
                         )
                     )
         return selected
@@ -103,9 +101,9 @@ def _merge_selected(
             Repair(
                 merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
                 pb.expected, pb.consumed,
-                Chain(
+                Append(
                     rep.prefix,
-                    ChainL(PrefixItem(rep.op, rep.expected), pb.prefix)
+                    Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
                 )
             )
             for pb in rb.pending
@@ -116,9 +114,9 @@ def _merge_selected(
                 Selected(
                     rep.selected, merge(rep.value, repb.value), repb.pos,
                     repb.ctx, repb.op, repb.expected, repb.consumed,
-                    Chain(
+                    Append(
                         rep.prefix,
-                        ChainL(PrefixItem(rep.op, rep.expected), repb.prefix)
+                        Cons(PrefixItem(rep.op, rep.expected), repb.prefix)
                     )
                 ),
                 pending
@@ -145,7 +143,7 @@ def alt(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
         rb = second_fn(stream, pos, ctx, disallow_recovery(rm))
         if rb.consumed is True:
             return rb
-        expected = Chain(ra.expected, rb.expected)
+        expected = Append(ra.expected, rb.expected)
         if type(ra) is Ok:
             return ra.expect(expected)
         if type(rb) is Ok:

@@ -3,7 +3,7 @@ from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
 
 from typing_extensions import Literal, final
 
-from .chain import Chain
+from .chain import Append
 from .state import Ctx, Loc
 
 V = TypeVar("V")
@@ -43,7 +43,7 @@ class Ok(Generic[V_co, S]):
         if consumed and self.consumed:
             return self
         return Ok(
-            self.value, self.pos, self.ctx, Chain(expected, self.expected),
+            self.value, self.pos, self.ctx, Append(expected, self.expected),
             consumed or self.consumed
         )
 
@@ -76,7 +76,7 @@ class Error:
         if consumed and self.consumed:
             return self
         return Error(
-            self.pos, self.loc, Chain(expected, self.expected),
+            self.pos, self.loc, Append(expected, self.expected),
             consumed or self.consumed
         )
 
@@ -209,14 +209,14 @@ class Recovered(Generic[V_co, S]):
                 selected.selected, selected.value, selected.pos, selected.ctx,
                 selected.op,
                 selected.expected if consumed and selected.consumed
-                else Chain(expected, selected.expected),
+                else Append(expected, selected.expected),
                 consumed or selected.consumed, selected.prefix
             ),
             [
                 Repair(
                     r.value, r.pos, r.ctx, r.op,
                     r.expected if consumed and r.consumed
-                    else Chain(expected, r.expected),
+                    else Append(expected, r.expected),
                     consumed or r.consumed, r.prefix
                 )
                 for r in self.pending
