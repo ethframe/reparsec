@@ -30,6 +30,10 @@ class SlCtx(Ctx[str]):
     def set_anchor(self, anchor: int) -> Ctx[str]:
         return SlCtx(anchor, self.loc)
 
+    @classmethod
+    def fmt_loc(cls, loc: Loc) -> str:
+        return "{!r}:{!r}".format(loc.line + 1, loc.col + 1)
+
 
 def prefix(s: str) -> ParseFn[str, str]:
     if len(s) == 0:

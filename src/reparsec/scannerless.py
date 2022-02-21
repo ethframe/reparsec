@@ -3,7 +3,7 @@ from typing import TypeVar, Union
 from .core import scannerless
 from .core.state import Loc
 from .output import ParseResult
-from .parser import FnParser, Parser, _run_parser
+from .parser import FnParser, Parser, run_c
 
 V = TypeVar("V", bound=object)
 
@@ -19,7 +19,6 @@ def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, str]:
 def run(
         parser: Parser[str, V], stream: str,
         recover: bool = False) -> ParseResult[V, str]:
-    return _run_parser(
-        parser, stream, scannerless.SlCtx(0, Loc(0, 0, 0)), recover,
-        lambda l: "{!r}:{!r}".format(l.line + 1, l.col + 1)
+    return run_c(
+        parser, stream, scannerless.SlCtx(0, Loc(0, 0, 0)), recover
     )

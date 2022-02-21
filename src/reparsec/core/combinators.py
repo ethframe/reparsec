@@ -3,7 +3,9 @@ from typing import Callable, List, Optional, Tuple, TypeVar
 from .chain import Append, Cons
 from .result import Error, Ok, PrefixItem, Recovered, Repair, Result, Selected
 from .state import Ctx
-from .types import ParseFn, ParseObj, RecoveryMode
+from .types import (
+    ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
+)
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
@@ -11,18 +13,6 @@ V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
 U = TypeVar("U")
 X = TypeVar("X")
-
-
-def disallow_recovery(rm: RecoveryMode) -> RecoveryMode:
-    if rm is None:
-        return None
-    return False
-
-
-def maybe_allow_recovery(rm: RecoveryMode, r: Result[V, S]) -> RecoveryMode:
-    if rm is not None and r.consumed:
-        return True
-    return rm
 
 
 ContinueFn = Callable[[V, S, int, Ctx[S]], Result[U, S]]

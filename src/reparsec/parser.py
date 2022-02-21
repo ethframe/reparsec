@@ -150,18 +150,12 @@ def between(
     return rseq(open, lseq(parser, close))
 
 
-def _run_parser(
-        parser: Parser[S, V], stream: S, ctx: Ctx[S],
-        recover: bool, fmt_loc: Callable[[Loc], str]) -> ParseResult[V, S]:
-    return ParseResult(
-        parser.parse_fn(stream, 0, ctx, True if recover else None), fmt_loc
-    )
-
-
 def run_c(
         parser: Parser[S, V], stream: S, ctx: Ctx[S],
         recover: bool = False) -> ParseResult[V, S]:
-    return _run_parser(parser, stream, ctx, recover, lambda loc: repr(loc.pos))
+    return ParseResult(
+        parser.parse_fn(stream, 0, ctx, True if recover else None), ctx.fmt_loc
+    )
 
 
 class _PosCtx(Ctx[S_contra]):
@@ -173,6 +167,10 @@ class _PosCtx(Ctx[S_contra]):
 
     def set_anchor(self, anchor: int) -> Ctx[S_contra]:
         return self
+
+    @classmethod
+    def fmt_loc(cls, loc: Loc) -> str:
+        return repr(loc.pos)
 
 
 def run(

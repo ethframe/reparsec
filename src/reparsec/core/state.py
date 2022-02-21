@@ -28,3 +28,8 @@ class Ctx(Generic[S_contra]):
     @abstractmethod
     def set_anchor(self, anchor: int) -> "Ctx[S_contra]":
         ...
+
+    @classmethod
+    @abstractmethod
+    def fmt_loc(cls, loc: Loc) -> str:
+        ...
