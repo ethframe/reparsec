@@ -1,11 +1,9 @@
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Callable, List, Optional, Tuple, TypeVar
 
-from ..chain import Chain, ChainL
-from ..core import (
-    ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
-)
-from ..result import Error, Ok, PrefixItem, Recovered, Repair, Result
-from ..state import Ctx
+from .chain import Append, Cons
+from .result import Error, Ok, PrefixItem, Recovered, Repair, Result, Selected
+from .state import Ctx
+from .types import ParseFn, ParseObj, RecoveryMode
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
@@ -15,6 +13,18 @@ U = TypeVar("U")
 X = TypeVar("X")
 
 
+def disallow_recovery(rm: RecoveryMode) -> RecoveryMode:
+    if rm is None:
+        return None
+    return False
+
+
+def maybe_allow_recovery(rm: RecoveryMode, r: Result[V, S]) -> RecoveryMode:
+    if rm is not None and r.consumed:
+        return True
+    return rm
+
+
 ContinueFn = Callable[[V, S, int, Ctx[S]], Result[U, S]]
 MergeFn = Callable[[V, U], X]
 
@@ -22,30 +32,97 @@ MergeFn = Callable[[V, U], X]
 def continue_parse(
         stream: S, ra: Recovered[V, S], parse: ContinueFn[V, S, U],
         merge: MergeFn[V, U, X]) -> Result[X, S]:
-    reps: Dict[int, Repair[X, S]] = {}
-    for p, pa in ra.repairs.items():
-        rb = parse(pa.value, stream, p, pa.ctx)
+
+    def _handle_pending(rep: Repair[V, S]) -> Optional[Selected[X, S]]:
+        rb = parse(rep.value, stream, rep.pos, rep.ctx)
         if type(rb) is Ok:
-            if rb.pos not in reps or pa.cost < reps[rb.pos].cost:
-                reps[rb.pos] = Repair(
-                    pa.cost, merge(pa.value, rb.value), rb.ctx, pa.op,
-                    pa.expected, pa.consumed, pa.prefix
+            if selected is None or selected.selected > rep.pos:
+                return Selected(
+                    rep.pos, merge(rep.value, rb.value), rb.pos, rb.ctx,
+                    rep.op, rep.expected, rep.consumed or rb.consumed,
+                    rep.prefix
                 )
         elif type(rb) is Recovered:
-            for p, pb in rb.repairs.items():
-                cost = pa.cost + pb.cost
-                if p not in reps or cost < reps[p].cost:
-                    reps[p] = Repair(
-                        cost, merge(pa.value, pb.value), pb.ctx, pb.op,
-                        pb.expected, True,
-                        Chain(
-                            pa.prefix,
-                            ChainL(PrefixItem(pa.op, pa.expected), pb.prefix)
+            pending.extend(
+                Repair(
+                    merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
+                    pb.expected, pb.consumed,
+                    Append(
+                        rep.prefix,
+                        Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
+                    )
+                )
+                for pb in rb.pending
+            )
+            if rb.selected is not None:
+                repb = rb.selected
+                if selected is None or selected.selected > repb.selected:
+                    return Selected(
+                        repb.selected, merge(rep.value, repb.value), repb.pos,
+                        repb.ctx, repb.op, repb.expected, repb.consumed,
+                        Append(
+                            rep.prefix,
+                            Cons(PrefixItem(rep.op, rep.expected), repb.prefix)
                         )
                     )
-    if reps:
-        return Recovered(reps, ra.pos, ra.loc, ra.expected)
+        return selected
+
+    sel = ra.selected
+    if sel is not None:
+        rb = parse(sel.value, stream, sel.pos, sel.ctx)
+        selected, pending = _merge_selected(sel, rb, merge)
+    else:
+        selected = None
+        pending = []
+
+    for pa in ra.pending:
+        selected = _handle_pending(pa)
+
+    if selected is not None or pending:
+        return Recovered(selected, pending, ra.pos, ra.loc, ra.expected)
+
     return Error(ra.pos, ra.loc, ra.expected, True)
+
+
+def _merge_selected(
+        rep: Selected[V, S], rb: Result[U, S],
+        merge: MergeFn[V, U, X]) -> Tuple[
+            Optional[Selected[X, S]], List[Repair[X, S]]]:
+    if type(rb) is Ok:
+        return (
+            Selected(
+                rep.selected, merge(rep.value, rb.value), rb.pos, rb.ctx,
+                rep.op, rep.expected, rep.consumed or rb.consumed, rep.prefix
+            ),
+            []
+        )
+    elif type(rb) is Recovered:
+        pending = [
+            Repair(
+                merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
+                pb.expected, pb.consumed,
+                Append(
+                    rep.prefix,
+                    Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
+                )
+            )
+            for pb in rb.pending
+        ]
+        if rb.selected is not None:
+            repb = rb.selected
+            return (
+                Selected(
+                    rep.selected, merge(rep.value, repb.value), repb.pos,
+                    repb.ctx, repb.op, repb.expected, repb.consumed,
+                    Append(
+                        rep.prefix,
+                        Cons(PrefixItem(rep.op, rep.expected), repb.prefix)
+                    )
+                ),
+                pending
+            )
+        return None, pending
+    return None, []
 
 
 def fmap(parse_fn: ParseFn[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
@@ -66,7 +143,7 @@ def alt(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
         rb = second_fn(stream, pos, ctx, disallow_recovery(rm))
         if rb.consumed is True:
             return rb
-        expected = Chain(ra.expected, rb.expected)
+        expected = Append(ra.expected, rb.expected)
         if type(ra) is Ok:
             return ra.expect(expected)
         if type(rb) is Ok:
@@ -76,16 +153,27 @@ def alt(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
             rrb = second_fn(stream, pos, ctx, True)
             if type(rra) is Recovered:
                 if type(rrb) is Recovered:
-                    return Recovered(
-                        {**rrb.repairs, **rra.repairs}, rra.pos, rra.loc,
-                        rra.expected
-                    )
-                return ra.expect(expected)
+                    return _merge_alt_recovered(rra, rrb).expect(expected)
+                return rra.expect(expected)
             if type(rrb) is Recovered:
                 return rrb.expect(expected)
         return Error(pos, ra.loc, expected)
 
     return alt
+
+
+def _merge_alt_recovered(
+        ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
+    selected = ra.selected
+    if selected is None:
+        selected = rb.selected
+    else:
+        selected_b = rb.selected
+        if selected_b is not None and selected_b.selected < selected.selected:
+            selected = selected_b
+    return Recovered(
+        selected, ra.pending + rb.pending, ra.pos, ra.loc, ra.expected
+    )
 
 
 def bind(
@@ -201,14 +289,20 @@ def attempt(
         if type(r) is Error:
             return Error(r.pos, r.loc, r.expected)
         if type(r) is Recovered:
+            selected = r.selected
             return Recovered(
-                {
-                    p: Repair(
-                        r.cost, r.value, r.ctx, r.op, r.expected, False,
+                None if selected is None else Selected(
+                    selected.selected, selected.value, selected.pos,
+                    selected.ctx, selected.op, selected.expected, False,
+                    selected.prefix
+                ),
+                [
+                    Repair(
+                        r.value, r.pos, r.ctx, r.op, r.expected, False,
                         r.prefix
                     )
-                    for p, r in r.repairs.items()
-                },
+                    for r in r.pending
+                ],
                 r.pos, r.loc, r.expected
             )
         return r

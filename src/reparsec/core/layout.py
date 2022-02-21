@@ -1,8 +1,8 @@
 from typing import TypeVar
 
-from ..core import ParseFn, RecoveryMode
-from ..result import Error, Result
-from ..state import Ctx
+from .result import Error, Result
+from .state import Ctx
+from .types import ParseFn, RecoveryMode
 
 S = TypeVar("S")
 V = TypeVar("V")

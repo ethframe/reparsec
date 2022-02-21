@@ -1,14 +1,11 @@
-from typing import (
-    Callable, List, Optional, Sequence, Sized, Tuple, TypeVar, Union
-)
+from typing import Callable, List, Optional, Tuple, TypeVar
 
-from .core import ParseFn, ParseObj, RecoveryMode
-from .impl import combinators, layout, primitive, scannerless, sequence
+from .core import combinators
+from .core.result import Result
+from .core.state import Ctx, Loc
+from .core.types import ParseFn, ParseObj, RecoveryMode
 from .output import ParseResult
-from .result import Result
-from .state import Ctx, Loc
 
-T = TypeVar("T")
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
 V = TypeVar("V", bound=object)
@@ -120,26 +117,6 @@ def alt(parser: ParseObj[S, V], second: ParseObj[S, V]) -> Parser[S, V]:
     return FnParser(combinators.alt(parser.to_fn(), second.to_fn()))
 
 
-class Pure(primitive.Pure[S_contra, V_co], Parser[S_contra, V_co]):
-    pass
-
-
-class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
-    pass
-
-
-def eof() -> Parser[Sized, None]:
-    return FnParser(sequence.eof())
-
-
-def satisfy(test: Callable[[T], bool]) -> Parser[Sequence[T], T]:
-    return FnParser(sequence.satisfy(test))
-
-
-def sym(s: T) -> Parser[Sequence[T], T]:
-    return FnParser(sequence.sym(s))
-
-
 def maybe(parser: ParseObj[S, V]) -> Parser[S, Optional[V]]:
     return FnParser(combinators.maybe(parser.to_fn()))
 
@@ -156,27 +133,9 @@ def label(parser: ParseObj[S, V], x: str) -> Parser[S, V]:
     return FnParser(combinators.label(parser.to_fn(), x))
 
 
-class InsertValue(
-        primitive.InsertValue[S_contra, V_co],
-        Parser[S_contra, V_co]):
-    pass
-
-
-class InsertFn(primitive.InsertFn[S_contra, V_co], Parser[S_contra, V_co]):
-    pass
-
-
 class Delay(combinators.Delay[S_contra, V_co], Parser[S_contra, V_co]):
     def define(self, parser: ParseObj[S_contra, V_co]) -> None:
         self.define_fn(parser.to_fn())
-
-
-def prefix(s: str) -> Parser[str, str]:
-    return FnParser(scannerless.prefix(s))
-
-
-def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, str]:
-    return FnParser(scannerless.regexp(pat, group))
 
 
 def sep_by(parser: ParseObj[S, V], sep: ParseObj[S, U]) -> Parser[S, List[V]]:
@@ -189,22 +148,6 @@ def between(
         open: ParseObj[S, U], close: ParseObj[S, X],
         parser: ParseObj[S, V]) -> Parser[S, V]:
     return rseq(open, lseq(parser, close))
-
-
-def block(parser: ParseObj[S, V]) -> Parser[S, V]:
-    return FnParser(layout.block(parser.to_fn()))
-
-
-def same(parser: ParseObj[S, V]) -> Parser[S, V]:
-    return FnParser(layout.same(parser.to_fn()))
-
-
-def indented(delta: int, parser: ParseObj[S, V]) -> Parser[S, V]:
-    return FnParser(layout.indented(delta, parser.to_fn()))
-
-
-letter: Parser[Sequence[str], str] = satisfy(str.isalpha).label("letter")
-digit: Parser[Sequence[str], str] = satisfy(str.isdigit).label("digit")
 
 
 def _run_parser(
@@ -236,12 +179,3 @@ def run(
         parser: Parser[S, V], stream: S,
         recover: bool = False) -> ParseResult[V, S]:
     return run_c(parser, stream, _PosCtx(0, Loc(0, 0, 0)), recover)
-
-
-def sl_run(
-        parser: Parser[str, V], stream: str,
-        recover: bool = False) -> ParseResult[V, str]:
-    return _run_parser(
-        parser, stream, scannerless.SlCtx(0, Loc(0, 0, 0)), recover,
-        lambda l: "{!r}:{!r}".format(l.line + 1, l.col + 1)
-    )

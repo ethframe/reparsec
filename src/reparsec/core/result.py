@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Callable, Generic, Iterable, Mapping, TypeVar, Union
+from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
 
 from typing_extensions import Literal, final
 
-from .chain import Chain
+from .chain import Append
 from .state import Ctx, Loc
 
 V = TypeVar("V")
@@ -43,7 +43,7 @@ class Ok(Generic[V_co, S]):
         if consumed and self.consumed:
             return self
         return Ok(
-            self.value, self.pos, self.ctx, Chain(expected, self.expected),
+            self.value, self.pos, self.ctx, Append(expected, self.expected),
             consumed or self.consumed
         )
 
@@ -76,7 +76,7 @@ class Error:
         if consumed and self.consumed:
             return self
         return Error(
-            self.pos, self.loc, Chain(expected, self.expected),
+            self.pos, self.loc, Append(expected, self.expected),
             consumed or self.consumed
         )
 
@@ -103,9 +103,9 @@ class PrefixItem:
 
 
 @dataclass
-class Repair(Generic[V_co, S]):
-    cost: int
+class BaseRepair(Generic[V_co, S]):
     value: V_co
+    pos: int
     ctx: Ctx[S]
     op: RepairOp
     expected: Iterable[str] = ()
@@ -113,71 +113,114 @@ class Repair(Generic[V_co, S]):
     prefix: Iterable[PrefixItem] = ()
 
 
+@dataclass
+class Repair(BaseRepair[V_co, S]):
+    pass
+
+
+@dataclass
+class _Selected(Generic[V_co, S]):
+    selected: int
+
+
+@dataclass
+class Selected(BaseRepair[V_co, S], _Selected[V_co, S]):
+    pass
+
+
 @final
 class Recovered(Generic[V_co, S]):
-    __slots__ = "repairs", "pos", "loc", "expected", "consumed"
+    __slots__ = "selected", "pending", "pos", "loc", "expected", "consumed"
 
     consumed: Literal[True]
 
     def __init__(
-            self, repairs: Mapping[int, Repair[V_co, S]], pos: int, loc: Loc,
+            self, selected: Optional[Selected[V_co, S]],
+            pending: List[Repair[V_co, S]], pos: int, loc: Loc,
             expected: Iterable[str] = ()):
-        self.repairs = repairs
+        self.selected = selected
+        self.pending = pending
         self.pos = pos
         self.loc = loc
         self.expected = expected
         self.consumed = True
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U, S]":
+        selected = self.selected
         return Recovered(
-            {
-                p: Repair(
-                    r.cost, fn(r.value), r.ctx, r.op, r.expected, r.consumed,
+            None if selected is None else Selected(
+                selected.selected, fn(selected.value), selected.pos,
+                selected.ctx, selected.op, selected.expected,
+                selected.consumed, selected.prefix
+            ),
+            [
+                Repair(
+                    fn(r.value), r.pos, r.ctx, r.op, r.expected, r.consumed,
                     r.prefix
                 )
-                for p, r in self.repairs.items()
-            },
+                for r in self.pending
+            ],
             self.pos, self.loc, self.expected
         )
 
     def with_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
+        selected = self.selected
         return Recovered(
-            {
-                p: Repair(
-                    r.cost, r.value, ctx, r.op, r.expected, r.consumed,
-                    r.prefix
+            None if selected is None else Selected(
+                selected.selected, selected.value, selected.pos, ctx,
+                selected.op, selected.expected, selected.consumed,
+                selected.prefix
+            ),
+            [
+                Repair(
+                    r.value, r.pos, ctx, r.op, r.expected, r.consumed, r.prefix
                 )
-                for p, r in self.repairs.items()
-            },
+                for r in self.pending
+            ],
             self.pos, self.loc, self.expected
         )
 
     def expect(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
+        selected = self.selected
         return Recovered(
-            {
-                p: Repair(
-                    r.cost, r.value, r.ctx, r.op,
-                    r.expected if r.consumed else expected,
-                    r.consumed, r.prefix
+            None if selected is None else Selected(
+                selected.selected, selected.value, selected.pos,
+                selected.ctx, selected.op,
+                selected.expected if selected.consumed else expected,
+                selected.consumed, selected.prefix
+            ),
+            [
+                Repair(
+                    r.value, r.pos, r.ctx, r.op,
+                    r.expected if r.consumed else expected, r.consumed,
+                    r.prefix
                 )
-                for p, r in self.repairs.items()
-            },
+                for r in self.pending
+            ],
             self.pos, self.loc, self.expected
         )
 
     def merge_expected(
             self, expected: Iterable[str],
             consumed: bool) -> "Recovered[V_co, S]":
+        selected = self.selected
         return Recovered(
-            {
-                p: Repair(
-                    r.cost, r.value, r.ctx, r.op,
+            None if selected is None else Selected(
+                selected.selected, selected.value, selected.pos, selected.ctx,
+                selected.op,
+                selected.expected if consumed and selected.consumed
+                else Append(expected, selected.expected),
+                consumed or selected.consumed, selected.prefix
+            ),
+            [
+                Repair(
+                    r.value, r.pos, r.ctx, r.op,
                     r.expected if consumed and r.consumed
-                    else Chain(expected, r.expected),
+                    else Append(expected, r.expected),
                     consumed or r.consumed, r.prefix
                 )
-                for p, r in self.repairs.items()
-            },
+                for r in self.pending
+            ],
             self.pos, self.loc, self.expected
         )
 

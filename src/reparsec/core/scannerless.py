@@ -1,9 +1,11 @@
 import re
 from typing import Optional, TypeVar, Union
 
-from ..core import ParseFn, RecoveryMode
-from ..result import Error, Insert, Ok, Recovered, Repair, Result, Skip
-from ..state import Ctx, Loc
+from .result import (
+    Error, Insert, Ok, Recovered, Repair, Result, Selected, Skip
+)
+from .state import Ctx, Loc
+from .types import ParseFn, RecoveryMode
 
 C = TypeVar("C")
 V = TypeVar("V")
@@ -46,18 +48,18 @@ def prefix(s: str) -> ParseFn[str, str]:
             )
         loc = ctx.get_loc(stream, pos)
         if rm:
-            reps = {pos: Repair(ls, s, ctx, Insert(rs, loc), expected)}
+            pending = [Repair(s, pos, ctx, Insert(rs, loc), expected)]
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
                     skip = cur - pos
-                    reps[cur + ls] = Repair(
-                        skip, s, ctx.update_loc(stream, cur + ls),
+                    sel = Selected(
+                        cur, s, cur + ls, ctx.update_loc(stream, cur + ls),
                         Skip(skip, loc), expected
                     )
-                    return Recovered(reps, pos, loc, expected)
+                    return Recovered(sel, pending, pos, loc, expected)
                 cur += 1
-            return Recovered(reps, pos, loc, expected)
+            return Recovered(None, pending, pos, loc, expected)
         return Error(pos, loc, expected)
 
     return prefix
@@ -88,15 +90,11 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                     if v is not None:
                         skip = cur - pos
                         end = r.end()
-                        return Recovered(
-                            {
-                                end: Repair(
-                                    skip, v, ctx.update_loc(stream, end),
-                                    Skip(skip, loc)
-                                )
-                            },
-                            pos, loc
+                        sel = Selected(
+                            cur, v, end, ctx.update_loc(stream, end),
+                            Skip(skip, loc)
                         )
+                        return Recovered(sel, [], pos, loc)
                 cur += 1
         return Error(pos, loc)
 

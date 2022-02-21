@@ -13,19 +13,13 @@ class _Pair(Generic[T, V]):
         self._snd = snd
 
 
-class Chain(_Pair[Iterable[T_co], Iterable[T_co]], Iterable[T_co]):
+class Append(_Pair[Iterable[T_co], Iterable[T_co]], Iterable[T_co]):
     def __iter__(self) -> Iterator[T_co]:
         yield from self._fst
         yield from self._snd
 
 
-class ChainL(_Pair[T_co, Iterable[T_co]], Iterable[T_co]):
+class Cons(_Pair[T_co, Iterable[T_co]], Iterable[T_co]):
     def __iter__(self) -> Iterator[T_co]:
         yield self._fst
         yield from self._snd
-
-
-class ChainR(_Pair[Iterable[T_co], T_co], Iterable[T_co]):
-    def __iter__(self) -> Iterator[T_co]:
-        yield from self._fst
-        yield self._snd
