@@ -1,11 +1,11 @@
 import re
 from typing import Optional, TypeVar, Union
 
-from ..core import ParseFn, RecoveryMode
-from ..result import (
+from .result import (
     Error, Insert, Ok, Recovered, Repair, Result, Selected, Skip
 )
-from ..state import Ctx, Loc
+from .state import Ctx, Loc
+from .types import ParseFn, RecoveryMode
 
 C = TypeVar("C")
 V = TypeVar("V")

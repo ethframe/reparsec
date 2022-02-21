@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Iterator, List, Optional, Pattern, Sequence, Tuple
 
-from .parser import InsertValue, Parser, label, satisfy
+from .parser import Parser, label
+from .primitive import InsertValue
+from .sequence import satisfy
 
 
 @dataclass(frozen=True)

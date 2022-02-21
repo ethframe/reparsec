@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import pytest
 
-from reparsec import yamlish
+from reparsec.parsers import yamlish
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     ("key: value", {"key": "value"}),
@@ -34,4 +34,4 @@ qux: quux
 
 @pytest.mark.parametrize("data, expected", DATA_POSITIVE)
 def test_positive(data: str, expected: object) -> None:
-    assert yamlish.parse(data) == expected
+    assert yamlish.loads(data) == expected

@@ -1,8 +1,10 @@
 import re
 from typing import Match, Sequence
 
-from .lexer import Token, split_tokens, token
-from .parser import Delay, InsertValue, Parser, eof, label, run, sym
+from reparsec.lexer import Token, split_tokens, token
+from reparsec.parser import Delay, Parser, label, run
+from reparsec.primitive import InsertValue
+from reparsec.sequence import eof, sym
 
 spec = re.compile(r"""
 [ \n\r\t]+
@@ -69,8 +71,8 @@ value.define(
     ).label("value")
 )
 
-json = value.lseq(eof())
+parser = value.lseq(eof())
 
 
-def parse(src: str) -> object:
-    return run(json, split_tokens(src, spec)).unwrap()
+def loads(src: str) -> object:
+    return run(parser, split_tokens(src, spec)).unwrap()

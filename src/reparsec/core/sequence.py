@@ -1,10 +1,10 @@
 from typing import Callable, Sequence, Sized, TypeVar
 
-from ..core import ParseFn, RecoveryMode
-from ..result import (
+from .result import (
     Error, Insert, Ok, Recovered, Repair, Result, Selected, Skip
 )
-from ..state import Ctx
+from .state import Ctx
+from .types import ParseFn, RecoveryMode
 
 T = TypeVar("T")
 C = TypeVar("C", bound=object)

@@ -1,8 +1,8 @@
 from typing import Callable, Optional, TypeVar
 
-from ..core import ParseObj, RecoveryMode
-from ..result import Error, Insert, Ok, Recovered, Repair, Result
-from ..state import Ctx
+from .result import Error, Insert, Ok, Recovered, Repair, Result
+from .state import Ctx
+from .types import ParseObj, RecoveryMode
 
 S_contra = TypeVar("S_contra", contravariant=True)
 V_co = TypeVar("V_co", covariant=True)

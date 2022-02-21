@@ -5,12 +5,16 @@ Suppose we need to parse a list of numbers separated by commas without an extern
 First, we need to recognize digits. For this we will use the `satisfy` parser. It is parameterized with a predicate to test the input token.
 
 ```python
-from reparsec.parser import run, satisfy
+from reparsec.sequence import satisfy
 
 digit = satisfy(str.isdigit)
 ```
 
 Let's try it in action. We can pass our freshly created parser to the `run` function to parse a sequence of tokens. It returns either a result of successful parse or an error. You can get the actual value or exception with an `unwrap` method.
+
+```python
+from reparsec.parser import run
+```
 
 ```python
 >>> run(digit, "123").unwrap()
@@ -49,7 +53,7 @@ number = (digit + digit.many()).fmap(lambda v: int(v[0] + "".join(v[1])))
 Done. Now we are ready to parse the list. The list is just a sequence of numbers separated by commas:
 
 ```python
-from reparsec.parser import sym
+from reparsec.sequence import sym
 
 list_parser = number.sep_by(sym(","))
 ```
@@ -96,7 +100,7 @@ The parser reported an error and provided a brief description of what was wrong 
 Ouch! While reporting errors in general, in some cases our parser silently ignores the rest of the input. Let's fix this by requiring input to end right after the list using the `eof` parser:
 
 ```python
-from reparsec.parser import eof
+from reparsec.sequence import eof
 
 list_parser = number.lseq(spaces).sep_by(
     sym(",") + spaces
@@ -168,7 +172,7 @@ reparsec.output.ParseError: at 2: expected number
 We can use `InsertValue` to return some value during error recovery:
 
 ``` python
-from reparsec.parser import InsertValue
+from reparsec.primitive import InsertValue
 
 number = (digit + digit.many()).fmap(
     lambda v: int(v[0] + "".join(v[1]))
@@ -203,7 +207,9 @@ reparsec.output.ParseError: at 2: expected number, at 3: expected number, at 6: 
 The final parser definition should look like this:
 
 ```python
-from reparsec.parser import eof, InsertValue, run, satisfy, sym
+from reparsec.parser import run
+from reparsec.primitive import InsertValue
+from reparsec.sequence import eof, satisfy, sym
 
 digit = satisfy(str.isdigit).label("digit")
 

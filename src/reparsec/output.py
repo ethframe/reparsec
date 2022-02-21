@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
-from .result import BaseRepair, Error, Ok, Result
-from .state import Loc
+from .core.result import BaseRepair, Error, Ok, Result
+from .core.state import Loc
 
 S = TypeVar("S")
 V_co = TypeVar("V_co", covariant=True)

@@ -2,10 +2,10 @@ from typing import List, Tuple
 
 import pytest
 
-from reparsec import json
 from reparsec.lexer import split_tokens
 from reparsec.output import ParseError
 from reparsec.parser import run
+from reparsec.parsers import json
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),
@@ -29,7 +29,7 @@ DATA_POSITIVE: List[Tuple[str, object]] = [
 
 @pytest.mark.parametrize("data, expected", DATA_POSITIVE)
 def test_positive(data: str, expected: object) -> None:
-    assert json.parse(data) == expected
+    assert json.loads(data) == expected
 
 
 DATA_NEGATIVE = [
@@ -49,7 +49,7 @@ DATA_NEGATIVE = [
 @pytest.mark.parametrize("data, expected", DATA_NEGATIVE)
 def test_negative(data: str, expected: str) -> None:
     with pytest.raises(ParseError) as err:
-        json.parse(data)
+        json.loads(data)
     assert str(err.value) == expected
 
 
@@ -85,7 +85,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
 
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
-    r = run(json.json, split_tokens(data, json.spec), recover=True)
+    r = run(json.parser, split_tokens(data, json.spec), recover=True)
     assert r.unwrap(recover=True) == value
     with pytest.raises(ParseError) as err:
         r.unwrap()

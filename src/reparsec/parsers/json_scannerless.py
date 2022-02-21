@@ -1,7 +1,10 @@
 import re
 from typing import Match
 
-from .parser import Delay, InsertValue, Parser, eof, prefix, regexp, sl_run
+from reparsec.parser import Delay, Parser
+from reparsec.primitive import InsertValue
+from reparsec.scannerless import prefix, regexp, run
+from reparsec.sequence import eof
 
 escape = re.compile(r"""
 \\(?:(?P<simple>["\\/bfnrt])|u(?P<unicode>[0-9a-fA-F]{4}))
@@ -66,8 +69,8 @@ value.define(
     ).label("value")
 )
 
-json = value << ows << eof()
+parser = value << ows << eof()
 
 
-def parse(src: str) -> object:
-    return sl_run(json, src).unwrap()
+def loads(src: str) -> object:
+    return run(parser, src).unwrap()

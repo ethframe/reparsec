@@ -3,7 +3,8 @@ from typing import List
 import pytest
 
 from reparsec.output import ParseError
-from reparsec.parser import Parser, digit, letter, run, sym
+from reparsec.parser import Parser, run
+from reparsec.sequence import digit, letter, sym
 
 ident = (
     (letter | sym("_")) + (letter | digit | sym("_")).many()
