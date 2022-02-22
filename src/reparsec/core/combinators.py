@@ -51,20 +51,6 @@ def alt(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     return alt
 
 
-def _merge_alt_recovered(
-        ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
-    selected = ra.selected
-    if selected is None:
-        selected = rb.selected
-    else:
-        selected_b = rb.selected
-        if selected_b is not None and selected_b.selected < selected.selected:
-            selected = selected_b
-    return Recovered(
-        selected, ra.pending + rb.pending, ra.pos, ra.loc, ra.expected
-    )
-
-
 def bind(
         parse_fn: ParseFn[S, V],
         fn: Callable[[V], ParseObj[S, U]]) -> ParseFn[S, U]:
@@ -148,7 +134,9 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
         value: List[V] = []
         r = parse_fn(stream, pos, ctx, rm)
         while type(r) is Ok:
-            consumed |= r.consumed
+            if r.consumed is False:
+                raise RuntimeError("parser shouldn't accept empty string")
+            consumed = True
             value.append(r.value)
             ctx = r.ctx
             r = parse_fn(stream, r.pos, ctx, rm)
