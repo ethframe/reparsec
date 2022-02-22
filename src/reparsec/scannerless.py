@@ -8,8 +8,8 @@ from .parser import FnParser, Parser, run_c
 V = TypeVar("V", bound=object)
 
 
-def prefix(s: str) -> Parser[str, str]:
-    return FnParser(scannerless.prefix(s))
+def literal(s: str) -> Parser[str, str]:
+    return FnParser(scannerless.literal(s))
 
 
 def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, str]:

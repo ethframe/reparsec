@@ -3,7 +3,7 @@ from typing import Match
 
 from reparsec.parser import Delay, Parser
 from reparsec.primitive import InsertValue
-from reparsec.scannerless import prefix, regexp, run
+from reparsec.scannerless import literal, regexp, run
 from reparsec.sequence import eof
 
 escape = re.compile(r"""
@@ -33,7 +33,7 @@ def token(pat: str) -> Parser[str, str]:
 
 
 def punct(p: str) -> Parser[str, str]:
-    return (ows >> prefix(p)).attempt()
+    return (ows >> literal(p)).attempt()
 
 
 JsonParser = Parser[str, object]
