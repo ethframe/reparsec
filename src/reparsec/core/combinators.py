@@ -309,30 +309,3 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
         return parse_fn(stream, pos, ctx, rm).expect(expected)
 
     return label
-
-
-class Delay(ParseObj[S_contra, V_co]):
-    def __init__(self) -> None:
-        def _fn(
-                stream: S_contra, pos: int, ctx: Ctx[S_contra],
-                rm: RecoveryMode) -> Result[V_co, S_contra]:
-            raise RuntimeError("Delayed parser was not defined")
-
-        self._defined = False
-        self._fn: ParseFn[S_contra, V_co] = _fn
-
-    def define_fn(self, parse_fn: ParseFn[S_contra, V_co]) -> None:
-        if self._defined:
-            raise RuntimeError("Delayed parser was already defined")
-        self._defined = True
-        self._fn = parse_fn
-
-    def parse_fn(
-            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            rm: RecoveryMode) -> Result[V_co, S_contra]:
-        return self._fn(stream, pos, ctx, rm)
-
-    def to_fn(self) -> ParseFn[S_contra, V_co]:
-        if self._defined:
-            return self._fn
-        return super().to_fn()
