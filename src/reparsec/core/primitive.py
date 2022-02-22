@@ -29,10 +29,12 @@ class PureFn(ParseObj[S_contra, V_co]):
 
 
 class InsertValue(ParseObj[S_contra, V_co]):
-    def __init__(self, x: V_co, expected: Optional[str] = None):
+    def __init__(self, x: V_co, label: Optional[str] = None):
+        if label is None:
+            label = repr(x)
+
         self._x = x
-        self._label = repr(x)
-        self._expected = [] if expected is None else [expected]
+        self._label = label
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
@@ -40,22 +42,16 @@ class InsertValue(ParseObj[S_contra, V_co]):
         loc = ctx.get_loc(stream, pos)
         if rm:
             return Recovered(
-                None,
-                [
-                    Repair(
-                        self._x, pos, ctx, Insert(self._label, loc),
-                        self._expected
-                    )
-                ],
-                pos, loc, self._expected
+                None, [Repair(self._x, pos, ctx, Insert(self._label, loc))],
+                pos, loc
             )
         return Error(pos, loc)
 
 
 class InsertFn(ParseObj[S_contra, V_co]):
-    def __init__(self, fn: Callable[[], V_co], expected: Optional[str] = None):
+    def __init__(self, fn: Callable[[], V_co], label: Optional[str] = None):
         self._fn = fn
-        self._expected = [] if expected is None else [expected]
+        self._label = label
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
@@ -63,9 +59,10 @@ class InsertFn(ParseObj[S_contra, V_co]):
         loc = ctx.get_loc(stream, pos)
         if rm:
             x = self._fn()
+            label = self._label
+            if label is None:
+                label = repr(x)
             return Recovered(
-                None,
-                [Repair(x, pos, ctx, Insert(repr(x), loc), self._expected)],
-                pos, loc, self._expected
+                None, [Repair(x, pos, ctx, Insert(label, loc))], pos, loc
             )
         return Error(pos, loc)

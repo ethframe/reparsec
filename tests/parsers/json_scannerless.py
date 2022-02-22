@@ -54,7 +54,7 @@ boolean: JsonParser = token(r"(true|false)").label("bool").fmap(
     lambda s: s == "true")
 null: JsonParser = token(r"(null)").label("null").fmap(lambda _: None)
 json_dict: JsonParser = (
-    ((string | InsertValue("a")) << punct(":")) + value
+    ((string | InsertValue("a", "'\"a\"'")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")

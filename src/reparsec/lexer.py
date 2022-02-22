@@ -47,4 +47,4 @@ def token(k: str) -> Parser[Sequence[Token], Token]:
 
 
 def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
-    return token(kind) | InsertValue(Token(kind, ins_value))
+    return token(kind) | InsertValue(Token(kind, ins_value), kind)

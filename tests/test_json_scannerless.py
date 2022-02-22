@@ -3,8 +3,9 @@ from typing import List, Tuple
 import pytest
 
 from reparsec.output import ParseError
-from reparsec.parsers import json_scannerless
 from reparsec.scannerless import run
+
+from .parsers import json_scannerless
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),
@@ -53,39 +54,55 @@ def test_negative(data: str, expected: str) -> None:
 
 
 DATA_RECOVERY: List[Tuple[str, object, str]] = [
-    ("1 1", 1, "at 1:3: expected end of file"),
-    ("{", {}, "at 1:2: expected string or '}'"),
+    ("1 1", 1, "at 1:3: expected end of file (skipped 1 token)"),
+    ("{", {}, "at 1:2: expected string or '}' (inserted '}')"),
     (
         "[1 2]", [1],
-        "at 1:4: expected ',' or ']', at 1:4: expected end of file"
+        "at 1:4: expected ',' or ']' (inserted ']'), " +
+        "at 1:4: expected end of file (skipped 2 tokens)"
     ),
-    ("[1, , 2]", [1, 1, 2], "at 1:4: expected value"),
+    ("[1, , 2]", [1, 1, 2], "at 1:4: expected value (inserted 1)"),
     (
         "[1, [{, 2]", [1, [{}, 2]],
-        "at 1:7: expected string or '}', at 1:11: expected ']'"
+        "at 1:7: expected string or '}' (inserted '}'), " +
+        "at 1:11: expected ']' (inserted ']')"
     ),
-    ("[1, }, 2]", [1, 1], "at 1:4: expected value, at 1:5: expected ']'"),
-    ('{"key": }', {"key": 1}, "at 1:8: expected value"),
+    (
+        "[1, }, 2]", [1, 1],
+        "at 1:4: expected value (inserted 1), " +
+        "at 1:5: expected ']' (skipped 4 tokens)"
+    ),
+    ('{"key": }', {"key": 1}, "at 1:8: expected value (inserted 1)"),
     (
         '{"key": ]', {"key": 1},
-        "at 1:8: expected value, at 1:9: expected '}', " +
-        "at 1:9: expected end of file"
+        "at 1:8: expected value (inserted 1), " +
+        "at 1:9: expected '}' (inserted '}'), " +
+        "at 1:9: expected end of file (skipped 1 token)"
     ),
     (
         '{"key": 2]', {"key": 2},
-        "at 1:10: expected ',' or '}', at 1:10: expected end of file"
+        "at 1:10: expected ',' or '}' (inserted '}'), " +
+        "at 1:10: expected end of file (skipped 1 token)"
     ),
     (
         '{"key": 0,', {"key": 0, "a": 1},
-        "at 1:11: expected string, at 1:11: expected ':', " +
-        "at 1:11: expected value, at 1:11: expected '}'"
+        "at 1:11: expected string (inserted '\"a\"'), " +
+        "at 1:11: expected ':' (inserted ':'), " +
+        "at 1:11: expected value (inserted 1), " +
+        "at 1:11: expected '}' (inserted '}')"
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 1:11: expected string, at 1:12: expected ':', " +
-        "at 1:12: expected '[', at 1:13: expected '}'"
+        "at 1:11: expected string (inserted '\"a\"'), " +
+        "at 1:12: expected ':' (inserted ':'), " +
+        "at 1:12: expected '[' (inserted '['), " +
+        "at 1:13: expected '}' (inserted '}')"
     ),
-    ('{"key": @}', {"key": 1}, "at 1:8: expected value, at 1:9: expected '}'"),
+    (
+        '{"key": @}', {"key": 1},
+        "at 1:8: expected value (inserted 1), " +
+        "at 1:9: expected '}' (skipped 1 token)"
+    ),
 ]
 
 

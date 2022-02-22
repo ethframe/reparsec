@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Sized, TypeVar
+from typing import Callable, Optional, Sequence, Sized, TypeVar
 
 from .core import sequence
 from .parser import FnParser, Parser
@@ -14,8 +14,8 @@ def satisfy(test: Callable[[T], bool]) -> Parser[Sequence[T], T]:
     return FnParser(sequence.satisfy(test))
 
 
-def sym(s: T) -> Parser[Sequence[T], T]:
-    return FnParser(sequence.sym(s))
+def sym(s: T, label: Optional[str] = None) -> Parser[Sequence[T], T]:
+    return FnParser(sequence.sym(s, label))
 
 
 letter: Parser[Sequence[str], str] = satisfy(str.isalpha).label("letter")
