@@ -63,6 +63,11 @@ class Parser(ParseObj[S_contra, V_co]):
     def label(self, expected: str) -> "Parser[S_contra, V_co]":
         return label(self, expected)
 
+    def insert_on_error(
+            self, insert_fn: Callable[[S_contra, int], V_co], label: str
+    ) -> "Parser[S_contra, V_co]":
+        return insert_on_error(insert_fn, label, self)
+
     def sep_by(
             self, sep: ParseObj[S_contra, U]
     ) -> "Parser[S_contra, List[V_co]]":
@@ -133,9 +138,42 @@ def label(parser: ParseObj[S, V], x: str) -> Parser[S, V]:
     return FnParser(combinators.label(parser.to_fn(), x))
 
 
-class Delay(combinators.Delay[S_contra, V_co], Parser[S_contra, V_co]):
+def insert_on_error(
+        insert_fn: Callable[[S, int], V], label: str,
+        parser: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(
+        combinators.insert_on_error(insert_fn, label, parser.to_fn())
+    )
+
+
+class Delay(Parser[S_contra, V_co]):
+    def __init__(self) -> None:
+        def _fn(
+                stream: S_contra, pos: int, ctx: Ctx[S_contra],
+                rm: RecoveryMode) -> Result[V_co, S_contra]:
+            raise RuntimeError("Delayed parser was not defined")
+
+        self._defined = False
+        self._fn: ParseFn[S_contra, V_co] = _fn
+
     def define(self, parser: ParseObj[S_contra, V_co]) -> None:
         self.define_fn(parser.to_fn())
+
+    def define_fn(self, parse_fn: ParseFn[S_contra, V_co]) -> None:
+        if self._defined:
+            raise RuntimeError("Delayed parser was already defined")
+        self._defined = True
+        self._fn = parse_fn
+
+    def parse_fn(
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
+            rm: RecoveryMode) -> Result[V_co, S_contra]:
+        return self._fn(stream, pos, ctx, rm)
+
+    def to_fn(self) -> ParseFn[S_contra, V_co]:
+        if self._defined:
+            return self._fn
+        return super().to_fn()
 
 
 def sep_by(parser: ParseObj[S, V], sep: ParseObj[S, U]) -> Parser[S, List[V]]:

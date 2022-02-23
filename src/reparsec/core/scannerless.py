@@ -35,7 +35,7 @@ class SlCtx(Ctx[str]):
         return "{!r}:{!r}".format(loc.line + 1, loc.col + 1)
 
 
-def prefix(s: str) -> ParseFn[str, str]:
+def literal(s: str) -> ParseFn[str, str]:
     if len(s) == 0:
         raise ValueError("Expected non-empty value")
 
@@ -43,7 +43,7 @@ def prefix(s: str) -> ParseFn[str, str]:
     rs = repr(s)
     expected = [rs]
 
-    def prefix(
+    def literal(
             stream: str, pos: int, ctx: Ctx[str],
             rm: RecoveryMode) -> Result[str, str]:
         if stream.startswith(s, pos):
@@ -66,7 +66,7 @@ def prefix(s: str) -> ParseFn[str, str]:
             return Recovered(None, pending, pos, loc, expected)
         return Error(pos, loc, expected)
 
-    return prefix
+    return literal
 
 
 def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:

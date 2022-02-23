@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
-from .core.result import BaseRepair, Error, Ok, Result
+from .core.result import BaseRepair, Error, Ok, RepairOp, Result, Skip
 from .core.state import Loc
 
 S = TypeVar("S")
@@ -11,17 +11,30 @@ U = TypeVar("U")
 
 @dataclass
 class ErrorItem:
-    pos: str
+    loc: Loc
+    loc_str: str
     expected: List[str]
+    op: Optional[RepairOp] = None
 
     def msg(self) -> str:
+        res = "at {}: ".format(self.loc_str)
         if not self.expected:
-            return "at {}: unexpected input".format(self.pos)
-        if len(self.expected) == 1:
-            return "at {}: expected {}".format(self.pos, self.expected[0])
-        return "at {}: expected {} or {}".format(
-            self.pos, ', '.join(self.expected[:-1]), self.expected[-1]
-        )
+            res += "unexpected input"
+        elif len(self.expected) == 1:
+            res += "expected {}".format(self.expected[0])
+        else:
+            res += "expected {} or {}".format(
+                ', '.join(self.expected[:-1]), self.expected[-1]
+            )
+        if self.op is not None:
+            if type(self.op) is Skip:
+                repair = "skipped {} {}".format(
+                    self.op.count, "token" if self.op.count == 1 else "tokens"
+                )
+            else:
+                repair = "inserted {}".format(self.op.label)
+            res += " (" + repair + ")"
+        return res
 
 
 class ParseError(Exception):
@@ -48,8 +61,9 @@ class ParseResult(Generic[V_co, S]):
         if type(self._result) is Error:
             raise ParseError([
                 ErrorItem(
+                    self._result.loc,
                     self._fmt_loc(self._result.loc),
-                    list(self._result.expected)
+                    list(self._result.expected),
                 )
             ])
 
@@ -61,9 +75,15 @@ class ParseResult(Generic[V_co, S]):
         errors: List[ErrorItem] = []
         for item in repair.prefix:
             errors.append(
-                ErrorItem(self._fmt_loc(item.op.loc), list(item.expected))
+                ErrorItem(
+                    item.op.loc, self._fmt_loc(item.op.loc),
+                    list(item.expected), item.op
+                )
             )
         errors.append(
-            ErrorItem(self._fmt_loc(repair.op.loc), list(repair.expected))
+            ErrorItem(
+                repair.op.loc, self._fmt_loc(repair.op.loc),
+                list(repair.expected), repair.op
+            )
         )
         raise ParseError(errors)

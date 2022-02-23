@@ -3,7 +3,7 @@ from typing import Match
 
 from reparsec.parser import Delay, Parser
 from reparsec.primitive import InsertValue
-from reparsec.scannerless import prefix, regexp, run
+from reparsec.scannerless import literal, regexp, run
 from reparsec.sequence import eof
 
 escape = re.compile(r"""
@@ -33,7 +33,7 @@ def token(pat: str) -> Parser[str, str]:
 
 
 def punct(p: str) -> Parser[str, str]:
-    return (ows >> prefix(p)).attempt()
+    return (ows >> literal(p)).attempt()
 
 
 JsonParser = Parser[str, object]
@@ -54,7 +54,7 @@ boolean: JsonParser = token(r"(true|false)").label("bool").fmap(
     lambda s: s == "true")
 null: JsonParser = token(r"(null)").label("null").fmap(lambda _: None)
 json_dict: JsonParser = (
-    ((string | InsertValue("a")) << punct(":")) + value
+    ((string | InsertValue("a", "'\"a\"'")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")

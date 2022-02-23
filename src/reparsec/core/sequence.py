@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Sized, TypeVar
+from typing import Callable, Optional, Sequence, Sized, TypeVar
 
 from .result import (
     Error, Insert, Ok, Recovered, Repair, Result, Selected, Skip
@@ -59,9 +59,12 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
     return satisfy
 
 
-def sym(s: T) -> ParseFn[Sequence[T], T]:
-    rs = repr(s)
-    expected = [rs]
+def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
+    if label is None:
+        label_ = repr(s)
+    else:
+        label_ = label
+    expected = [label_]
 
     def sym(
             stream: Sequence[T], pos: int, ctx: Ctx[Sequence[T]],
@@ -72,7 +75,7 @@ def sym(s: T) -> ParseFn[Sequence[T], T]:
                 return Ok(t, pos + 1, ctx, consumed=True)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = [Repair(s, pos, ctx, Insert(rs, loc), expected)]
+            pending = [Repair(s, pos, ctx, Insert(label_, loc), expected)]
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]

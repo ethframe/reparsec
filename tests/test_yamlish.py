@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import pytest
 
-from reparsec.parsers import yamlish
+from .parsers import yamlish
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     ("key: value", {"key": "value"}),

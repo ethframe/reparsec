@@ -1,8 +1,8 @@
 import re
 from typing import Match, Sequence
 
-from reparsec.lexer import Token, split_tokens, token
-from reparsec.parser import Delay, Parser, label, run
+from reparsec.lexer import Token, run, split_tokens, token
+from reparsec.parser import Delay, Parser
 from reparsec.primitive import InsertValue
 from reparsec.sequence import eof, sym
 
@@ -43,7 +43,7 @@ def unescape(s: str) -> str:
 
 
 def punct(x: str) -> Parser[Sequence[Token], Token]:
-    return label(sym(Token("punct", x)), repr(x))
+    return sym(Token("punct", x), repr(x))
 
 
 JsonParser = Parser[Sequence[Token], object]
@@ -56,7 +56,7 @@ number: JsonParser = token("float").fmap(lambda t: float(t.value))
 boolean: JsonParser = token("bool").fmap(lambda t: t.value == "true")
 null: JsonParser = token("null").fmap(lambda t: None)
 json_dict: JsonParser = (
-    ((string | InsertValue("a")) << punct(":")) + value
+    ((string | InsertValue("a", "'\"a\"'")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")

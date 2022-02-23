@@ -1,41 +1,60 @@
 from dataclasses import dataclass, field
-from typing import Iterator, List, Optional, Pattern, Sequence, Tuple
+from typing import Iterator, List, Pattern, Sequence, TypeVar
 
-from .parser import Parser, label
-from .primitive import InsertValue
+from reparsec.output import ParseResult
+
+from .core.state import Ctx, Loc
+from .parser import Parser, label, run_c
 from .sequence import satisfy
+
+V = TypeVar("V")
 
 
 @dataclass(frozen=True)
 class Token:
     kind: str
     value: str
-    loc: Optional[Tuple[int, int]] = field(
-        default=None, repr=False, compare=False
-    )
+    start: Loc = field(default=Loc(0, 0, 0), compare=False)
+    end: Loc = field(default=Loc(0, 0, 0), compare=False)
+
+
+class LexError(Exception):
+    def __init__(self, loc: Loc):
+        super().__init__(loc)
+        self.loc = loc
+
+    def __str__(self) -> str:
+        return "Lexing error at {}:{}".format(
+            self.loc.line + 1, self.loc.col + 1
+        )
 
 
 def iter_tokens(src: str, spec: Pattern[str]) -> Iterator[Token]:
+    pos = 0
     line = 0
     col = 0
-    pos = 0
+    loc = Loc(0, 0, 0)
     src_len = len(src)
     while pos < src_len:
         match = spec.match(src, pos=pos)
         if match is None:
-            raise ValueError()
-        kind = match.lastgroup
-        if kind is not None:
-            yield Token(kind, match.group(kind), (line, col))
-        pos = match.end()
+            raise LexError(loc)
 
-        chunk = match.group()
-        nl = chunk.count("\n")
+        end = match.end()
+        nl = src.count("\n", pos, end)
         if nl:
             line += nl
-            col = len(chunk) - chunk.rfind("\n") - 1
+            col = end - src.rfind("\n", pos, end) - 1
         else:
-            col += len(chunk)
+            col += end - pos
+        end_loc = Loc(end, line, col)
+
+        kind = match.lastgroup
+        if kind is not None:
+            yield Token(kind, match.group(kind), loc, end_loc)
+
+        pos = end
+        loc = end_loc
 
 
 def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
@@ -47,4 +66,38 @@ def token(k: str) -> Parser[Sequence[Token], Token]:
 
 
 def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
-    return token(kind) | InsertValue(Token(kind, ins_value))
+    def insert_fn(stream: Sequence[Token], pos: int) -> Token:
+        loc = _loc_from_stream(stream, pos)
+        return Token(kind, ins_value, loc, loc)
+
+    return token(kind).insert_on_error(insert_fn, kind)
+
+
+class TokCtx(Ctx[Sequence[Token]]):
+    def get_loc(self, stream: Sequence[Token], pos: int) -> Loc:
+        return _loc_from_stream(stream, pos)
+
+    def update_loc(
+            self, stream: Sequence[Token], pos: int) -> Ctx[Sequence[Token]]:
+        return self
+
+    def set_anchor(self, anchor: int) -> Ctx[Sequence[Token]]:
+        return TokCtx(anchor, self.loc)
+
+    @classmethod
+    def fmt_loc(cls, loc: Loc) -> str:
+        return "{}:{}".format(loc.line + 1, loc.col + 1)
+
+
+def run(
+        parser: Parser[Sequence[Token], V], stream: Sequence[Token],
+        recover: bool = False) -> ParseResult[V, Sequence[Token]]:
+    return run_c(parser, stream, TokCtx(0, Loc(0, 0, 0)), recover)
+
+
+def _loc_from_stream(stream: Sequence[Token], pos: int) -> Loc:
+    if pos < len(stream):
+        return stream[pos].start
+    elif stream:
+        return stream[-1].end
+    return Loc(pos, 0, 0)

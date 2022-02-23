@@ -2,10 +2,10 @@ from typing import List, Tuple
 
 import pytest
 
-from reparsec.lexer import split_tokens
+from reparsec.lexer import run, split_tokens
 from reparsec.output import ParseError
-from reparsec.parser import run
-from reparsec.parsers import json
+
+from .parsers import json
 
 DATA_POSITIVE: List[Tuple[str, object]] = [
     (r"1", 1),
@@ -33,16 +33,16 @@ def test_positive(data: str, expected: object) -> None:
 
 
 DATA_NEGATIVE = [
-    ("", "at 0: expected value"),
-    ("1 1", "at 1: expected end of file"),
-    ("{", "at 1: expected string or '}'"),
-    ('{"key"', "at 2: expected ':'"),
-    ('{"key":', "at 3: expected value"),
-    ('{"key": 0', "at 4: expected ',' or '}'"),
-    ('{"key": 0,', "at 5: expected string"),
-    ("[", "at 1: expected value or ']'"),
-    ("[0", "at 2: expected ',' or ']'"),
-    ("[0,", "at 3: expected value"),
+    ("", "at 1:1: expected value"),
+    ("1 1", "at 1:3: expected end of file"),
+    ("{", "at 1:2: expected string or '}'"),
+    ('{"key"', "at 1:7: expected ':'"),
+    ('{"key":', "at 1:8: expected value"),
+    ('{"key": 0', "at 1:10: expected ',' or '}'"),
+    ('{"key": 0,', "at 1:11: expected string"),
+    ("[", "at 1:2: expected value or ']'"),
+    ("[0", "at 1:3: expected ',' or ']'"),
+    ("[0,", "at 1:4: expected value"),
 ]
 
 
@@ -54,37 +54,56 @@ def test_negative(data: str, expected: str) -> None:
 
 
 DATA_RECOVERY: List[Tuple[str, object, str]] = [
-    ("1 1", 1, "at 1: expected end of file"),
-    ("{", {}, "at 1: expected string or '}'"),
-    ("[1 2]", [1], "at 2: expected ',' or ']'"),
-    ("[1, , 2]", [1, 1, 2], "at 3: expected value"),
+    ("1 1", 1, "at 1:3: expected end of file (skipped 1 token)"),
+    ("{", {}, "at 1:2: expected string or '}' (inserted '}')"),
+    ("[1 2]", [1], "at 1:4: expected ',' or ']' (skipped 1 token)"),
+    ("[1, , 2]", [1, 1, 2], "at 1:5: expected value (inserted 1)"),
     (
         "[1, [{, 2]", [1, [{}, 2]],
-        "at 5: expected string or '}', at 8: expected ']'"
+        "at 1:7: expected string or '}' (inserted '}'), " +
+        "at 1:11: expected ']' (inserted ']')"
     ),
-    ("[1, }, 2]", [1, {}, 2], "at 3: expected '{'"),
-    ('{"key": }', {"key": {}}, "at 3: expected '{', at 4: expected '}'"),
-    ('{"key": ]', {"key": []}, "at 3: expected '[', at 4: expected '}'"),
+    ("[1, }, 2]", [1, {}, 2], "at 1:5: expected '{' (inserted '{')"),
+    (
+        '{"key": }', {"key": {}},
+        "at 1:9: expected '{' (inserted '{'), " +
+        "at 1:10: expected '}' (inserted '}')"
+    ),
+    (
+        '{"key": ]', {"key": []},
+        "at 1:9: expected '[' (inserted '['), " +
+        "at 1:10: expected '}' (inserted '}')"
+    ),
     (
         '{"key": 2]', {"key": 2},
-        "at 4: expected ',' or '}', at 4: expected end of file"
+        "at 1:10: expected ',' or '}' (inserted '}'), " +
+        "at 1:10: expected end of file (skipped 1 token)"
     ),
     (
         '{"key": 0,', {"key": 0, "a": 1},
-        "at 5: expected string, at 5: expected ':', at 5: expected value, " +
-        "at 5: expected '}'"
+        "at 1:11: expected string (inserted '\"a\"'), " +
+        "at 1:11: expected ':' (inserted ':'), " +
+        "at 1:11: expected value (inserted 1), " +
+        "at 1:11: expected '}' (inserted '}')"
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 5: expected string, at 5: expected ':', at 5: expected '[', " +
-        "at 6: expected '}'"
+        "at 1:12: expected string (inserted '\"a\"'), " +
+        "at 1:12: expected ':' (inserted ':'), " +
+        "at 1:12: expected '[' (inserted '['), " +
+        "at 1:13: expected '}' (inserted '}')"
     ),
-    ('{"key": @}', {"key": 1}, "at 3: expected value, at 3: expected '}'"),
+    (
+        '{"key": @}', {"key": 1},
+        "at 1:9: expected value (inserted 1), " +
+        "at 1:9: expected '}' (skipped 1 token)"
+    ),
 ]
 
 
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
+    print(split_tokens(data, json.spec))
     r = run(json.parser, split_tokens(data, json.spec), recover=True)
     assert r.unwrap(recover=True) == value
     with pytest.raises(ParseError) as err:

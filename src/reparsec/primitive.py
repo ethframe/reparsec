@@ -16,8 +16,7 @@ class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
 
 
 class InsertValue(
-        primitive.InsertValue[S_contra, V_co],
-        Parser[S_contra, V_co]):
+        primitive.InsertValue[S_contra, V_co], Parser[S_contra, V_co]):
     pass
 
 
