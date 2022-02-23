@@ -82,12 +82,14 @@ class Error:
 
 
 @dataclass
+@final
 class Skip:
     count: int
     loc: Loc
 
 
 @dataclass
+@final
 class Insert:
     label: str
     loc: Loc

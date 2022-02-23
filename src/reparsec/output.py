@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
-from .core.result import BaseRepair, Error, Insert, Ok, RepairOp, Result, Skip
+from .core.result import BaseRepair, Error, Ok, RepairOp, Result, Skip
 from .core.state import Loc
 
 S = TypeVar("S")
@@ -11,12 +11,13 @@ U = TypeVar("U")
 
 @dataclass
 class ErrorItem:
-    loc: str
+    loc: Loc
+    loc_str: str
     expected: List[str]
-    repair: Optional[str] = None
+    op: Optional[RepairOp] = None
 
     def msg(self) -> str:
-        res = "at {}: ".format(self.loc)
+        res = "at {}: ".format(self.loc_str)
         if not self.expected:
             res += "unexpected input"
         elif len(self.expected) == 1:
@@ -25,8 +26,14 @@ class ErrorItem:
             res += "expected {} or {}".format(
                 ', '.join(self.expected[:-1]), self.expected[-1]
             )
-        if self.repair is not None:
-            res += " (" + self.repair + ")"
+        if self.op is not None:
+            if type(self.op) is Skip:
+                repair = "skipped {} {}".format(
+                    self.op.count, "token" if self.op.count == 1 else "tokens"
+                )
+            else:
+                repair = "inserted {}".format(self.op.label)
+            res += " (" + repair + ")"
         return res
 
 
@@ -54,19 +61,11 @@ class ParseResult(Generic[V_co, S]):
         if type(self._result) is Error:
             raise ParseError([
                 ErrorItem(
+                    self._result.loc,
                     self._fmt_loc(self._result.loc),
                     list(self._result.expected),
                 )
             ])
-
-        def op_to_str(op: RepairOp) -> str:
-            if type(op) is Skip:
-                return "skipped {} {}".format(
-                    op.count, "token" if op.count == 1 else "tokens"
-                )
-            elif type(op) is Insert:
-                return "inserted {}".format(op.label)
-            raise RuntimeError()
 
         repair: Optional[BaseRepair[V_co, S]] = self._result.selected
         if repair is None:
@@ -77,14 +76,14 @@ class ParseResult(Generic[V_co, S]):
         for item in repair.prefix:
             errors.append(
                 ErrorItem(
-                    self._fmt_loc(item.op.loc), list(item.expected),
-                    op_to_str(item.op)
+                    item.op.loc, self._fmt_loc(item.op.loc),
+                    list(item.expected), item.op
                 )
             )
         errors.append(
             ErrorItem(
-                self._fmt_loc(repair.op.loc), list(repair.expected),
-                op_to_str(repair.op)
+                repair.op.loc, self._fmt_loc(repair.op.loc),
+                list(repair.expected), repair.op
             )
         )
         raise ParseError(errors)
