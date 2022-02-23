@@ -63,6 +63,11 @@ class Parser(ParseObj[S_contra, V_co]):
     def label(self, expected: str) -> "Parser[S_contra, V_co]":
         return label(self, expected)
 
+    def insert_on_error(
+            self, insert_fn: Callable[[S_contra, int], V_co], label: str
+    ) -> "Parser[S_contra, V_co]":
+        return insert_on_error(insert_fn, label, self)
+
     def sep_by(
             self, sep: ParseObj[S_contra, U]
     ) -> "Parser[S_contra, List[V_co]]":
@@ -131,6 +136,14 @@ def attempt(parser: ParseObj[S, V]) -> Parser[S, V]:
 
 def label(parser: ParseObj[S, V], x: str) -> Parser[S, V]:
     return FnParser(combinators.label(parser.to_fn(), x))
+
+
+def insert_on_error(
+        insert_fn: Callable[[S, int], V], label: str,
+        parser: ParseObj[S, V]) -> Parser[S, V]:
+    return FnParser(
+        combinators.insert_on_error(insert_fn, label, parser.to_fn())
+    )
 
 
 class Delay(Parser[S_contra, V_co]):

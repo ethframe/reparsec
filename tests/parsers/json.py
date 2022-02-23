@@ -1,8 +1,8 @@
 import re
 from typing import Match, Sequence
 
-from reparsec.lexer import Token, split_tokens, token
-from reparsec.parser import Delay, Parser, run
+from reparsec.lexer import Token, run, split_tokens, token
+from reparsec.parser import Delay, Parser
 from reparsec.primitive import InsertValue
 from reparsec.sequence import eof, sym
 

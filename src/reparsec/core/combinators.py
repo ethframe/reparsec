@@ -2,7 +2,7 @@ from typing import Callable, List, Optional, Tuple, TypeVar
 
 from .chain import Append
 from .recovery import MergeFn, continue_parse, join_repairs
-from .result import Error, Ok, Recovered, Repair, Result, Selected
+from .result import Error, Insert, Ok, Recovered, Repair, Result, Selected
 from .state import Ctx
 from .types import (
     ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
@@ -196,3 +196,21 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
         return parse_fn(stream, pos, ctx, rm).expect(expected)
 
     return label
+
+
+def insert_on_error(
+        insert_fn: Callable[[S, int], V], label: str,
+        parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
+    def insert_on_error(
+            stream: S, pos: int, ctx: Ctx[S],
+            rm: RecoveryMode) -> Result[V, S]:
+        r = parse_fn(stream, pos, ctx, rm)
+        if rm and type(r) is Error and r.consumed is False:
+            value = insert_fn(stream, pos)
+            loc = ctx.get_loc(stream, pos)
+            return Recovered(
+                None, [Repair(value, pos, ctx, Insert(label, loc))], pos, loc
+            )
+        return r
+
+    return insert_on_error
