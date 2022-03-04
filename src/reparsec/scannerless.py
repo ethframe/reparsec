@@ -1,7 +1,6 @@
 from typing import TypeVar, Union
 
 from .core import scannerless
-from .core.state import Loc
 from .output import ParseResult
 from .parser import FnParser, Parser, run_c
 
@@ -20,5 +19,6 @@ def run(
         parser: Parser[str, V], stream: str,
         recover: bool = False) -> ParseResult[V, str]:
     return run_c(
-        parser, stream, scannerless.SlCtx(0, Loc(0, 0, 0)), recover
+        parser, stream, scannerless.get_loc,
+        lambda l: "{}:{}".format(l.line + 1, l.col + 1), recover
     )

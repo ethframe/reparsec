@@ -3,7 +3,7 @@ from typing import Iterator, List, Pattern, Sequence, TypeVar
 
 from reparsec.output import ParseResult
 
-from .core.state import Ctx, Loc
+from .core.state import Loc
 from .parser import Parser, label, run_c
 from .sequence import satisfy
 
@@ -73,26 +73,18 @@ def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
     return token(kind).insert_on_error(insert_fn, kind)
 
 
-class TokCtx(Ctx[Sequence[Token]]):
-    def get_loc(self, stream: Sequence[Token], pos: int) -> Loc:
-        return _loc_from_stream(stream, pos)
-
-    def update_loc(
-            self, stream: Sequence[Token], pos: int) -> Ctx[Sequence[Token]]:
-        return self
-
-    def set_anchor(self, anchor: int) -> Ctx[Sequence[Token]]:
-        return TokCtx(anchor, self.loc)
-
-    @classmethod
-    def fmt_loc(cls, loc: Loc) -> str:
-        return "{}:{}".format(loc.line + 1, loc.col + 1)
-
-
 def run(
         parser: Parser[Sequence[Token], V], stream: Sequence[Token],
         recover: bool = False) -> ParseResult[V, Sequence[Token]]:
-    return run_c(parser, stream, TokCtx(0, Loc(0, 0, 0)), recover)
+    return run_c(parser, stream, get_loc, fmt_loc, recover)
+
+
+def get_loc(loc: Loc, stream: Sequence[Token], pos: int) -> Loc:
+    return _loc_from_stream(stream, pos)
+
+
+def fmt_loc(loc: Loc) -> str:
+    return "{}:{}".format(loc.line + 1, loc.col + 1)
 
 
 def _loc_from_stream(stream: Sequence[Token], pos: int) -> Loc:

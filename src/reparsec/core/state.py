@@ -1,5 +1,4 @@
-from abc import abstractmethod
-from typing import Generic, NamedTuple, TypeVar
+from typing import Callable, Generic, NamedTuple, TypeVar
 
 S_contra = TypeVar("S_contra", contravariant=True)
 
@@ -11,25 +10,24 @@ class Loc(NamedTuple):
 
 
 class Ctx(Generic[S_contra]):
-    __slots__ = "anchor", "loc"
+    __slots__ = "anchor", "loc", "_get_loc"
 
-    def __init__(self, anchor: int, loc: Loc):
+    def __init__(
+            self, anchor: int, loc: Loc,
+            get_loc: Callable[[Loc, S_contra, int], Loc]):
         self.anchor = anchor
         self.loc = loc
+        self._get_loc = get_loc
 
-    @abstractmethod
     def get_loc(self, stream: S_contra, pos: int) -> Loc:
-        ...
+        return self._get_loc(self.loc, stream, pos)
 
-    @abstractmethod
     def update_loc(self, stream: S_contra, pos: int) -> "Ctx[S_contra]":
-        ...
+        if pos == self.loc.pos:
+            return self
+        return Ctx(
+            self.anchor, self._get_loc(self.loc, stream, pos), self._get_loc
+        )
 
-    @abstractmethod
     def set_anchor(self, anchor: int) -> "Ctx[S_contra]":
-        ...
-
-    @classmethod
-    @abstractmethod
-    def fmt_loc(cls, loc: Loc) -> str:
-        ...
+        return Ctx(anchor, self.loc, self._get_loc)

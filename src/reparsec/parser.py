@@ -52,9 +52,7 @@ class Parser(ParseObj[S_contra, V_co]):
     def maybe(self) -> "Parser[S_contra, Optional[V_co]]":
         return maybe(self)
 
-    def many(
-            self: ParseObj[S_contra, V_co]
-    ) -> "Parser[S_contra, List[V_co]]":
+    def many(self) -> "Parser[S_contra, List[V_co]]":
         return many(self)
 
     def attempt(self) -> "Parser[S_contra, V_co]":
@@ -69,15 +67,13 @@ class Parser(ParseObj[S_contra, V_co]):
         return insert_on_error(insert_fn, label, self)
 
     def sep_by(
-            self, sep: ParseObj[S_contra, U]
-    ) -> "Parser[S_contra, List[V_co]]":
+            self,
+            sep: ParseObj[S_contra, U]) -> "Parser[S_contra, List[V_co]]":
         return sep_by(self, sep)
 
     def between(
-            self,
-            open: ParseObj[S_contra, U],
-            close: ParseObj[S_contra, X]
-    ) -> "Parser[S_contra, V_co]":
+            self, open: ParseObj[S_contra, U],
+            close: ParseObj[S_contra, X]) -> "Parser[S_contra, V_co]":
         return between(open, close, self)
 
 
@@ -189,29 +185,21 @@ def between(
 
 
 def run_c(
-        parser: Parser[S, V], stream: S, ctx: Ctx[S],
+        parser: Parser[S, V], stream: S,
+        get_loc: Callable[[Loc, S, int], Loc], fmt_loc: Callable[[Loc], str],
         recover: bool = False) -> ParseResult[V, S]:
     return ParseResult(
-        parser.parse_fn(stream, 0, ctx, True if recover else None), ctx.fmt_loc
+        parser.parse_fn(
+            stream, 0, Ctx(0, Loc(0, 0, 0), get_loc), True if recover else None
+        ),
+        fmt_loc
     )
-
-
-class _PosCtx(Ctx[S_contra]):
-    def get_loc(self, stream: S_contra, pos: int) -> Loc:
-        return Loc(pos, 0, 0)
-
-    def update_loc(self, stream: S_contra, pos: int) -> Ctx[S_contra]:
-        return self
-
-    def set_anchor(self, anchor: int) -> Ctx[S_contra]:
-        return self
-
-    @classmethod
-    def fmt_loc(cls, loc: Loc) -> str:
-        return repr(loc.pos)
 
 
 def run(
         parser: Parser[S, V], stream: S,
         recover: bool = False) -> ParseResult[V, S]:
-    return run_c(parser, stream, _PosCtx(0, Loc(0, 0, 0)), recover)
+    return run_c(
+        parser, stream, lambda _, __, p: Loc(p, 0, 0), lambda l: repr(l.pos),
+        recover
+    )

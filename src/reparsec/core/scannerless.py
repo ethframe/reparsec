@@ -11,28 +11,15 @@ C = TypeVar("C")
 V = TypeVar("V")
 
 
-class SlCtx(Ctx[str]):
-    def get_loc(self, stream: str, pos: int) -> Loc:
-        start, line, col = self.loc
-        nlc = stream.count("\n", start, pos)
-        if nlc:
-            line += nlc
-            col = pos - stream.rfind("\n", start, pos) - 1
-        else:
-            col += (pos - start)
-        return Loc(pos, line, col)
-
-    def update_loc(self, stream: str, pos: int) -> Ctx[str]:
-        if pos == self.loc.pos:
-            return self
-        return SlCtx(self.anchor, self.get_loc(stream, pos))
-
-    def set_anchor(self, anchor: int) -> Ctx[str]:
-        return SlCtx(anchor, self.loc)
-
-    @classmethod
-    def fmt_loc(cls, loc: Loc) -> str:
-        return "{!r}:{!r}".format(loc.line + 1, loc.col + 1)
+def get_loc(loc: Loc, stream: str, pos: int) -> Loc:
+    start, line, col = loc
+    nlc = stream.count("\n", start, pos)
+    if nlc:
+        line += nlc
+        col = pos - stream.rfind("\n", start, pos) - 1
+    else:
+        col += (pos - start)
+    return Loc(pos, line, col)
 
 
 def literal(s: str) -> ParseFn[str, str]:
