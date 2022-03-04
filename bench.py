@@ -2,8 +2,8 @@ from json import dumps
 
 import pyperf
 
-from reparsec.parsers.json import loads
-from reparsec.parsers.json_scannerless import loads as sl_loads
+from tests.parsers.json import loads
+from tests.parsers.json_scannerless import loads as sl_loads
 
 DATA = dumps({"key_" + str(n): list(range(100)) for n in range(1000)})
 

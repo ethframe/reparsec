@@ -163,7 +163,7 @@ And now for something completely different:
 The parser recovered from the error and produced a partial result. Pretty useful. However, `satisfy` again doesn't know how to fix input besides ignoring some parts of the input:
 
 ```python
->>> list_parser.parse("1,", recover=True).unwrap(recover=True)
+>>> run(list_parser, "1,", recover=True).unwrap(recover=True)
 Traceback (most recent call last):
   ...
 reparsec.output.ParseError: at 2: expected number
@@ -198,7 +198,7 @@ The parser is even capable of fixing multiple errors in the input:
 And what if we want to show them to user?
 
 ```python
->>> list_parser.parse("1,,,2 3", recover=True).unwrap()
+>>> run(list_parser, "1,,,2 3", recover=True).unwrap()
 Traceback (most recent call last):
   ...
 reparsec.output.ParseError: at 2: expected number, at 3: expected number, at 6: expected end of file
