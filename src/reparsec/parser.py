@@ -76,6 +76,16 @@ class Parser(ParseObj[S_contra, V_co]):
             close: ParseObj[S_contra, X]) -> "Parser[S_contra, V_co]":
         return between(open, close, self)
 
+    def chainl1(
+            self, op: ParseObj[S_contra, Callable[[V_co, V_co], V_co]]
+    ) -> "Parser[S_contra, V_co]":
+        return chainl1(self, op)
+
+    def chainr1(
+            self, op: ParseObj[S_contra, Callable[[V_co, V_co], V_co]]
+    ) -> "Parser[S_contra, V_co]":
+        return chainr1(self, op)
+
 
 class FnParser(Parser[S_contra, V_co]):
     def __init__(self, fn: ParseFn[S_contra, V_co]):
@@ -182,6 +192,34 @@ def between(
         open: ParseObj[S, U], close: ParseObj[S, X],
         parser: ParseObj[S, V]) -> Parser[S, V]:
     return rseq(open, lseq(parser, close))
+
+
+def chainl1(
+        arg: ParseObj[S, V],
+        op: ParseObj[S, Callable[[V, V], V]]) -> Parser[S, V]:
+    def reducer(v: Tuple[V, List[Tuple[Callable[[V, V], V], V]]]) -> V:
+        res, tail = v
+        for op, arg in tail:
+            res = op(res, arg)
+        return res
+
+    return fmap(seq(arg, many(seq(op, arg))), reducer)
+
+
+def chainr1(
+        arg: ParseObj[S, V],
+        op: ParseObj[S, Callable[[V, V], V]]) -> Parser[S, V]:
+    def reducer(v: Tuple[V, List[Tuple[Callable[[V, V], V], V]]]) -> V:
+        res, tail = v
+        rassoc: List[Tuple[V, Callable[[V, V], V]]] = []
+        for op, arg in tail:
+            rassoc.append((res, op))
+            res = arg
+        for arg, op in reversed(rassoc):
+            res = op(arg, res)
+        return res
+
+    return fmap(seq(arg, many(seq(op, arg))), reducer)
 
 
 def run_c(
