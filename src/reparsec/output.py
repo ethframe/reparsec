@@ -69,7 +69,9 @@ class ParseResult(Generic[V_co, S]):
 
         repair: Optional[BaseRepair[V_co, S]] = self._result.selected
         if repair is None:
-            repair = self._result.pending[0]
+            repair = self._result.pending
+            if repair is None:
+                raise RuntimeError("Invalid recovered result")
         if recover:
             return repair.value
         errors: List[ErrorItem] = []

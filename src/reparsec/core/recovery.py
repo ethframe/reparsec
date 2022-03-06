@@ -1,7 +1,7 @@
-from typing import Callable, List, Optional, Tuple, TypeVar
+from typing import Callable, Optional, Tuple, TypeVar
 
 from .chain import Append, Cons
-from .result import Error, Ok, PrefixItem, Recovered, Repair, Result, Selected
+from .result import Error, Ok, Pending, PrefixItem, Recovered, Result, Selected
 from .state import Ctx
 
 S = TypeVar("S")
@@ -18,52 +18,26 @@ def continue_parse(
         stream: S, ra: Recovered[V, S], parse: ContinueFn[V, S, U],
         merge: MergeFn[V, U, X]) -> Result[X, S]:
 
-    def _handle_pending(rep: Repair[V, S]) -> Optional[Selected[X, S]]:
-        rb = parse(rep.value, stream, rep.pos, rep.ctx)
-        if type(rb) is Ok:
-            if selected is None or selected.selected > rep.pos:
-                return Selected(
-                    rep.pos, merge(rep.value, rb.value), rb.pos, rb.ctx,
-                    rep.op, rep.expected, rep.consumed or rb.consumed,
-                    rep.prefix
-                )
-        elif type(rb) is Recovered:
-            pending.extend(
-                Repair(
-                    merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
-                    pb.expected, pb.consumed,
-                    Append(
-                        rep.prefix,
-                        Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
-                    )
-                )
-                for pb in rb.pending
-            )
-            if rb.selected is not None:
-                repb = rb.selected
-                if selected is None or selected.selected > repb.selected:
-                    return Selected(
-                        repb.selected, merge(rep.value, repb.value), repb.pos,
-                        repb.ctx, repb.op, repb.expected, repb.consumed,
-                        Append(
-                            rep.prefix,
-                            Cons(PrefixItem(rep.op, rep.expected), repb.prefix)
-                        )
-                    )
-        return selected
-
-    sel = ra.selected
-    if sel is not None:
-        rb = parse(sel.value, stream, sel.pos, sel.ctx)
-        selected, pending = _append_selected(sel, rb, merge)
+    sa = ra.selected
+    if sa is not None:
+        rb = parse(sa.value, stream, sa.pos, sa.ctx)
+        selected = _append_selected(sa, rb, merge)
     else:
         selected = None
-        pending = []
 
-    for pa in ra.pending:
-        selected = _handle_pending(pa)
+    pa = ra.pending
+    if pa is not None:
+        rb = parse(pa.value, stream, ra.pos, pa.ctx)
+        st, pending = _append_pending(pa, ra.pos, rb, merge)
+        if selected is None or st is not None and (
+                selected.selected > st.selected or
+                selected.selected == st.selected and
+                selected.iprefix + selected.isuffix > st.iprefix + st.isuffix):
+            selected = st
+    else:
+        pending = None
 
-    if selected is not None or pending:
+    if selected is not None or pending is not None:
         return Recovered(selected, pending, ra.pos, ra.loc, ra.expected)
 
     return Error(ra.pos, ra.loc, ra.expected, True)
@@ -71,53 +45,92 @@ def continue_parse(
 
 def _append_selected(
         rep: Selected[V, S], rb: Result[U, S],
-        merge: MergeFn[V, U, X]) -> Tuple[
-            Optional[Selected[X, S]], List[Repair[X, S]]]:
+        merge: MergeFn[V, U, X]) -> Optional[Selected[X, S]]:
     if type(rb) is Ok:
-        return (
-            Selected(
-                rep.selected, merge(rep.value, rb.value), rb.pos, rb.ctx,
-                rep.op, rep.expected, rep.consumed or rb.consumed, rep.prefix
-            ),
-            []
+        return Selected(
+            rep.selected, rep.iprefix, 0, rb.pos, merge(rep.value, rb.value),
+            rb.ctx, rep.op, rep.expected, rep.consumed or rb.consumed,
+            rep.prefix
         )
     elif type(rb) is Recovered:
-        pending = [
-            Repair(
-                merge(rep.value, pb.value), pb.pos, pb.ctx, pb.op,
-                pb.expected, pb.consumed,
+        sb = rb.selected
+        if sb is not None:
+            return Selected(
+                rep.selected, rep.iprefix, sb.isuffix, sb.pos,
+                merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
+                sb.consumed,
+                Append(
+                    rep.prefix,
+                    Cons(PrefixItem(rep.op, rep.expected), sb.prefix)
+                )
+            )
+        pb = rb.pending
+        if pb is not None:
+            return Selected(
+                rep.selected, rep.iprefix, pb.inserted, rep.pos,
+                merge(rep.value, pb.value), pb.ctx, pb.op, pb.expected,
+                pb.consumed,
                 Append(
                     rep.prefix,
                     Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
                 )
             )
-            for pb in rb.pending
-        ]
-        if rb.selected is not None:
-            repb = rb.selected
+        raise RuntimeError("Invalid recovered result")
+    return None
+
+
+def _append_pending(
+        rep: Pending[V, S], pos: int, rb: Result[U, S],
+        merge: MergeFn[V, U, X]) -> Tuple[
+            Optional[Selected[X, S]], Optional[Pending[X, S]]]:
+    if type(rb) is Ok:
+        if rb.consumed:
             return (
                 Selected(
-                    rep.selected, merge(rep.value, repb.value), repb.pos,
-                    repb.ctx, repb.op, repb.expected, repb.consumed,
-                    Append(
-                        rep.prefix,
-                        Cons(PrefixItem(rep.op, rep.expected), repb.prefix)
-                    )
+                    pos, rep.inserted, 0, rb.pos, merge(rep.value, rb.value),
+                    rb.ctx, rep.op, rep.expected, True, rep.prefix
                 ),
-                pending
+                None
             )
-        return None, pending
-    return None, []
+        return (
+            None,
+            Pending(
+                rep.inserted, merge(rep.value, rb.value), rb.ctx, rep.op,
+                rep.expected, rep.consumed, rep.prefix
+            )
+        )
+    elif type(rb) is Recovered:
+        sb = rb.selected
+        pb = rb.pending
+        return (
+            None if sb is None else Selected(
+                sb.pos, rep.inserted + sb.iprefix, sb.isuffix, sb.pos,
+                merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
+                sb.consumed,
+                Append(
+                    rep.prefix,
+                    Cons(PrefixItem(rep.op, rep.expected), sb.prefix)
+                )
+            ),
+            None if pb is None else Pending(
+                rep.inserted + pb.inserted, merge(rep.value, pb.value), pb.ctx,
+                pb.op, pb.expected, pb.consumed,
+                Append(
+                    rep.prefix,
+                    Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
+                )
+            )
+        )
+    return (None, None)
 
 
 def join_repairs(ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
     selected = ra.selected
-    if selected is None:
-        selected = rb.selected
-    else:
-        selected_b = rb.selected
-        if selected_b is not None and selected_b.selected < selected.selected:
-            selected = selected_b
-    return Recovered(
-        selected, ra.pending + rb.pending, ra.pos, ra.loc, ra.expected
-    )
+    sb = rb.selected
+    if selected is None or sb is not None and selected.selected > sb.selected:
+        selected = sb
+    pending = ra.pending
+    pb = rb.pending
+    if pending is None or pb is not None and pending.inserted > pb.inserted:
+        pending = pb
+    return Recovered(selected, pending, ra.pos, ra.loc, ra.expected)

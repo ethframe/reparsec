@@ -64,11 +64,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
         "at 1:11: expected ']' (inserted ']')"
     ),
     ("[1, }, 2]", [1, {}, 2], "at 1:5: expected '{' (inserted '{')"),
-    (
-        '{"key": }', {"key": {}},
-        "at 1:9: expected '{' (inserted '{'), " +
-        "at 1:10: expected '}' (inserted '}')"
-    ),
+    ('{"key": }', {"key": 1}, "at 1:9: expected value (inserted 1)"),
     (
         '{"key": ]', {"key": []},
         "at 1:9: expected '[' (inserted '['), " +
@@ -103,7 +99,6 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
 
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
 def test_recovery(data: str, value: str, expected: str) -> None:
-    print(split_tokens(data, json.spec))
     r = run(json.parser, split_tokens(data, json.spec), recover=True)
     assert r.unwrap(recover=True) == value
     with pytest.raises(ParseError) as err:

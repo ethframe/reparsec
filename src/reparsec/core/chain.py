@@ -18,8 +18,14 @@ class Append(_Pair[Iterable[T_co], Iterable[T_co]], Iterable[T_co]):
         yield from self._fst
         yield from self._snd
 
+    def __repr__(self) -> str:
+        return "<{!r}>".format(list(self))
+
 
 class Cons(_Pair[T_co, Iterable[T_co]], Iterable[T_co]):
     def __iter__(self) -> Iterator[T_co]:
         yield self._fst
         yield from self._snd
+
+    def __repr__(self) -> str:
+        return "<{!r}>".format(list(self))

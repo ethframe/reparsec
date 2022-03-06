@@ -29,11 +29,11 @@ ows = regexp(r"[ \n\r\t]*")
 
 
 def token(pat: str) -> Parser[str, str]:
-    return regexp(r"[ \n\r\t]*" + pat, 1)
+    return regexp(pat + r"[ \n\r\t]*", 1)
 
 
 def punct(p: str) -> Parser[str, str]:
-    return (ows >> literal(p)).attempt()
+    return literal(p) << ows
 
 
 JsonParser = Parser[str, object]
@@ -69,7 +69,7 @@ value.define(
     ).label("value")
 )
 
-parser = value << ows << eof()
+parser = ows >> value << eof()
 
 
 def loads(src: str) -> object:

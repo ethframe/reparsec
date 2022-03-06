@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
+from typing import Callable, Generic, Iterable, Optional, TypeVar, Union
 
 from typing_extensions import Literal, final
 
@@ -24,6 +24,11 @@ class Ok(Generic[V_co, S]):
         self.ctx = ctx
         self.expected = expected
         self.consumed = consumed
+
+    def __repr__(self) -> str:
+        return (
+            "Ok(value={!r}, pos={!r}, ctx={!r}, expected={!r}, consumed={!r})"
+        ).format(self.value, self.pos, self.ctx, self.expected, self.consumed)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Ok[U, S]":
         return Ok(
@@ -59,6 +64,11 @@ class Error:
         self.loc = loc
         self.expected = expected
         self.consumed = consumed
+
+    def __repr__(self) -> str:
+        return (
+            "Error(pos={!r}, loc={!r}, expected={!r}, consumed={!r})"
+        ).format(self.pos, self.loc, self.expected, self.consumed)
 
     def fmap(self, fn: object) -> "Error":
         return self
@@ -107,7 +117,6 @@ class PrefixItem:
 @dataclass
 class BaseRepair(Generic[V_co, S]):
     value: V_co
-    pos: int
     ctx: Ctx[S]
     op: RepairOp
     expected: Iterable[str] = ()
@@ -116,17 +125,25 @@ class BaseRepair(Generic[V_co, S]):
 
 
 @dataclass
-class Repair(BaseRepair[V_co, S]):
+class _Pending:
+    inserted: int
+
+
+@dataclass
+class Pending(BaseRepair[V_co, S], _Pending):
     pass
 
 
 @dataclass
-class _Selected(Generic[V_co, S]):
+class _Selected:
     selected: int
+    iprefix: int
+    isuffix: int
+    pos: int
 
 
 @dataclass
-class Selected(BaseRepair[V_co, S], _Selected[V_co, S]):
+class Selected(BaseRepair[V_co, S], _Selected):
     pass
 
 
@@ -138,7 +155,7 @@ class Recovered(Generic[V_co, S]):
 
     def __init__(
             self, selected: Optional[Selected[V_co, S]],
-            pending: List[Repair[V_co, S]], pos: int, loc: Loc,
+            pending: Optional[Pending[V_co, S]], pos: int, loc: Loc,
             expected: Iterable[str] = ()):
         self.selected = selected
         self.pending = pending
@@ -147,58 +164,62 @@ class Recovered(Generic[V_co, S]):
         self.expected = expected
         self.consumed = True
 
+    def __repr__(self) -> str:
+        return (
+            "Recovered(selected={!r}, pending={!r}, pos={!r}, loc={!r}, " +
+            "expected={!r}, consumed={!r})"
+        ).format(
+            self.selected, self.pending, self.pos, self.loc, self.expected,
+            self.consumed
+        )
+
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U, S]":
         selected = self.selected
+        pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, fn(selected.value), selected.pos,
-                selected.ctx, selected.op, selected.expected,
-                selected.consumed, selected.prefix
+                selected.selected, selected.iprefix, selected.isuffix,
+                selected.pos, fn(selected.value), selected.ctx, selected.op,
+                selected.expected, selected.consumed, selected.prefix
             ),
-            [
-                Repair(
-                    fn(r.value), r.pos, r.ctx, r.op, r.expected, r.consumed,
-                    r.prefix
-                )
-                for r in self.pending
-            ],
+            None if pending is None else Pending(
+                pending.inserted, fn(pending.value), pending.ctx, pending.op,
+                pending.expected, pending.consumed, pending.prefix
+            ),
             self.pos, self.loc, self.expected
         )
 
     def with_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
         selected = self.selected
+        pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.value, selected.pos, ctx,
-                selected.op, selected.expected, selected.consumed,
-                selected.prefix
+                selected.selected, selected.iprefix, selected.isuffix,
+                selected.pos, selected.value, ctx, selected.op,
+                selected.expected, selected.consumed, selected.prefix
             ),
-            [
-                Repair(
-                    r.value, r.pos, ctx, r.op, r.expected, r.consumed, r.prefix
-                )
-                for r in self.pending
-            ],
+            None if pending is None else Pending(
+                pending.inserted, pending.value, ctx, pending.op,
+                pending.expected, pending.consumed, pending.prefix
+            ),
             self.pos, self.loc, self.expected
         )
 
     def expect(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
         selected = self.selected
+        pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.value, selected.pos,
-                selected.ctx, selected.op,
+                selected.selected, selected.iprefix, selected.isuffix,
+                selected.pos, selected.value, selected.ctx, selected.op,
                 selected.expected if selected.consumed else expected,
                 selected.consumed, selected.prefix
             ),
-            [
-                Repair(
-                    r.value, r.pos, r.ctx, r.op,
-                    r.expected if r.consumed else expected, r.consumed,
-                    r.prefix
-                )
-                for r in self.pending
-            ],
+            None if pending is None else Pending(
+                pending.inserted, pending.value, pending.ctx, pending.op,
+                pending.expected if pending.consumed else expected,
+                pending.consumed, pending.prefix
+            ),
             self.pos, self.loc, self.expected
         )
 
@@ -206,23 +227,21 @@ class Recovered(Generic[V_co, S]):
             self, expected: Iterable[str],
             consumed: bool) -> "Recovered[V_co, S]":
         selected = self.selected
+        pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.value, selected.pos, selected.ctx,
-                selected.op,
+                selected.selected, selected.iprefix, selected.isuffix,
+                selected.pos, selected.value, selected.ctx, selected.op,
                 selected.expected if consumed and selected.consumed
                 else Append(expected, selected.expected),
                 consumed or selected.consumed, selected.prefix
             ),
-            [
-                Repair(
-                    r.value, r.pos, r.ctx, r.op,
-                    r.expected if consumed and r.consumed
-                    else Append(expected, r.expected),
-                    consumed or r.consumed, r.prefix
-                )
-                for r in self.pending
-            ],
+            None if pending is None else Pending(
+                pending.inserted, pending.value, pending.ctx, pending.op,
+                pending.expected if consumed and pending.consumed
+                else Append(expected, pending.expected),
+                consumed or pending.consumed, pending.prefix
+            ),
             self.pos, self.loc, self.expected
         )
 

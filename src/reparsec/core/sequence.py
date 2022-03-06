@@ -1,7 +1,7 @@
 from typing import Callable, Optional, Sequence, Sized, TypeVar
 
 from .result import (
-    Error, Insert, Ok, Recovered, Repair, Result, Selected, Skip
+    Error, Insert, Ok, Pending, Recovered, Result, Selected, Skip
 )
 from .state import Ctx
 from .types import ParseFn, RecoveryMode
@@ -18,13 +18,13 @@ def eof() -> ParseFn[Sized, None]:
             return Ok(None, pos, ctx)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            skip = len(stream) - pos
+            sl = len(stream)
             return Recovered(
                 Selected(
-                    len(stream), None, len(stream), ctx, Skip(skip, loc),
+                    sl, 0, 0, sl, None, ctx, Skip(sl - pos, loc),
                     ["end of file"]
                 ),
-                [], pos, loc, ["end of file"]
+                None, pos, loc, ["end of file"]
             )
         return Error(pos, loc, ["end of file"])
 
@@ -45,13 +45,13 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
             while cur < len(stream):
                 t = stream[cur]
                 if test(t):
-                    skip = cur - pos
                     return Recovered(
                         Selected(
-                            cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                            Skip(skip, loc)
+                            cur, 0, 0, cur + 1, t,
+                            ctx.update_loc(stream, cur + 1),
+                            Skip(cur - pos, loc)
                         ),
-                        [], pos, loc
+                        None, pos, loc
                     )
                 cur += 1
         return Error(pos, loc)
@@ -75,15 +75,14 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                 return Ok(t, pos + 1, ctx, consumed=True)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = [Repair(s, pos, ctx, Insert(label_, loc), expected)]
+            pending = Pending(1, s, ctx, Insert(label_, loc), expected)
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
                 if t == s:
-                    skip = cur - pos
                     sel = Selected(
-                        cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                        Skip(skip, loc), expected
+                        cur, 0, 0, cur + 1, t, ctx.update_loc(stream, cur + 1),
+                        Skip(cur - pos, loc), expected
                     )
                     return Recovered(sel, pending, pos, loc, expected)
                 cur += 1

@@ -56,28 +56,19 @@ def test_negative(data: str, expected: str) -> None:
 DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ("1 1", 1, "at 1:3: expected end of file (skipped 1 token)"),
     ("{", {}, "at 1:2: expected string or '}' (inserted '}')"),
-    (
-        "[1 2]", [1],
-        "at 1:4: expected ',' or ']' (inserted ']'), " +
-        "at 1:4: expected end of file (skipped 2 tokens)"
-    ),
-    ("[1, , 2]", [1, 1, 2], "at 1:4: expected value (inserted 1)"),
+    ("[1 2]", [1], "at 1:4: expected ',' or ']' (skipped 1 token)"),
+    ("[1, , 2]", [1, 1, 2], "at 1:5: expected value (inserted 1)"),
     (
         "[1, [{, 2]", [1, [{}, 2]],
         "at 1:7: expected string or '}' (inserted '}'), " +
         "at 1:11: expected ']' (inserted ']')"
     ),
+    ("[1, }, 2]", [1, {}, 2], "at 1:5: expected '{' (inserted '{')"),
+    ('{"key": }', {"key": 1}, "at 1:9: expected value (inserted 1)"),
     (
-        "[1, }, 2]", [1, 1],
-        "at 1:4: expected value (inserted 1), " +
-        "at 1:5: expected ']' (skipped 4 tokens)"
-    ),
-    ('{"key": }', {"key": 1}, "at 1:8: expected value (inserted 1)"),
-    (
-        '{"key": ]', {"key": 1},
-        "at 1:8: expected value (inserted 1), " +
-        "at 1:9: expected '}' (inserted '}'), " +
-        "at 1:9: expected end of file (skipped 1 token)"
+        '{"key": ]', {"key": []},
+        "at 1:9: expected '[' (inserted '['), " +
+        "at 1:10: expected '}' (inserted '}')"
     ),
     (
         '{"key": 2]', {"key": 2},
@@ -93,14 +84,14 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
-        "at 1:11: expected string (inserted '\"a\"'), " +
+        "at 1:12: expected string (inserted '\"a\"'), " +
         "at 1:12: expected ':' (inserted ':'), " +
         "at 1:12: expected '[' (inserted '['), " +
         "at 1:13: expected '}' (inserted '}')"
     ),
     (
         '{"key": @}', {"key": 1},
-        "at 1:8: expected value (inserted 1), " +
+        "at 1:9: expected value (inserted 1), " +
         "at 1:9: expected '}' (skipped 1 token)"
     ),
 ]

@@ -2,7 +2,7 @@ from typing import Callable, List, Optional, Tuple, TypeVar
 
 from .chain import Append
 from .recovery import MergeFn, continue_parse, join_repairs
-from .result import Error, Insert, Ok, Recovered, Repair, Result, Selected
+from .result import Error, Insert, Ok, Pending, Recovered, Result, Selected
 from .state import Ctx
 from .types import (
     ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
@@ -167,19 +167,17 @@ def attempt(
             return Error(r.pos, r.loc, r.expected)
         if type(r) is Recovered:
             selected = r.selected
+            pending = r.pending
             return Recovered(
                 None if selected is None else Selected(
-                    selected.selected, selected.value, selected.pos,
-                    selected.ctx, selected.op, selected.expected, False,
-                    selected.prefix
+                    selected.selected, selected.iprefix, selected.isuffix,
+                    selected.pos, selected.value, selected.ctx, selected.op,
+                    selected.expected, False, selected.prefix
                 ),
-                [
-                    Repair(
-                        r.value, r.pos, r.ctx, r.op, r.expected, False,
-                        r.prefix
-                    )
-                    for r in r.pending
-                ],
+                None if pending is None else Pending(
+                    pending.inserted, pending.value, pending.ctx, pending.op,
+                    pending.expected, False, pending.prefix
+                ),
                 r.pos, r.loc, r.expected
             )
         return r
@@ -209,7 +207,7 @@ def insert_on_error(
             value = insert_fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             return Recovered(
-                None, [Repair(value, pos, ctx, Insert(label, loc))], pos, loc
+                None, Pending(1, value, ctx, Insert(label, loc)), pos, loc
             )
         return r
 
