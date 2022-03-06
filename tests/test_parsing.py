@@ -1,18 +1,58 @@
-from typing import List
+from typing import List, Sequence
 
 import pytest
 
 from reparsec.output import ParseError
 from reparsec.parser import Parser, run
+from reparsec.primitive import Pure, PureFn
 from reparsec.sequence import digit, letter, sym
 
 ident = (
     (letter | sym("_")) + (letter | digit | sym("_")).many()
 ).fmap(lambda v: v[0] + "".join(v[1]))
 
+empty_fst = (Pure[Sequence[str], str]("a") | sym("b"))
+empty_snd = (sym("a") | Pure("b"))
+
+bind_letter = letter.bind(lambda l: digit if l == "d" else letter) | Pure("!")
+
+attempt_seq = (sym("a") + sym("b")).fmap(
+    lambda v: v[0] + v[1]
+).attempt() | PureFn(lambda: "!")
+
+chains = letter.chainl1(
+    sym(">").rseq(Pure(lambda a, b: f"({a}>{b})"))
+).chainr1(
+    sym("<").rseq(Pure(lambda a, b: f"({a}<{b})"))
+)
 
 DATA_POSITIVE = [
-    (ident, "_def", "_def"),
+    (ident, "a", "a"),
+    (ident, "ab", "ab"),
+    (ident, "a_b", "a_b"),
+    (ident, "a0_b", "a0_b"),
+    (ident, "_a0_b", "_a0_b"),
+    (ident, "_a0_b.", "_a0_b"),
+    (empty_fst, "a", "a"),
+    (empty_fst, "b", "b"),
+    (empty_fst, "c", "a"),
+    (empty_snd, "a", "a"),
+    (empty_snd, "b", "b"),
+    (empty_snd, "c", "b"),
+    (bind_letter, "ab", "b"),
+    (bind_letter, "d0", "0"),
+    (bind_letter, "00", "!"),
+    (attempt_seq, "ab", "ab"),
+    (attempt_seq, "ac", "!"),
+    (chains, "a", "a"),
+    (chains, "a>b", "(a>b)"),
+    (chains, "a<b", "(a<b)"),
+    (chains, "a>b>c", "((a>b)>c)"),
+    (chains, "a<b<c", "(a<(b<c))"),
+    (chains, "a>b<c", "((a>b)<c)"),
+    (chains, "a<b>c", "(a<(b>c))"),
+    (chains, "a>b<c>d", "((a>b)<(c>d))"),
+    (chains, "a<b>c<d", "(a<((b>c)<d))"),
 ]
 
 
@@ -22,7 +62,7 @@ def test_positive(parser: Parser[str, str], data: str, value: str) -> None:
 
 
 DATA_NEGATIVE = [
-    (ident, "0_def", ["letter", "'_'"]),
+    (ident, "0", ["letter", "'_'"]),
 ]
 
 
