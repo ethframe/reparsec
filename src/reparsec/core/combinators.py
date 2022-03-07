@@ -2,7 +2,7 @@ from typing import Callable, List, Optional, Tuple, TypeVar
 
 from .chain import Append
 from .recovery import MergeFn, continue_parse, join_repairs
-from .result import Error, Insert, Ok, Pending, Recovered, Result, Selected
+from .result import Error, Insert, Ok, Pending, Recovered, Result
 from .state import Ctx
 from .types import (
     ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
@@ -162,24 +162,11 @@ def attempt(
     def attempt(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
-        r = parse_fn(stream, pos, ctx, rm if rm else None)
+        if rm:
+            return parse_fn(stream, pos, ctx, True)
+        r = parse_fn(stream, pos, ctx, None)
         if type(r) is Error:
             return Error(r.pos, r.loc, r.expected)
-        if type(r) is Recovered:
-            selected = r.selected
-            pending = r.pending
-            return Recovered(
-                None if selected is None else Selected(
-                    selected.selected, selected.pprefix, selected.psuffix,
-                    selected.pos, selected.value, selected.ctx, selected.op,
-                    selected.expected, False, selected.prefix
-                ),
-                None if pending is None else Pending(
-                    pending.count, pending.value, pending.ctx, pending.op,
-                    pending.expected, False, pending.prefix
-                ),
-                r.pos, r.loc, r.expected
-            )
         return r
 
     return attempt
