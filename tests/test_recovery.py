@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import pytest
 
-from reparsec.parser import Parser, run
+from reparsec import Parser, run
 from reparsec.primitive import InsertValue
 from reparsec.sequence import sym, eof
 

@@ -2,8 +2,8 @@ from typing import List, Tuple
 
 import pytest
 
+from reparsec import ParseError
 from reparsec.lexer import run, split_tokens
-from reparsec.output import ParseError
 
 from .parsers import json
 

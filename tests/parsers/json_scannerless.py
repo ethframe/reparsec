@@ -1,7 +1,7 @@
 import re
 from typing import Match
 
-from reparsec.parser import Delay, Parser
+from reparsec import Delay, Parser
 from reparsec.primitive import InsertValue
 from reparsec.scannerless import literal, regexp, run
 from reparsec.sequence import eof

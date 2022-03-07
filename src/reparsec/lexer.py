@@ -7,6 +7,8 @@ from .core.state import Loc
 from .parser import Parser, label, run_c
 from .sequence import satisfy
 
+__all__ = ("Token", "LexError", "split_tokens", "token", "token_ins", "run")
+
 V = TypeVar("V")
 
 

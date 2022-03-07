@@ -4,6 +4,8 @@ from .core import scannerless
 from .output import ParseResult
 from .parser import FnParser, Parser, run_c
 
+__all__ = ("literal", "regexp", "run")
+
 V = TypeVar("V", bound=object)
 
 

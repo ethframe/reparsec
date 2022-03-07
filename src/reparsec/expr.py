@@ -3,6 +3,8 @@ from typing import Callable, List, Tuple, TypeVar
 
 from .parser import Parser
 
+__all__ = ("infix_left", "infix_right", "infix_non", "prefix", "postfix")
+
 S = TypeVar("S")
 V = TypeVar("V")
 U = TypeVar("U")

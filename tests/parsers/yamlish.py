@@ -1,7 +1,7 @@
 from typing import Tuple
 
+from reparsec import Delay, Parser, alt
 from reparsec.layout import indented, same
-from reparsec.parser import Delay, Parser, alt
 from reparsec.scannerless import regexp, run
 from reparsec.sequence import eof
 

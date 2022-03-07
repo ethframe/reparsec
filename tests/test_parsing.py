@@ -2,8 +2,7 @@ from typing import List, Sequence
 
 import pytest
 
-from reparsec.output import ParseError
-from reparsec.parser import Parser, run
+from reparsec import ParseError, Parser, run
 from reparsec.primitive import Pure, PureFn
 from reparsec.sequence import digit, letter, sym
 

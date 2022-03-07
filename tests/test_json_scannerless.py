@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import pytest
 
-from reparsec.output import ParseError
+from reparsec import ParseError
 from reparsec.scannerless import run
 
 from .parsers import json_scannerless
