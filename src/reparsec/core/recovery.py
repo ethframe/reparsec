@@ -77,7 +77,6 @@ def _append_selected(
                     Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
                 )
             )
-        raise RuntimeError("Invalid recovered result")
     return None
 
 

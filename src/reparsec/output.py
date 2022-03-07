@@ -71,7 +71,13 @@ class ParseResult(Generic[V_co, S]):
         if repair is None:
             repair = self._result.pending
             if repair is None:
-                raise RuntimeError("Invalid recovered result")
+                raise ParseError([
+                    ErrorItem(
+                        self._result.loc,
+                        self._fmt_loc(self._result.loc),
+                        list(self._result.expected)
+                    )
+                ])
         if recover:
             return repair.value
         errors: List[ErrorItem] = []
