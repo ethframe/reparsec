@@ -126,7 +126,7 @@ class BaseRepair(Generic[V_co, S]):
 
 @dataclass
 class _Pending:
-    inserted: int
+    count: int
 
 
 @dataclass
@@ -137,8 +137,8 @@ class Pending(BaseRepair[V_co, S], _Pending):
 @dataclass
 class _Selected:
     selected: int
-    iprefix: int
-    isuffix: int
+    pprefix: int
+    psuffix: int
     pos: int
 
 
@@ -178,12 +178,12 @@ class Recovered(Generic[V_co, S]):
         pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.iprefix, selected.isuffix,
+                selected.selected, selected.pprefix, selected.psuffix,
                 selected.pos, fn(selected.value), selected.ctx, selected.op,
                 selected.expected, selected.consumed, selected.prefix
             ),
             None if pending is None else Pending(
-                pending.inserted, fn(pending.value), pending.ctx, pending.op,
+                pending.count, fn(pending.value), pending.ctx, pending.op,
                 pending.expected, pending.consumed, pending.prefix
             ),
             self.pos, self.loc, self.expected
@@ -194,12 +194,12 @@ class Recovered(Generic[V_co, S]):
         pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.iprefix, selected.isuffix,
+                selected.selected, selected.pprefix, selected.psuffix,
                 selected.pos, selected.value, ctx, selected.op,
                 selected.expected, selected.consumed, selected.prefix
             ),
             None if pending is None else Pending(
-                pending.inserted, pending.value, ctx, pending.op,
+                pending.count, pending.value, ctx, pending.op,
                 pending.expected, pending.consumed, pending.prefix
             ),
             self.pos, self.loc, self.expected
@@ -210,13 +210,13 @@ class Recovered(Generic[V_co, S]):
         pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.iprefix, selected.isuffix,
+                selected.selected, selected.pprefix, selected.psuffix,
                 selected.pos, selected.value, selected.ctx, selected.op,
                 selected.expected if selected.consumed else expected,
                 selected.consumed, selected.prefix
             ),
             None if pending is None else Pending(
-                pending.inserted, pending.value, pending.ctx, pending.op,
+                pending.count, pending.value, pending.ctx, pending.op,
                 pending.expected if pending.consumed else expected,
                 pending.consumed, pending.prefix
             ),
@@ -230,14 +230,14 @@ class Recovered(Generic[V_co, S]):
         pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.iprefix, selected.isuffix,
+                selected.selected, selected.pprefix, selected.psuffix,
                 selected.pos, selected.value, selected.ctx, selected.op,
                 selected.expected if consumed and selected.consumed
                 else Append(expected, selected.expected),
                 consumed or selected.consumed, selected.prefix
             ),
             None if pending is None else Pending(
-                pending.inserted, pending.value, pending.ctx, pending.op,
+                pending.count, pending.value, pending.ctx, pending.op,
                 pending.expected if consumed and pending.consumed
                 else Append(expected, pending.expected),
                 consumed or pending.consumed, pending.prefix

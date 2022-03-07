@@ -31,8 +31,10 @@ def continue_parse(
         st, pending = _append_pending(pa, ra.pos, rb, merge)
         if selected is None or st is not None and (
                 selected.selected > st.selected or
-                selected.selected == st.selected and
-                selected.iprefix + selected.isuffix > st.iprefix + st.isuffix):
+                selected.selected == st.selected and (
+                    selected.pprefix > st.pprefix or
+                    selected.pprefix == st.pprefix and
+                    selected.psuffix > st.psuffix)):
             selected = st
     else:
         pending = None
@@ -48,7 +50,7 @@ def _append_selected(
         merge: MergeFn[V, U, X]) -> Optional[Selected[X, S]]:
     if type(rb) is Ok:
         return Selected(
-            rep.selected, rep.iprefix, 0, rb.pos, merge(rep.value, rb.value),
+            rep.selected, rep.pprefix, 0, rb.pos, merge(rep.value, rb.value),
             rb.ctx, rep.op, rep.expected, rep.consumed or rb.consumed,
             rep.prefix
         )
@@ -56,7 +58,7 @@ def _append_selected(
         sb = rb.selected
         if sb is not None:
             return Selected(
-                rep.selected, rep.iprefix, sb.isuffix, sb.pos,
+                rep.selected, rep.pprefix, sb.psuffix, sb.pos,
                 merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
                 sb.consumed,
                 Append(
@@ -67,7 +69,7 @@ def _append_selected(
         pb = rb.pending
         if pb is not None:
             return Selected(
-                rep.selected, rep.iprefix, pb.inserted, rep.pos,
+                rep.selected, rep.pprefix, pb.count, rep.pos,
                 merge(rep.value, pb.value), pb.ctx, pb.op, pb.expected,
                 pb.consumed,
                 Append(
@@ -87,7 +89,7 @@ def _append_pending(
         if rb.consumed:
             return (
                 Selected(
-                    pos, rep.inserted, 0, rb.pos, merge(rep.value, rb.value),
+                    pos, rep.count, 0, rb.pos, merge(rep.value, rb.value),
                     rb.ctx, rep.op, rep.expected, True, rep.prefix
                 ),
                 None
@@ -95,7 +97,7 @@ def _append_pending(
         return (
             None,
             Pending(
-                rep.inserted, merge(rep.value, rb.value), rb.ctx, rep.op,
+                rep.count, merge(rep.value, rb.value), rb.ctx, rep.op,
                 rep.expected, rep.consumed, rep.prefix
             )
         )
@@ -104,7 +106,7 @@ def _append_pending(
         pb = rb.pending
         return (
             None if sb is None else Selected(
-                sb.pos, rep.inserted + sb.iprefix, sb.isuffix, sb.pos,
+                sb.selected, rep.count + sb.pprefix, sb.psuffix, sb.pos,
                 merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
                 sb.consumed,
                 Append(
@@ -113,7 +115,7 @@ def _append_pending(
                 )
             ),
             None if pb is None else Pending(
-                rep.inserted + pb.inserted, merge(rep.value, pb.value), pb.ctx,
+                rep.count + pb.count, merge(rep.value, pb.value), pb.ctx,
                 pb.op, pb.expected, pb.consumed,
                 Append(
                     rep.prefix,
@@ -127,10 +129,13 @@ def _append_pending(
 def join_repairs(ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
     selected = ra.selected
     sb = rb.selected
-    if selected is None or sb is not None and selected.selected > sb.selected:
+    if selected is None or sb is not None and (
+            selected.selected > sb.selected or
+            selected.selected == sb.selected and
+            selected.pprefix > sb.pprefix):
         selected = sb
     pending = ra.pending
     pb = rb.pending
-    if pending is None or pb is not None and pending.inserted > pb.inserted:
+    if pending is None or pb is not None and pending.count > pb.count:
         pending = pb
     return Recovered(selected, pending, ra.pos, ra.loc, ra.expected)

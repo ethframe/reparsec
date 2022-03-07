@@ -13,6 +13,10 @@ comma = sym(",")
 
 ab = (a + b).fmap("".join)
 cab = (c + ab).fmap("".join)
+aba = (ab + a).fmap("".join)
+abaa = (aba + a).fmap("".join)
+aaba = (a + aba).fmap("".join)
+caba = (c + aba).fmap("".join)
 
 
 DATA_RECOVERY: List[Tuple[Parser[str, object], str, object]] = [
@@ -55,6 +59,10 @@ DATA_RECOVERY: List[Tuple[Parser[str, object], str, object]] = [
     (cab | ab, "b", "ab"),
     ((ab | cab) << a, "", "ab"),
     ((cab | ab) << a, "", "ab"),
+    (abaa | caba, "b", "abaa"),
+    (caba | abaa, "b", "abaa"),
+    (aaba | caba, "b", "aaba"),
+    (caba | aaba, "b", "caba"),
 ]
 
 

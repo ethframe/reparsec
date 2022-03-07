@@ -170,12 +170,12 @@ def attempt(
             pending = r.pending
             return Recovered(
                 None if selected is None else Selected(
-                    selected.selected, selected.iprefix, selected.isuffix,
+                    selected.selected, selected.pprefix, selected.psuffix,
                     selected.pos, selected.value, selected.ctx, selected.op,
                     selected.expected, False, selected.prefix
                 ),
                 None if pending is None else Pending(
-                    pending.inserted, pending.value, pending.ctx, pending.op,
+                    pending.count, pending.value, pending.ctx, pending.op,
                     pending.expected, False, pending.prefix
                 ),
                 r.pos, r.loc, r.expected
