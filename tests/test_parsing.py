@@ -7,18 +7,21 @@ from reparsec.parser import Parser, run
 from reparsec.primitive import Pure, PureFn
 from reparsec.sequence import digit, letter, sym
 
+a = sym("a")
+b = sym("b")
+
+maybe_a_b = (a.maybe().fmap(str) + b).fmap("".join)
+
 ident = (
     (letter | sym("_")) + (letter | digit | sym("_")).many()
 ).fmap(lambda v: v[0] + "".join(v[1]))
 
-empty_fst = (Pure[Sequence[str], str]("a") | sym("b"))
-empty_snd = (sym("a") | Pure("b"))
+empty_fst = (Pure[Sequence[str], str]("a") | b)
+empty_snd = (a | Pure("b"))
 
 bind_letter = letter.bind(lambda l: digit if l == "d" else letter) | Pure("!")
 
-attempt_seq = (sym("a") + sym("b")).fmap(
-    lambda v: v[0] + v[1]
-).attempt() | PureFn(lambda: "!")
+attempt_seq = (a + b).fmap(lambda v: v[0] + v[1]).attempt() | Pure("!")
 
 chains = letter.chainl1(
     sym(">").rseq(Pure(lambda a, b: f"({a}>{b})"))
@@ -27,6 +30,12 @@ chains = letter.chainl1(
 )
 
 DATA_POSITIVE = [
+    (Pure("a"), "", "a"),
+    (PureFn(lambda: "a"), "", "a"),
+    (a.lseq(b), "ab", "a"),
+    (a.rseq(b), "ab", "b"),
+    (maybe_a_b, "ab", "ab"),
+    (maybe_a_b, "b", "Noneb"),
     (ident, "a", "a"),
     (ident, "ab", "ab"),
     (ident, "a_b", "a_b"),
