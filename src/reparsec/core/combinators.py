@@ -27,10 +27,10 @@ def alt(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
         ra = parse_fn(stream, pos, ctx, disallow_recovery(rm))
-        if ra.consumed is True:
+        if ra.consumed:
             return ra
         rb = second_fn(stream, pos, ctx, disallow_recovery(rm))
-        if rb.consumed is True:
+        if rb.consumed:
             return rb
         expected = Append(ra.expected, rb.expected)
         if type(ra) is Ok:
@@ -118,7 +118,7 @@ def maybe(parse_fn: ParseFn[S, V]) -> ParseFn[S, Optional[V]]:
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[Optional[V], S]:
         r = parse_fn(stream, pos, ctx, disallow_recovery(rm))
-        if r.consumed is True or type(r) is Ok:
+        if r.consumed or type(r) is Ok:
             return r
         return Ok(None, pos, ctx, r.expected)
 
@@ -134,7 +134,7 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
         value: List[V] = []
         r = parse_fn(stream, pos, ctx, rm)
         while type(r) is Ok:
-            if r.consumed is False:
+            if not r.consumed:
                 raise RuntimeError("parser shouldn't accept empty string")
             consumed = True
             value.append(r.value)
@@ -150,7 +150,7 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
 
     def parse(_: V, stream: S, pos: int, ctx: Ctx[S]) -> Result[List[V], S]:
         r = many(stream, pos, ctx, True)
-        if type(r) is Error and r.consumed is False:
+        if type(r) is Error and not r.consumed:
             return Ok[List[V], S]([], pos, ctx, r.expected)
         return r
 
@@ -190,7 +190,7 @@ def insert_on_error(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
         r = parse_fn(stream, pos, ctx, rm)
-        if rm and type(r) is Error and r.consumed is False:
+        if rm and type(r) is Error and not r.consumed:
             value = insert_fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             return Recovered(

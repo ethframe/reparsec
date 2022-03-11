@@ -40,7 +40,9 @@ def continue_parse(
         pending = None
 
     if selected is not None or pending is not None:
-        return Recovered(selected, pending, ra.pos, ra.loc, ra.expected)
+        return Recovered(
+            selected, pending, ra.pos, ra.loc, ra.expected, ra.consumed
+        )
 
     return Error(ra.pos, ra.loc, ra.expected, True)
 
@@ -137,4 +139,15 @@ def join_repairs(ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
     pb = rb.pending
     if pending is None or pb is not None and pending.count > pb.count:
         pending = pb
-    return Recovered(selected, pending, ra.pos, ra.loc, ra.expected)
+    if ra.consumed:
+        return Recovered(
+            selected, pending, ra.pos, ra.loc, ra.expected, ra.consumed
+        )
+    elif rb.consumed:
+        return Recovered(
+            selected, pending, rb.pos, rb.loc, rb.expected, rb.consumed
+        )
+    return Recovered(
+        selected, pending, ra.pos, ra.loc, Append(ra.expected, rb.expected)
+    )
+

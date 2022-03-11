@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, Iterable, Optional, TypeVar, Union
 
-from typing_extensions import Literal, final
+from typing_extensions import final
 
 from .chain import Append
 from .state import Ctx, Loc
@@ -151,18 +151,16 @@ class Selected(BaseRepair[V_co, S], _Selected):
 class Recovered(Generic[V_co, S]):
     __slots__ = "selected", "pending", "pos", "loc", "expected", "consumed"
 
-    consumed: Literal[True]
-
     def __init__(
             self, selected: Optional[Selected[V_co, S]],
             pending: Optional[Pending[V_co, S]], pos: int, loc: Loc,
-            expected: Iterable[str] = ()):
+            expected: Iterable[str] = (), consumed: bool = False):
         self.selected = selected
         self.pending = pending
         self.pos = pos
         self.loc = loc
         self.expected = expected
-        self.consumed = True
+        self.consumed = consumed
 
     def __repr__(self) -> str:
         return (
@@ -186,7 +184,7 @@ class Recovered(Generic[V_co, S]):
                 pending.count, fn(pending.value), pending.ctx, pending.op,
                 pending.expected, pending.consumed, pending.prefix
             ),
-            self.pos, self.loc, self.expected
+            self.pos, self.loc, self.expected, self.consumed
         )
 
     def with_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
@@ -202,7 +200,7 @@ class Recovered(Generic[V_co, S]):
                 pending.count, pending.value, ctx, pending.op,
                 pending.expected, pending.consumed, pending.prefix
             ),
-            self.pos, self.loc, self.expected
+            self.pos, self.loc, self.expected, self.consumed
         )
 
     def expect(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
@@ -220,7 +218,8 @@ class Recovered(Generic[V_co, S]):
                 pending.expected if pending.consumed else expected,
                 pending.consumed, pending.prefix
             ),
-            self.pos, self.loc, self.expected
+            self.pos, self.loc, self.expected if self.consumed else expected,
+            self.consumed
         )
 
     def merge_expected(
@@ -242,7 +241,10 @@ class Recovered(Generic[V_co, S]):
                 else Append(expected, pending.expected),
                 consumed or pending.consumed, pending.prefix
             ),
-            self.pos, self.loc, self.expected
+            self.pos, self.loc,
+            self.expected if consumed and self.consumed
+            else Append(expected, self.expected),
+            consumed or self.consumed
         )
 
 
