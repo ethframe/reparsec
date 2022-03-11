@@ -150,4 +150,3 @@ def join_repairs(ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
     return Recovered(
         selected, pending, ra.pos, ra.loc, Append(ra.expected, rb.expected)
     )
-
