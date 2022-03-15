@@ -36,21 +36,20 @@ class Ok(Generic[V_co, S]):
         )
 
     def with_ctx(self, ctx: Ctx[S]) -> "Ok[V_co, S]":
-        return Ok(self.value, self.pos, ctx, self.expected, self.consumed)
+        self.ctx = ctx
+        return self
 
     def expect(self, expected: Iterable[str]) -> "Ok[V_co, S]":
-        if self.consumed:
-            return self
-        return Ok(self.value, self.pos, self.ctx, expected, self.consumed)
+        if not self.consumed:
+            self.expected = expected
+        return self
 
     def merge_expected(
             self, expected: Iterable[str], consumed: bool) -> "Ok[V_co, S]":
-        if consumed and self.consumed:
-            return self
-        return Ok(
-            self.value, self.pos, self.ctx, Append(expected, self.expected),
-            consumed or self.consumed
-        )
+        if not (consumed and self.consumed):
+            self.expected = Append(expected, self.expected)
+            self.consumed |= consumed
+        return self
 
 
 @final
@@ -77,18 +76,16 @@ class Error:
         return self
 
     def expect(self, expected: Iterable[str]) -> "Error":
-        if self.consumed:
-            return self
-        return Error(self.pos, self.loc, expected, self.consumed)
+        if not self.consumed:
+            self.expected = expected
+        return self
 
     def merge_expected(
             self, expected: Iterable[str], consumed: bool) -> "Error":
-        if consumed and self.consumed:
-            return self
-        return Error(
-            self.pos, self.loc, Append(expected, self.expected),
-            consumed or self.consumed
-        )
+        if not (consumed and self.consumed):
+            self.expected = Append(expected, self.expected)
+            self.consumed |= consumed
+        return self
 
 
 @dataclass
@@ -189,63 +186,39 @@ class Recovered(Generic[V_co, S]):
 
     def with_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
         selected = self.selected
+        if selected is not None:
+            selected.ctx = ctx
         pending = self.pending
-        return Recovered(
-            None if selected is None else Selected(
-                selected.selected, selected.pprefix, selected.psuffix,
-                selected.pos, selected.value, ctx, selected.op,
-                selected.expected, selected.consumed, selected.prefix
-            ),
-            None if pending is None else Pending(
-                pending.count, pending.value, ctx, pending.op,
-                pending.expected, pending.consumed, pending.prefix
-            ),
-            self.pos, self.loc, self.expected, self.consumed
-        )
+        if pending is not None:
+            pending.ctx = ctx
+        return self
 
     def expect(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
         selected = self.selected
+        if selected is not None and not selected.consumed:
+            selected.expected = expected
         pending = self.pending
-        return Recovered(
-            None if selected is None else Selected(
-                selected.selected, selected.pprefix, selected.psuffix,
-                selected.pos, selected.value, selected.ctx, selected.op,
-                selected.expected if selected.consumed else expected,
-                selected.consumed, selected.prefix
-            ),
-            None if pending is None else Pending(
-                pending.count, pending.value, pending.ctx, pending.op,
-                pending.expected if pending.consumed else expected,
-                pending.consumed, pending.prefix
-            ),
-            self.pos, self.loc, self.expected if self.consumed else expected,
-            self.consumed
-        )
+        if pending is not None and not pending.consumed:
+            pending.expected = expected
+        if not self.consumed:
+            self.expected = expected
+        return self
 
     def merge_expected(
             self, expected: Iterable[str],
             consumed: bool) -> "Recovered[V_co, S]":
+        if not (consumed and self.consumed):
+            self.expected = Append(expected, self.expected)
+            self.consumed |= consumed
         selected = self.selected
+        if selected is not None and not (consumed and selected.consumed):
+            selected.expected = Append(expected, selected.expected)
+            selected.consumed |= consumed
         pending = self.pending
-        return Recovered(
-            None if selected is None else Selected(
-                selected.selected, selected.pprefix, selected.psuffix,
-                selected.pos, selected.value, selected.ctx, selected.op,
-                selected.expected if consumed and selected.consumed
-                else Append(expected, selected.expected),
-                consumed or selected.consumed, selected.prefix
-            ),
-            None if pending is None else Pending(
-                pending.count, pending.value, pending.ctx, pending.op,
-                pending.expected if consumed and pending.consumed
-                else Append(expected, pending.expected),
-                consumed or pending.consumed, pending.prefix
-            ),
-            self.pos, self.loc,
-            self.expected if consumed and self.consumed
-            else Append(expected, self.expected),
-            consumed or self.consumed
-        )
+        if pending is not None and not (consumed and pending.consumed):
+            pending.expected = Append(expected, pending.expected)
+            pending.consumed |= consumed
+        return self
 
 
 Result = Union[Recovered[V, S], Ok[V, S], Error]
