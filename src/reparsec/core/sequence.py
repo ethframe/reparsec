@@ -21,7 +21,7 @@ def eof() -> ParseFn[Sized, None]:
             sl = len(stream)
             return Recovered(
                 Selected(
-                    sl, 0, 0, sl, None, ctx, Skip(sl - pos, loc),
+                    sl, 0, sl, 0, None, ctx, Skip(sl - pos, loc),
                     ["end of file"]
                 ),
                 None, pos, loc, ["end of file"]
@@ -47,7 +47,7 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                 if test(t):
                     return Recovered(
                         Selected(
-                            cur, 0, 0, cur + 1, t,
+                            cur, 0, cur + 1, 0, t,
                             ctx.update_loc(stream, cur + 1),
                             Skip(cur - pos, loc)
                         ),
@@ -81,7 +81,7 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                 t = stream[cur]
                 if t == s:
                     sel = Selected(
-                        cur, 0, 0, cur + 1, t, ctx.update_loc(stream, cur + 1),
+                        cur, 0, cur + 1, 0, t, ctx.update_loc(stream, cur + 1),
                         Skip(cur - pos, loc), expected
                     )
                     return Recovered(sel, pending, pos, loc, expected)

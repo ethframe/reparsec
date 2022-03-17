@@ -1,7 +1,7 @@
 from typing import Callable, Optional, Tuple, TypeVar
 
 from .chain import Append, Cons
-from .result import Error, Ok, Pending, PrefixItem, Recovered, Result, Selected
+from .result import Error, Ok, OpItem, Pending, Recovered, Result, Selected
 from .state import Ctx
 
 S = TypeVar("S")
@@ -32,9 +32,9 @@ def continue_parse(
         if selected is None or st is not None and (
                 selected.selected > st.selected or
                 selected.selected == st.selected and (
-                    selected.pprefix > st.pprefix or
-                    selected.pprefix == st.pprefix and
-                    selected.psuffix > st.psuffix)):
+                    selected.prefix > st.prefix or
+                    selected.prefix == st.prefix and
+                    selected.count > st.count)):
             selected = st
     else:
         pending = None
@@ -52,32 +52,26 @@ def _append_selected(
         merge: MergeFn[V, U, X]) -> Optional[Selected[X, S]]:
     if type(rb) is Ok:
         return Selected(
-            rep.selected, rep.pprefix, 0, rb.pos, merge(rep.value, rb.value),
-            rb.ctx, rep.op, rep.expected, rep.consumed or rb.consumed,
-            rep.prefix
+            rep.selected, rep.prefix, rb.pos, rep.count,
+            merge(rep.value, rb.value), rb.ctx, rep.op, rep.expected,
+            rep.consumed or rb.consumed, rep.ops
         )
     elif type(rb) is Recovered:
         sb = rb.selected
-        if sb is not None:
-            return Selected(
-                rep.selected, rep.pprefix, sb.psuffix, sb.pos,
-                merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
-                sb.consumed,
-                Append(
-                    rep.prefix,
-                    Cons(PrefixItem(rep.op, rep.expected), sb.prefix)
-                )
-            )
         pb = rb.pending
-        if pb is not None:
+        if pb is not None and (sb is None or sb.count > pb.count):
             return Selected(
-                rep.selected, rep.pprefix, pb.count, rep.pos,
+                rep.selected, rep.prefix, rep.pos, rep.count + pb.count,
                 merge(rep.value, pb.value), pb.ctx, pb.op, pb.expected,
                 pb.consumed,
-                Append(
-                    rep.prefix,
-                    Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
-                )
+                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), pb.ops))
+            )
+        if sb is not None:
+            return Selected(
+                rep.selected, rep.prefix, sb.pos, rep.count + sb.count,
+                merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
+                sb.consumed,
+                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), sb.ops))
             )
     return None
 
@@ -90,8 +84,9 @@ def _append_pending(
         if rb.consumed:
             return (
                 Selected(
-                    pos, rep.count, 0, rb.pos, merge(rep.value, rb.value),
-                    rb.ctx, rep.op, rep.expected, True, rep.prefix
+                    pos, rep.count, rb.pos, rep.count,
+                    merge(rep.value, rb.value), rb.ctx, rep.op, rep.expected,
+                    True, rep.ops
                 ),
                 None
             )
@@ -99,7 +94,7 @@ def _append_pending(
             None,
             Pending(
                 rep.count, merge(rep.value, rb.value), rb.ctx, rep.op,
-                rep.expected, rep.consumed, rep.prefix
+                rep.expected, rep.consumed, rep.ops
             )
         )
     elif type(rb) is Recovered:
@@ -107,21 +102,15 @@ def _append_pending(
         pb = rb.pending
         return (
             None if sb is None else Selected(
-                sb.selected, rep.count + sb.pprefix, sb.psuffix, sb.pos,
+                sb.selected, rep.count + sb.prefix, sb.pos, sb.count,
                 merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
                 sb.consumed,
-                Append(
-                    rep.prefix,
-                    Cons(PrefixItem(rep.op, rep.expected), sb.prefix)
-                )
+                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), sb.ops))
             ),
             None if pb is None else Pending(
                 rep.count + pb.count, merge(rep.value, pb.value), pb.ctx,
                 pb.op, pb.expected, pb.consumed,
-                Append(
-                    rep.prefix,
-                    Cons(PrefixItem(rep.op, rep.expected), pb.prefix)
-                )
+                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), pb.ops))
             )
         )
     return (None, None)
@@ -132,8 +121,10 @@ def join_repairs(ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
     sb = rb.selected
     if selected is None or sb is not None and (
             selected.selected > sb.selected or
-            selected.selected == sb.selected and
-            selected.pprefix > sb.pprefix):
+            selected.selected == sb.selected and (
+                selected.prefix > sb.prefix or
+                selected.prefix == sb.prefix and
+                selected.count > sb.count)):
         selected = sb
     pending = ra.pending
     pb = rb.pending

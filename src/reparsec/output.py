@@ -81,7 +81,7 @@ class ParseResult(Generic[V_co, S]):
         if recover:
             return repair.value
         errors: List[ErrorItem] = []
-        for item in repair.prefix:
+        for item in repair.ops:
             errors.append(
                 ErrorItem(
                     item.op.loc, self._fmt_loc(item.op.loc),

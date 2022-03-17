@@ -106,36 +106,30 @@ RepairOp = Union[Skip, Insert]
 
 
 @dataclass
-class PrefixItem:
+class OpItem:
     op: RepairOp
     expected: Iterable[str]
 
 
 @dataclass
 class BaseRepair(Generic[V_co, S]):
+    count: int
     value: V_co
     ctx: Ctx[S]
     op: RepairOp
     expected: Iterable[str] = ()
     consumed: bool = False
-    prefix: Iterable[PrefixItem] = ()
+    ops: Iterable[OpItem] = ()
 
 
-@dataclass
-class _Pending:
-    count: int
-
-
-@dataclass
-class Pending(BaseRepair[V_co, S], _Pending):
+class Pending(BaseRepair[V_co, S]):
     pass
 
 
 @dataclass
 class _Selected:
     selected: int
-    pprefix: int
-    psuffix: int
+    prefix: int
     pos: int
 
 
@@ -173,13 +167,13 @@ class Recovered(Generic[V_co, S]):
         pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.pprefix, selected.psuffix,
-                selected.pos, fn(selected.value), selected.ctx, selected.op,
-                selected.expected, selected.consumed, selected.prefix
+                selected.selected, selected.prefix, selected.pos,
+                selected.count, fn(selected.value), selected.ctx, selected.op,
+                selected.expected, selected.consumed, selected.ops
             ),
             None if pending is None else Pending(
                 pending.count, fn(pending.value), pending.ctx, pending.op,
-                pending.expected, pending.consumed, pending.prefix
+                pending.expected, pending.consumed, pending.ops
             ),
             self.pos, self.loc, self.expected, self.consumed
         )
