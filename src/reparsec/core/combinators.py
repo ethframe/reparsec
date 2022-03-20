@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Tuple, TypeVar
+from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .chain import Append
 from .recovery import MergeFn, continue_parse, join_repairs
@@ -22,10 +22,12 @@ def fmap(parse_fn: ParseFn[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
     return fmap
 
 
-def alt(parse_fn: ParseFn[S, V], second_fn: ParseFn[S, V]) -> ParseFn[S, V]:
+def alt(
+        parse_fn: ParseFn[S, V],
+        second_fn: ParseFn[S, U]) -> ParseFn[S, Union[V, U]]:
     def alt(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[V, S]:
+            rm: RecoveryMode) -> Result[Union[V, U], S]:
         ra = parse_fn(stream, pos, ctx, disallow_recovery(rm))
         if ra.consumed:
             return ra

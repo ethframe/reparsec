@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Tuple, TypeVar
+from typing import Callable, Optional, Tuple, TypeVar, Union
 
 from .chain import Append, Cons
 from .result import Error, Ok, OpItem, Pending, Recovered, Result, Selected
@@ -116,8 +116,9 @@ def _append_pending(
     return (None, None)
 
 
-def join_repairs(ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
-    selected = ra.selected
+def join_repairs(
+        ra: Recovered[V, S], rb: Recovered[U, S]) -> Recovered[Union[V, U], S]:
+    selected: Optional[Selected[Union[V, U], S]] = ra.selected
     sb = rb.selected
     if selected is None or sb is not None and (
             selected.selected > sb.selected or
@@ -126,7 +127,7 @@ def join_repairs(ra: Recovered[V, S], rb: Recovered[V, S]) -> Recovered[V, S]:
                 selected.prefix == sb.prefix and
                 selected.count > sb.count)):
         selected = sb
-    pending = ra.pending
+    pending: Optional[Pending[Union[V, U], S]] = ra.pending
     pb = rb.pending
     if pending is None or pb is not None and pending.count > pb.count:
         pending = pb

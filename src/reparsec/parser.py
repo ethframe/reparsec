@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Tuple, TypeVar
+from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .core import combinators
 from .core.result import Result
@@ -45,8 +45,8 @@ class Parser(ParseObj[S_contra, V_co]):
         return seq(self, other)
 
     def __or__(
-            self, other: ParseObj[S_contra, V_co]
-    ) -> "Parser[S_contra, V_co]":
+            self, other: ParseObj[S_contra, U]
+    ) -> "Parser[S_contra, Union[V_co, U]]":
         return alt(self, other)
 
     def maybe(self) -> "Parser[S_contra, Optional[V_co]]":
@@ -124,7 +124,9 @@ def seq(
     return FnParser(combinators.seq(parser.to_fn(), second.to_fn()))
 
 
-def alt(parser: ParseObj[S, V], second: ParseObj[S, V]) -> Parser[S, V]:
+def alt(
+        parser: ParseObj[S, V],
+        second: ParseObj[S, U]) -> Parser[S, Union[V, U]]:
     return FnParser(combinators.alt(parser.to_fn(), second.to_fn()))
 
 
