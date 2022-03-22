@@ -61,14 +61,14 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
     (
         "[1, [{, 2]", [1, [{}, 2]],
         "at 1:7: expected string or '}' (inserted '}'), " +
-        "at 1:11: expected ']' (inserted ']')"
+        "at 1:11: expected ',' or ']' (inserted ']')"
     ),
-    ("[1, }, 2]", [1, {}, 2], "at 1:5: expected '{' (inserted '{')"),
+    ("[1, }, 2]", [1, {}, 2], "at 1:5: expected value (inserted '{')"),
     ('{"key": }', {"key": 1}, "at 1:9: expected value (inserted 1)"),
     (
         '{"key": ]', {"key": []},
-        "at 1:9: expected '[' (inserted '['), " +
-        "at 1:10: expected '}' (inserted '}')"
+        "at 1:9: expected value (inserted '['), " +
+        "at 1:10: expected ',' or '}' (inserted '}')"
     ),
     (
         '{"key": 2]', {"key": 2},
@@ -80,19 +80,19 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
         "at 1:11: expected string (inserted '\"a\"'), " +
         "at 1:11: expected ':' (inserted ':'), " +
         "at 1:11: expected value (inserted 1), " +
-        "at 1:11: expected '}' (inserted '}')"
+        "at 1:11: expected ',' or '}' (inserted '}')"
     ),
     (
         '{"key": 0, ]', {"key": 0, "a": []},
         "at 1:12: expected string (inserted '\"a\"'), " +
         "at 1:12: expected ':' (inserted ':'), " +
-        "at 1:12: expected '[' (inserted '['), " +
-        "at 1:13: expected '}' (inserted '}')"
+        "at 1:12: expected value (inserted '['), " +
+        "at 1:13: expected ',' or '}' (inserted '}')"
     ),
     (
         '{"key": @}', {"key": 1},
         "at 1:9: expected value (inserted 1), " +
-        "at 1:9: expected '}' (skipped 1 token)"
+        "at 1:9: expected ',' or '}' (skipped 1 token)"
     ),
 ]
 

@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Callable, Generic, Iterable, Optional, TypeVar, Union
+from dataclasses import dataclass, field
+from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
 
 from typing_extensions import final
 
@@ -92,14 +92,12 @@ class Error:
 @final
 class Skip:
     count: int
-    loc: Loc
 
 
 @dataclass
 @final
 class Insert:
     label: str
-    loc: Loc
 
 
 RepairOp = Union[Skip, Insert]
@@ -108,7 +106,9 @@ RepairOp = Union[Skip, Insert]
 @dataclass
 class OpItem:
     op: RepairOp
+    loc: Loc
     expected: Iterable[str]
+    consumed: bool
 
 
 @dataclass
@@ -119,7 +119,7 @@ class BaseRepair(Generic[V_co, S]):
     op: RepairOp
     expected: Iterable[str] = ()
     consumed: bool = False
-    ops: Iterable[OpItem] = ()
+    ops: List[OpItem] = field(default_factory=list)
 
 
 class Pending(BaseRepair[V_co, S]):
@@ -188,14 +188,18 @@ class Recovered(Generic[V_co, S]):
         return self
 
     def expect(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
-        selected = self.selected
-        if selected is not None and not selected.consumed:
-            selected.expected = expected
-        pending = self.pending
-        if pending is not None and not pending.consumed:
-            pending.expected = expected
         if not self.consumed:
             self.expected = expected
+        selected = self.selected
+        if selected is not None:
+            if not selected.consumed:
+                selected.expected = expected
+            ops_expect(selected.ops, expected)
+        pending = self.pending
+        if pending is not None:
+            if not pending.consumed:
+                pending.expected = expected
+            ops_expect(pending.ops, expected)
         return self
 
     def merge_expected(
@@ -205,14 +209,32 @@ class Recovered(Generic[V_co, S]):
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
         selected = self.selected
-        if selected is not None and not selected.consumed:
-            selected.expected = Append(expected, selected.expected)
-            selected.consumed |= consumed
+        if selected is not None:
+            if not selected.consumed:
+                selected.expected = Append(expected, selected.expected)
+                selected.consumed |= consumed
+            ops_merge_expected(selected.ops, expected, consumed)
         pending = self.pending
-        if pending is not None and not pending.consumed:
-            pending.expected = Append(expected, pending.expected)
-            pending.consumed |= consumed
+        if pending is not None:
+            if not pending.consumed:
+                pending.expected = Append(expected, pending.expected)
+                pending.consumed |= consumed
+            ops_merge_expected(pending.ops, expected, consumed)
         return self
+
+
+def ops_expect(ops: List[OpItem], expected: Iterable[str]) -> None:
+    for op in ops:
+        if not op.consumed:
+            op.expected = expected
+
+
+def ops_merge_expected(
+        ops: List[OpItem], expected: Iterable[str], consumed: bool) -> None:
+    for op in ops:
+        if not op.consumed:
+            op.expected = Append(expected, op.expected)
+            op.consumed |= consumed
 
 
 Result = Union[Recovered[V, S], Ok[V, S], Error]

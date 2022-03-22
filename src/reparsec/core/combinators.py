@@ -196,7 +196,8 @@ def insert_on_error(
             value = insert_fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             return Recovered(
-                None, Pending(1, value, ctx, Insert(label, loc)), pos, loc
+                None, Pending(1, value, ctx, Insert(label)), pos, loc,
+                consumed=True
             )
         return r
 

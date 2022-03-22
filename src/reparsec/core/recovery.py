@@ -1,11 +1,16 @@
-from typing import Callable, Optional, Tuple, TypeVar, Union
+from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
-from .chain import Append, Cons
-from .result import Error, Ok, OpItem, Pending, Recovered, Result, Selected
+from typing_extensions import Protocol
+
+from .chain import Append
+from .result import (
+    BaseRepair, Error, Ok, OpItem, Pending, Recovered, Result, Selected,
+    ops_merge_expected
+)
 from .state import Ctx
 
 S = TypeVar("S")
-V = TypeVar("V")
+V = TypeVar("V", bound=object)
 U = TypeVar("U")
 X = TypeVar("X")
 
@@ -44,7 +49,7 @@ def continue_parse(
             selected, pending, ra.pos, ra.loc, ra.expected, ra.consumed
         )
 
-    return Error(ra.pos, ra.loc, ra.expected, True)
+    return Error(ra.pos, ra.loc, ra.expected, ra.consumed)
 
 
 def _append_selected(
@@ -53,8 +58,8 @@ def _append_selected(
     if type(rb) is Ok:
         return Selected(
             rep.selected, rep.prefix, rb.pos, rep.count,
-            merge(rep.value, rb.value), rb.ctx, rep.op, rep.expected,
-            rep.consumed or rb.consumed, rep.ops
+            merge(rep.value, rb.value), rb.ctx, rep.op,
+            _merge_expected(rep, rb), rep.consumed or rb.consumed, rep.ops
         )
     elif type(rb) is Recovered:
         sb = rb.selected
@@ -62,16 +67,16 @@ def _append_selected(
         if pb is not None and (sb is None or sb.count > pb.count):
             return Selected(
                 rep.selected, rep.prefix, rep.pos, rep.count + pb.count,
-                merge(rep.value, pb.value), pb.ctx, pb.op, pb.expected,
-                pb.consumed,
-                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), pb.ops))
+                merge(rep.value, pb.value), pb.ctx, rep.op,
+                _merge_expected(rep, pb), rep.consumed or pb.consumed,
+                _merge_ops(rep, rb, pb)
             )
         if sb is not None:
             return Selected(
-                rep.selected, rep.prefix, sb.pos, rep.count + sb.count,
-                merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
-                sb.consumed,
-                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), sb.ops))
+                rep.selected, rep.prefix, rep.pos, rep.count + sb.count,
+                merge(rep.value, sb.value), sb.ctx, rep.op,
+                _merge_expected(rep, sb), rep.consumed or sb.consumed,
+                _merge_ops(rep, rb, sb)
             )
     return None
 
@@ -85,8 +90,8 @@ def _append_pending(
             return (
                 Selected(
                     pos, rep.count, rb.pos, rep.count,
-                    merge(rep.value, rb.value), rb.ctx, rep.op, rep.expected,
-                    True, rep.ops
+                    merge(rep.value, rb.value), rb.ctx, rep.op,
+                    _merge_expected(rep, rb), True, rep.ops
                 ),
                 None
             )
@@ -94,7 +99,7 @@ def _append_pending(
             None,
             Pending(
                 rep.count, merge(rep.value, rb.value), rb.ctx, rep.op,
-                rep.expected, rep.consumed, rep.ops
+                _merge_expected(rep, rb), rep.consumed, rep.ops
             )
         )
     elif type(rb) is Recovered:
@@ -103,14 +108,14 @@ def _append_pending(
         return (
             None if sb is None else Selected(
                 sb.selected, rep.count + sb.prefix, sb.pos, sb.count,
-                merge(rep.value, sb.value), sb.ctx, sb.op, sb.expected,
-                sb.consumed,
-                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), sb.ops))
+                merge(rep.value, sb.value), sb.ctx, rep.op,
+                _merge_expected(rep, sb), rep.consumed or sb.consumed,
+                _merge_ops(rep, rb, sb)
             ),
             None if pb is None else Pending(
                 rep.count + pb.count, merge(rep.value, pb.value), pb.ctx,
-                pb.op, pb.expected, pb.consumed,
-                Append(rep.ops, Cons(OpItem(rep.op, rep.expected), pb.ops))
+                rep.op, _merge_expected(rep, pb), rep.consumed or pb.consumed,
+                _merge_ops(rep, rb, pb)
             )
         )
     return (None, None)
@@ -142,3 +147,29 @@ def join_repairs(
     return Recovered(
         selected, pending, ra.pos, ra.loc, Append(ra.expected, rb.expected)
     )
+
+
+def _merge_ops(
+        rep: BaseRepair[V, S], rb: Recovered[U, S],
+        repb: BaseRepair[U, S]) -> List[OpItem]:
+    ops = [OpItem(i.op, i.loc, i.expected, i.consumed) for i in rep.ops]
+    ops.append(
+        OpItem(
+            repb.op, rb.loc, _merge_expected(rep, rb),
+            rep.consumed or rb.consumed
+        )
+    )
+    ops_merge_expected(repb.ops, rep.expected, rep.consumed)
+    ops.extend(repb.ops)
+    return ops
+
+
+class Reply(Protocol):
+    expected: Iterable[str]
+    consumed: bool
+
+
+def _merge_expected(ra: Reply, rb: Reply) -> Iterable[str]:
+    if rb.consumed:
+        return rb.expected
+    return Append(ra.expected, rb.expected)
