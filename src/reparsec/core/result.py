@@ -46,7 +46,7 @@ class Ok(Generic[V_co, S]):
 
     def merge_expected(
             self, expected: Iterable[str], consumed: bool) -> "Ok[V_co, S]":
-        if not (consumed and self.consumed):
+        if not self.consumed:
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
         return self
@@ -82,7 +82,7 @@ class Error:
 
     def merge_expected(
             self, expected: Iterable[str], consumed: bool) -> "Error":
-        if not (consumed and self.consumed):
+        if not self.consumed:
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
         return self
@@ -201,15 +201,15 @@ class Recovered(Generic[V_co, S]):
     def merge_expected(
             self, expected: Iterable[str],
             consumed: bool) -> "Recovered[V_co, S]":
-        if not (consumed and self.consumed):
+        if not self.consumed:
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
         selected = self.selected
-        if selected is not None and not (consumed and selected.consumed):
+        if selected is not None and not selected.consumed:
             selected.expected = Append(expected, selected.expected)
             selected.consumed |= consumed
         pending = self.pending
-        if pending is not None and not (consumed and pending.consumed):
+        if pending is not None and not pending.consumed:
             pending.expected = Append(expected, pending.expected)
             pending.consumed |= consumed
         return self
