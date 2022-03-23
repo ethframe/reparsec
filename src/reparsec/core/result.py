@@ -35,16 +35,16 @@ class Ok(Generic[V_co, S]):
             fn(self.value), self.pos, self.ctx, self.expected, self.consumed
         )
 
-    def with_ctx(self, ctx: Ctx[S]) -> "Ok[V_co, S]":
+    def set_ctx(self, ctx: Ctx[S]) -> "Ok[V_co, S]":
         self.ctx = ctx
         return self
 
-    def expect(self, expected: Iterable[str]) -> "Ok[V_co, S]":
+    def set_expected(self, expected: Iterable[str]) -> "Ok[V_co, S]":
         if not self.consumed:
             self.expected = expected
         return self
 
-    def merge_expected(
+    def prepend_expected(
             self, expected: Iterable[str], consumed: bool) -> "Ok[V_co, S]":
         if not self.consumed:
             self.expected = Append(expected, self.expected)
@@ -72,15 +72,15 @@ class Error:
     def fmap(self, fn: object) -> "Error":
         return self
 
-    def with_ctx(self, ctx: object) -> "Error":
+    def set_ctx(self, ctx: object) -> "Error":
         return self
 
-    def expect(self, expected: Iterable[str]) -> "Error":
+    def set_expected(self, expected: Iterable[str]) -> "Error":
         if not self.consumed:
             self.expected = expected
         return self
 
-    def merge_expected(
+    def prepend_expected(
             self, expected: Iterable[str], consumed: bool) -> "Error":
         if not self.consumed:
             self.expected = Append(expected, self.expected)
@@ -178,7 +178,7 @@ class Recovered(Generic[V_co, S]):
             self.pos, self.loc, self.expected, self.consumed
         )
 
-    def with_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
+    def set_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
         selected = self.selected
         if selected is not None:
             selected.ctx = ctx
@@ -187,22 +187,22 @@ class Recovered(Generic[V_co, S]):
             pending.ctx = ctx
         return self
 
-    def expect(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
+    def set_expected(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
         if not self.consumed:
             self.expected = expected
         selected = self.selected
         if selected is not None:
             if not selected.consumed:
                 selected.expected = expected
-            ops_expect(selected.ops, expected)
+            ops_set_expected(selected.ops, expected)
         pending = self.pending
         if pending is not None:
             if not pending.consumed:
                 pending.expected = expected
-            ops_expect(pending.ops, expected)
+            ops_set_expected(pending.ops, expected)
         return self
 
-    def merge_expected(
+    def prepend_expected(
             self, expected: Iterable[str],
             consumed: bool) -> "Recovered[V_co, S]":
         if not self.consumed:
@@ -213,23 +213,23 @@ class Recovered(Generic[V_co, S]):
             if not selected.consumed:
                 selected.expected = Append(expected, selected.expected)
                 selected.consumed |= consumed
-            ops_merge_expected(selected.ops, expected, consumed)
+            ops_prepend_expected(selected.ops, expected, consumed)
         pending = self.pending
         if pending is not None:
             if not pending.consumed:
                 pending.expected = Append(expected, pending.expected)
                 pending.consumed |= consumed
-            ops_merge_expected(pending.ops, expected, consumed)
+            ops_prepend_expected(pending.ops, expected, consumed)
         return self
 
 
-def ops_expect(ops: List[OpItem], expected: Iterable[str]) -> None:
+def ops_set_expected(ops: List[OpItem], expected: Iterable[str]) -> None:
     for op in ops:
         if not op.consumed:
             op.expected = expected
 
 
-def ops_merge_expected(
+def ops_prepend_expected(
         ops: List[OpItem], expected: Iterable[str], consumed: bool) -> None:
     for op in ops:
         if not op.consumed:

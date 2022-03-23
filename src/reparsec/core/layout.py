@@ -16,7 +16,7 @@ def block(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
         ctx = ctx.update_loc(stream, pos)
         return parse_fn(
             stream, pos, ctx.set_anchor(ctx.loc.col), rm
-        ).with_ctx(ctx)
+        ).set_ctx(ctx)
 
     return block
 
@@ -42,7 +42,7 @@ def indented(delta: int, parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
         if ctx.anchor + delta == level:
             return parse_fn(
                 stream, pos, ctx.set_anchor(level), rm
-            ).with_ctx(ctx)
+            ).set_ctx(ctx)
         return Error(pos, ctx.loc, ["indentation"])
 
     return indented

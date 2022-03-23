@@ -1,15 +1,13 @@
 from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
-from typing_extensions import Protocol
-
 from .chain import Append
 from .result import (
     BaseRepair, Error, Ok, OpItem, Pending, Recovered, Result, Selected,
-    ops_merge_expected
+    ops_prepend_expected
 )
 from .state import Ctx
 
-S = TypeVar("S")
+S = TypeVar("S", bound=object)
 V = TypeVar("V", bound=object)
 U = TypeVar("U")
 X = TypeVar("X")
@@ -59,7 +57,8 @@ def _append_selected(
         return Selected(
             rep.selected, rep.prefix, rb.pos, rep.count,
             merge(rep.value, rb.value), rb.ctx, rep.op,
-            _merge_expected(rep, rb), rep.consumed or rb.consumed, rep.ops
+            _append_expected(rep, rb.expected, rb.consumed),
+            rep.consumed or rb.consumed, rep.ops
         )
     elif type(rb) is Recovered:
         sb = rb.selected
@@ -68,15 +67,15 @@ def _append_selected(
             return Selected(
                 rep.selected, rep.prefix, rep.pos, rep.count + pb.count,
                 merge(rep.value, pb.value), pb.ctx, rep.op,
-                _merge_expected(rep, pb), rep.consumed or pb.consumed,
-                _merge_ops(rep, rb, pb)
+                _append_expected(rep, pb.expected, pb.consumed),
+                rep.consumed or pb.consumed, _join_ops(rep, rb, pb)
             )
         if sb is not None:
             return Selected(
                 rep.selected, rep.prefix, rep.pos, rep.count + sb.count,
                 merge(rep.value, sb.value), sb.ctx, rep.op,
-                _merge_expected(rep, sb), rep.consumed or sb.consumed,
-                _merge_ops(rep, rb, sb)
+                _append_expected(rep, sb.expected, sb.consumed),
+                rep.consumed or sb.consumed, _join_ops(rep, rb, sb)
             )
     return None
 
@@ -91,7 +90,8 @@ def _append_pending(
                 Selected(
                     pos, rep.count, rb.pos, rep.count,
                     merge(rep.value, rb.value), rb.ctx, rep.op,
-                    _merge_expected(rep, rb), True, rep.ops
+                    _append_expected(rep, rb.expected, rb.consumed), True,
+                    rep.ops
                 ),
                 None
             )
@@ -99,7 +99,8 @@ def _append_pending(
             None,
             Pending(
                 rep.count, merge(rep.value, rb.value), rb.ctx, rep.op,
-                _merge_expected(rep, rb), rep.consumed, rep.ops
+                _append_expected(rep, rb.expected, rb.consumed), rep.consumed,
+                rep.ops
             )
         )
     elif type(rb) is Recovered:
@@ -109,13 +110,13 @@ def _append_pending(
             None if sb is None else Selected(
                 sb.selected, rep.count + sb.prefix, sb.pos, sb.count,
                 merge(rep.value, sb.value), sb.ctx, rep.op,
-                _merge_expected(rep, sb), rep.consumed or sb.consumed,
-                _merge_ops(rep, rb, sb)
+                _append_expected(rep, sb.expected, sb.consumed),
+                rep.consumed or sb.consumed, _join_ops(rep, rb, sb)
             ),
             None if pb is None else Pending(
                 rep.count + pb.count, merge(rep.value, pb.value), pb.ctx,
-                rep.op, _merge_expected(rep, pb), rep.consumed or pb.consumed,
-                _merge_ops(rep, rb, pb)
+                rep.op, _append_expected(rep, pb.expected, pb.consumed),
+                rep.consumed or pb.consumed, _join_ops(rep, rb, pb)
             )
         )
     return (None, None)
@@ -149,27 +150,24 @@ def join_repairs(
     )
 
 
-def _merge_ops(
+def _join_ops(
         rep: BaseRepair[V, S], rb: Recovered[U, S],
         repb: BaseRepair[U, S]) -> List[OpItem]:
     ops = [OpItem(i.op, i.loc, i.expected, i.consumed) for i in rep.ops]
     ops.append(
         OpItem(
-            repb.op, rb.loc, _merge_expected(rep, rb),
+            repb.op, rb.loc, _append_expected(rep, rb.expected, rb.consumed),
             rep.consumed or rb.consumed
         )
     )
-    ops_merge_expected(repb.ops, rep.expected, rep.consumed)
+    ops_prepend_expected(repb.ops, rep.expected, rep.consumed)
     ops.extend(repb.ops)
     return ops
 
 
-class Reply(Protocol):
-    expected: Iterable[str]
-    consumed: bool
-
-
-def _merge_expected(ra: Reply, rb: Reply) -> Iterable[str]:
-    if rb.consumed:
-        return rb.expected
-    return Append(ra.expected, rb.expected)
+def _append_expected(
+        ra: BaseRepair[V, S], expected: Iterable[str],
+        consumed: bool) -> Iterable[str]:
+    if consumed:
+        return expected
+    return Append(ra.expected, expected)

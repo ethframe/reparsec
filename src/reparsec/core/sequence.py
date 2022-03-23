@@ -7,7 +7,6 @@ from .state import Ctx
 from .types import ParseFn, RecoveryMode
 
 T = TypeVar("T")
-C = TypeVar("C", bound=object)
 
 
 def eof() -> ParseFn[Sized, None]:

@@ -36,18 +36,18 @@ def alt(
             return rb
         expected = Append(ra.expected, rb.expected)
         if type(ra) is Ok:
-            return ra.expect(expected)
+            return ra.set_expected(expected)
         if type(rb) is Ok:
-            return rb.expect(expected)
+            return rb.set_expected(expected)
         if rm:
             rra = parse_fn(stream, pos, ctx, True)
             rrb = second_fn(stream, pos, ctx, True)
             if type(rra) is Recovered:
                 if type(rrb) is Recovered:
-                    return join_repairs(rra, rrb).expect(expected)
-                return rra.expect(expected)
+                    return join_repairs(rra, rrb).set_expected(expected)
+                return rra.set_expected(expected)
             if type(rrb) is Recovered:
-                return rrb.expect(expected)
+                return rrb.set_expected(expected)
         return Error(pos, ra.loc, expected)
 
     return alt
@@ -69,7 +69,7 @@ def bind(
             )
         return fn(ra.value).parse_fn(
             stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra)
-        ).merge_expected(ra.expected, ra.consumed)
+        ).prepend_expected(ra.expected, ra.consumed)
 
     return bind
 
@@ -92,7 +92,7 @@ def _seq(
             stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra)
         ).fmap(
             lambda vb: merge(va, vb)
-        ).merge_expected(ra.expected, ra.consumed)
+        ).prepend_expected(ra.expected, ra.consumed)
 
     return seq
 
@@ -180,7 +180,7 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
     def label(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
-        return parse_fn(stream, pos, ctx, rm).expect(expected)
+        return parse_fn(stream, pos, ctx, rm).set_expected(expected)
 
     return label
 

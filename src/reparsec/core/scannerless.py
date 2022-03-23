@@ -7,7 +7,6 @@ from .result import (
 from .state import Ctx, Loc
 from .types import ParseFn, RecoveryMode
 
-C = TypeVar("C")
 V = TypeVar("V")
 
 
