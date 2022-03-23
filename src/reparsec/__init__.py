@@ -1,4 +1,4 @@
-from . import expr, layout, lexer, primitive, scannerless, sequence
+from . import layout, lexer, primitive, scannerless, sequence
 from .core.result import Insert, RepairOp, Skip
 from .core.state import Loc
 from .output import ErrorItem, ParseError, ParseResult
@@ -8,7 +8,7 @@ from .parser import (
 )
 
 __all__ = (
-    "expr", "layout", "lexer", "primitive", "scannerless", "sequence",
+    "layout", "lexer", "primitive", "scannerless", "sequence",
     "Insert", "RepairOp", "Skip",
     "Loc",
     "ErrorItem", "ParseError", "ParseResult",
