@@ -21,8 +21,8 @@ def disallow_recovery(rm: RecoveryMode) -> RecoveryMode:
     return False
 
 
-def maybe_allow_recovery(rm: RecoveryMode, r: Result[V, S]) -> RecoveryMode:
-    if rm is not None and r.consumed:
+def maybe_allow_recovery(rm: RecoveryMode, consumed: bool) -> RecoveryMode:
+    if rm is not None and consumed:
         return True
     return rm
 

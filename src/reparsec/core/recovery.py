@@ -6,6 +6,7 @@ from .result import (
     ops_prepend_expected
 )
 from .state import Ctx
+from .types import RecoveryMode, maybe_allow_recovery
 
 S = TypeVar("S", bound=object)
 V = TypeVar("V", bound=object)
@@ -13,24 +14,30 @@ U = TypeVar("U")
 X = TypeVar("X")
 
 
-ContinueFn = Callable[[V, S, int, Ctx[S]], Result[U, S]]
+ContinueFn = Callable[[V, S, int, Ctx[S], RecoveryMode], Result[U, S]]
 MergeFn = Callable[[V, U], X]
 
 
 def continue_parse(
-        stream: S, ra: Recovered[V, S], parse: ContinueFn[V, S, U],
-        merge: MergeFn[V, U, X]) -> Result[X, S]:
+        stream: S, ra: Recovered[V, S], rm: RecoveryMode,
+        parse: ContinueFn[V, S, U], merge: MergeFn[V, U, X]) -> Result[X, S]:
 
     sa = ra.selected
     if sa is not None:
-        rb = parse(sa.value, stream, sa.pos, sa.ctx)
+        rb = parse(
+            sa.value, stream, sa.pos, sa.ctx,
+            maybe_allow_recovery(rm, sa.consumed)
+        )
         selected = _append_selected(sa, rb, merge)
     else:
         selected = None
 
     pa = ra.pending
     if pa is not None:
-        rb = parse(pa.value, stream, ra.pos, pa.ctx)
+        rb = parse(
+            pa.value, stream, ra.pos, pa.ctx,
+            maybe_allow_recovery(rm, pa.consumed)
+        )
         st, pending = _append_pending(pa, ra.pos, rb, merge)
         if selected is None or st is not None and (
                 selected.selected > st.selected or

@@ -64,11 +64,12 @@ def bind(
             return ra
         if type(ra) is Recovered:
             return continue_parse(
-                stream, ra, lambda v, s, p, c: fn(v).parse_fn(s, p, c, True),
+                stream, ra, rm,
+                lambda v, s, p, c, r: fn(v).parse_fn(s, p, c, r),
                 lambda _, v: v
             )
         return fn(ra.value).parse_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra)
+            stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra.consumed)
         ).prepend_expected(ra.expected, ra.consumed)
 
     return bind
@@ -85,11 +86,12 @@ def _seq(
             return ra
         if type(ra) is Recovered:
             return continue_parse(
-                stream, ra, lambda _, s, p, c: second_fn(s, p, c, True), merge
+                stream, ra, rm, lambda _, s, p, c, r: second_fn(s, p, c, r),
+                merge
             )
         va = ra.value
         return second_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra)
+            stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra.consumed)
         ).fmap(
             lambda vb: merge(va, vb)
         ).prepend_expected(ra.expected, ra.consumed)
@@ -144,14 +146,16 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
             r = parse_fn(stream, r.pos, ctx, rm)
         if type(r) is Recovered:
             return continue_parse(
-                stream, r, parse, lambda a, b: [*value, a, *b]
+                stream, r, rm, parse, lambda a, b: [*value, a, *b]
             )
         if r.consumed:
             return r
         return Ok(value, r.pos, ctx, r.expected, consumed)
 
-    def parse(_: V, stream: S, pos: int, ctx: Ctx[S]) -> Result[List[V], S]:
-        r = many(stream, pos, ctx, True)
+    def parse(
+            _: V, stream: S, pos: int, ctx: Ctx[S],
+            rm: RecoveryMode) -> Result[List[V], S]:
+        r = many(stream, pos, ctx, rm)
         if type(r) is Error and not r.consumed:
             return Ok[List[V], S]([], pos, ctx, r.expected)
         return r
