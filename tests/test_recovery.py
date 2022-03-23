@@ -3,8 +3,8 @@ from typing import List, Tuple
 import pytest
 
 from reparsec import Parser, run
-from reparsec.primitive import InsertValue
-from reparsec.sequence import sym, eof
+from reparsec.primitive import InsertFn, InsertValue
+from reparsec.sequence import eof, sym
 
 a = sym("a")
 b = sym("b")
@@ -53,6 +53,7 @@ DATA_RECOVERY: List[Tuple[Parser[str, object], str, object]] = [
     (ab | InsertValue("b"), "a", "ab"),
     (ab | InsertValue("b"), "b", "ab"),
     (ab | InsertValue("b"), "", "b"),
+    (ab | InsertFn(lambda: "b"), "", "b"),
     (ab | cab, "ab", "ab"),
     (ab | cab, "cab", "cab"),
     (ab | cab, "b", "ab"),
