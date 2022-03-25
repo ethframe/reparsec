@@ -29,14 +29,12 @@ def alt(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[Union[V, U], S]:
         ra = parse_fn(stream, pos, ctx, disallow_recovery(rm))
-        if ra.consumed:
+        if type(ra) is Ok or ra.consumed:
             return ra
         rb = second_fn(stream, pos, ctx, disallow_recovery(rm))
         if rb.consumed:
             return rb
         expected = Append(ra.expected, rb.expected)
-        if type(ra) is Ok:
-            return ra.set_expected(expected)
         if type(rb) is Ok:
             return rb.set_expected(expected)
         if rm:

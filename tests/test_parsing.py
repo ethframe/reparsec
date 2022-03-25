@@ -42,7 +42,7 @@ DATA_POSITIVE = [
     (ident, "_a0_b", "_a0_b"),
     (ident, "_a0_b.", "_a0_b"),
     (empty_fst, "a", "a"),
-    (empty_fst, "b", "b"),
+    (empty_fst, "b", "a"),
     (empty_fst, "c", "a"),
     (empty_snd, "a", "a"),
     (empty_snd, "b", "b"),
