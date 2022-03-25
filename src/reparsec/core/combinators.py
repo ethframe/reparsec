@@ -97,13 +97,13 @@ def _seq(
     return seq
 
 
-def lseq(
+def seql(
         parse_fn: ParseFn[S, V],
         second_fn: ParseFn[S, U]) -> ParseFn[S, V]:
     return _seq(parse_fn, second_fn, lambda l, _: l)
 
 
-def rseq(
+def seqr(
         parse_fn: ParseFn[S, V],
         second_fn: ParseFn[S, U]) -> ParseFn[S, U]:
     return _seq(parse_fn, second_fn, lambda _, r: r)
@@ -188,8 +188,8 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
 
 
 def insert_on_error(
-        insert_fn: Callable[[S, int], V], label: str,
-        parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
+        parse_fn: ParseFn[S, V], insert_fn: Callable[[S, int], V],
+        label: Optional[str] = None) -> ParseFn[S, V]:
     def insert_on_error(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
@@ -198,8 +198,12 @@ def insert_on_error(
             value = insert_fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             return Recovered(
-                None, Pending(1, value, ctx, Insert(label)), pos, loc,
-                consumed=True
+                None,
+                Pending(
+                    1, value, ctx,
+                    Insert(repr(value) if label is None else label)
+                ),
+                pos, loc, consumed=True
             )
         return r
 

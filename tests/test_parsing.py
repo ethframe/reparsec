@@ -2,7 +2,7 @@ from typing import List, Sequence
 
 import pytest
 
-from reparsec import ParseError, Parser, run
+from reparsec import ParseError, Parser
 from reparsec.primitive import Pure, PureFn
 from reparsec.sequence import digit, letter, sym
 
@@ -23,16 +23,16 @@ bind_letter = letter.bind(lambda l: digit if l == "d" else letter) | Pure("!")
 attempt_seq = (a + b).fmap(lambda v: v[0] + v[1]).attempt() | Pure("!")
 
 chains = letter.chainl1(
-    sym(">").rseq(Pure(lambda a, b: f"({a}>{b})"))
+    sym(">").seqr(Pure(lambda a, b: f"({a}>{b})"))
 ).chainr1(
-    sym("<").rseq(Pure(lambda a, b: f"({a}<{b})"))
+    sym("<").seqr(Pure(lambda a, b: f"({a}<{b})"))
 )
 
 DATA_POSITIVE = [
     (Pure("a"), "", "a"),
     (PureFn(lambda: "a"), "", "a"),
-    (a.lseq(b), "ab", "a"),
-    (a.rseq(b), "ab", "b"),
+    (a.seql(b), "ab", "a"),
+    (a.seqr(b), "ab", "b"),
     (maybe_a_b, "ab", "ab"),
     (maybe_a_b, "b", "Noneb"),
     (ident, "a", "a"),
@@ -66,7 +66,7 @@ DATA_POSITIVE = [
 
 @pytest.mark.parametrize("parser, data, value", DATA_POSITIVE)
 def test_positive(parser: Parser[str, str], data: str, value: str) -> None:
-    assert run(parser, data).unwrap() == value
+    assert parser.parse(data).unwrap() == value
 
 
 DATA_NEGATIVE = [
@@ -78,5 +78,5 @@ DATA_NEGATIVE = [
 def test_negative(
         parser: Parser[str, str], data: str, expected: List[str]) -> None:
     with pytest.raises(ParseError) as err:
-        run(parser, data).unwrap()
+        parser.parse(data).unwrap()
     assert err.value.errors[0].expected == expected

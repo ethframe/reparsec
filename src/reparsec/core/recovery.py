@@ -8,8 +8,8 @@ from .result import (
 from .state import Ctx
 from .types import RecoveryMode, maybe_allow_recovery
 
-S = TypeVar("S", bound=object)
-V = TypeVar("V", bound=object)
+S = TypeVar("S")
+V = TypeVar("V")
 U = TypeVar("U")
 X = TypeVar("X")
 

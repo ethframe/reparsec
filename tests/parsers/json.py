@@ -2,7 +2,7 @@ import re
 from typing import Match, Sequence
 
 from reparsec import Delay, Parser
-from reparsec.lexer import Token, run, split_tokens, token
+from reparsec.lexer import Token, parse, split_tokens, token
 from reparsec.primitive import InsertValue
 from reparsec.sequence import eof, sym
 
@@ -71,8 +71,8 @@ value.define(
     ).label("value")
 )
 
-parser = value.lseq(eof())
+parser = value.seql(eof())
 
 
 def loads(src: str) -> object:
-    return run(parser, split_tokens(src, spec)).unwrap()
+    return parse(parser, split_tokens(src, spec)).unwrap()

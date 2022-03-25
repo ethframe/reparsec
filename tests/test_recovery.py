@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import pytest
 
-from reparsec import Parser, run
+from reparsec import Parser
 from reparsec.primitive import InsertFn, InsertValue
 from reparsec.sequence import eof, sym
 
@@ -70,5 +70,5 @@ DATA_RECOVERY: List[Tuple[Parser[str, object], str, object]] = [
 @pytest.mark.parametrize("parser, data, expected", DATA_RECOVERY)
 def test_recovery(
         parser: Parser[str, object], data: str, expected: object) -> None:
-    result = run(parser << eof(), data, recover=True)
+    result = (parser << eof()).parse(data, recover=True)
     assert result.unwrap(recover=True) == expected

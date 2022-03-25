@@ -3,7 +3,7 @@ from typing import Match
 
 from reparsec import Delay, Parser
 from reparsec.primitive import InsertValue
-from reparsec.scannerless import literal, regexp, run
+from reparsec.scannerless import literal, parse, regexp
 from reparsec.sequence import eof
 
 escape = re.compile(r"""
@@ -73,4 +73,4 @@ parser = ows >> value << eof()
 
 
 def loads(src: str) -> object:
-    return run(parser, src).unwrap()
+    return parse(parser, src).unwrap()

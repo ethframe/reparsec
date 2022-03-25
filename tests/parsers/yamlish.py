@@ -2,7 +2,7 @@ from typing import Tuple
 
 from reparsec import Delay
 from reparsec.layout import indented, same
-from reparsec.scannerless import regexp, run
+from reparsec.scannerless import parse, regexp
 from reparsec.sequence import eof
 
 eol = regexp(r"\n\s*")
@@ -22,4 +22,4 @@ parser = ows >> pairs.fmap(lambda kvs: dict(kvs)) << eof()
 
 
 def loads(source: str) -> object:
-    return run(parser, source).unwrap()
+    return parse(parser, source).unwrap()

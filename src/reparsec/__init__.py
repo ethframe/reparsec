@@ -4,7 +4,7 @@ from .core.state import Loc
 from .output import ErrorItem, ParseError, ParseResult
 from .parser import (
     Delay, Parser, alt, attempt, between, bind, chainl1, chainr1, fmap,
-    insert_on_error, label, lseq, many, maybe, rseq, run, run_c, sep_by, seq
+    insert_on_error, label, many, maybe, sep_by, seq, seql, seqr
 )
 
 __all__ = (
@@ -14,6 +14,6 @@ __all__ = (
     "ErrorItem", "ParseError", "ParseResult",
 
     "Delay", "Parser", "alt", "attempt", "between", "bind", "chainl1",
-    "chainr1", "fmap", "insert_on_error", "label", "lseq", "many", "maybe",
-    "rseq", "run", "run_c", "sep_by", "seq"
+    "chainr1", "fmap", "insert_on_error", "label", "many", "maybe", "sep_by",
+    "seq", "seql", "seqr"
 )

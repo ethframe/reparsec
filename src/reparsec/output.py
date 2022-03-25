@@ -1,7 +1,8 @@
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
-from .core.result import BaseRepair, Error, Ok, RepairOp, Result, Skip
+from .core.result import RepairOp, Skip
 from .core.state import Loc
 
 S = TypeVar("S")
@@ -16,6 +17,7 @@ class ErrorItem:
     expected: List[str]
     op: Optional[RepairOp] = None
 
+    @property
     def msg(self) -> str:
         res = "at {}: ".format(self.loc_str)
         if not self.expected:
@@ -43,54 +45,14 @@ class ParseError(Exception):
         self.errors = errors
 
     def __str__(self) -> str:
-        return ", ".join(error.msg() for error in self.errors)
+        return ", ".join(error.msg for error in self.errors)
 
 
 class ParseResult(Generic[V_co, S]):
-    def __init__(self, result: Result[V_co, S], fmt_loc: Callable[[Loc], str]):
-        self._result = result
-        self._fmt_loc = fmt_loc
-
+    @abstractmethod
     def fmap(self, fn: Callable[[V_co], U]) -> "ParseResult[U, S]":
-        return ParseResult(self._result.fmap(fn), self._fmt_loc)
+        ...
 
+    @abstractmethod
     def unwrap(self, recover: bool = False) -> V_co:
-        if type(self._result) is Ok:
-            return self._result.value
-
-        if type(self._result) is Error:
-            raise ParseError([
-                ErrorItem(
-                    self._result.loc,
-                    self._fmt_loc(self._result.loc),
-                    list(self._result.expected),
-                )
-            ])
-
-        repair: Optional[BaseRepair[V_co, S]] = self._result.selected
-        if repair is None:
-            repair = self._result.pending
-            if repair is None:
-                raise ParseError([
-                    ErrorItem(
-                        self._result.loc,
-                        self._fmt_loc(self._result.loc),
-                        list(self._result.expected)
-                    )
-                ])
-        if recover:
-            return repair.value
-        errors: List[ErrorItem] = [
-            ErrorItem(
-                self._result.loc, self._fmt_loc(self._result.loc),
-                list(self._result.expected), repair.op
-            )
-        ]
-        for item in repair.ops:
-            errors.append(
-                ErrorItem(
-                    item.loc, self._fmt_loc(item.loc), list(item.expected),
-                    item.op
-                )
-            )
-        raise ParseError(errors)
+        ...

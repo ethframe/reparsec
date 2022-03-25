@@ -7,7 +7,7 @@ from .parser import FnParser, Parser
 __all__ = ("block", "same", "indented")
 
 S = TypeVar("S")
-V = TypeVar("V", bound=object)
+V = TypeVar("V")
 
 
 def block(parser: ParseObj[S, V]) -> Parser[S, V]:

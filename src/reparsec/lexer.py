@@ -1,13 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Iterator, List, Pattern, Sequence, TypeVar
 
-from reparsec.output import ParseResult
-
 from .core.state import Loc
-from .parser import Parser, label, run_c
+from .output import ParseResult
+from .parser import Parser, label
 from .sequence import satisfy
 
-__all__ = ("Token", "LexError", "split_tokens", "token", "token_ins", "run")
+__all__ = ("Token", "LexError", "split_tokens", "token", "token_ins", "parse")
 
 V = TypeVar("V")
 
@@ -16,8 +15,8 @@ V = TypeVar("V")
 class Token:
     kind: str
     value: str
-    start: Loc = field(default=Loc(0, 0, 0), compare=False)
-    end: Loc = field(default=Loc(0, 0, 0), compare=False)
+    start: Loc = field(default=Loc(0, 0, 0), repr=False, compare=False)
+    end: Loc = field(default=Loc(0, 0, 0), repr=False, compare=False)
 
 
 class LexError(Exception):
@@ -63,8 +62,8 @@ def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
     return list(iter_tokens(src, spec))
 
 
-def token(k: str) -> Parser[Sequence[Token], Token]:
-    return label(satisfy(lambda t: t.kind == k), k)
+def token(kind: str) -> Parser[Sequence[Token], Token]:
+    return label(satisfy(lambda t: t.kind == kind), kind)
 
 
 def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
@@ -75,18 +74,14 @@ def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
     return token(kind).insert_on_error(insert_fn, kind)
 
 
-def run(
+def parse(
         parser: Parser[Sequence[Token], V], stream: Sequence[Token],
         recover: bool = False) -> ParseResult[V, Sequence[Token]]:
-    return run_c(parser, stream, get_loc, fmt_loc, recover)
-
-
-def get_loc(loc: Loc, stream: Sequence[Token], pos: int) -> Loc:
-    return _loc_from_stream(stream, pos)
-
-
-def fmt_loc(loc: Loc) -> str:
-    return "{}:{}".format(loc.line + 1, loc.col + 1)
+    return parser.parse(
+        stream, recover,
+        get_loc=lambda _, s, p: _loc_from_stream(s, p),
+        fmt_loc=lambda l: "{}:{}".format(l.line + 1, l.col + 1)
+    )
 
 
 def _loc_from_stream(stream: Sequence[Token], pos: int) -> Loc:
