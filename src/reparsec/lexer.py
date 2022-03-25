@@ -13,6 +13,15 @@ V = TypeVar("V")
 
 @dataclass(frozen=True)
 class Token:
+    """
+    Token
+
+    :param kind: Name of capture group from lexer spec
+    :param value: Value of token
+    :param start: Start location
+    :param end: End location
+    """
+
     kind: str
     value: str
     start: Loc = field(default=Loc(0, 0, 0), repr=False, compare=False)
@@ -20,6 +29,12 @@ class Token:
 
 
 class LexError(Exception):
+    """
+    Exception that is raised if a lexer was unable to process the input.
+
+    :param loc: Location of error
+    """
+
     def __init__(self, loc: Loc):
         super().__init__(loc)
         self.loc = loc
@@ -59,14 +74,64 @@ def iter_tokens(src: str, spec: Pattern[str]) -> Iterator[Token]:
 
 
 def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
+    """
+    Splits input string into list of tokens.
+
+    The lexer specification is a compiled regular expressions with named
+    capture groups for individual tokens. Only the last capture group is taken
+    into account. If no capture group matches, the token is skipped.
+
+    >>> import re
+    >>> spec = re.compile(r"(?P<num>[0-9]+)|(?P<op>[+])|\\s+")
+    >>> split_tokens("1 + 2 + 3", spec)
+    [Token(kind='num', value='1'), Token(kind='op', value='+'),
+     Token(kind='num', value='2'), Token(kind='op', value='+'),
+     Token(kind='num', value='3')]
+
+    :param src: Input
+    :param spec: Compiled regular expression
+    """
     return list(iter_tokens(src, spec))
 
 
 def token(kind: str) -> Parser[Sequence[Token], Token]:
+    """
+    Parses token of the specified kind and returns the token.
+
+    >>> import re
+    >>> spec = re.compile(r"(?P<num>[0-9]+)|(?P<op>[+])")
+    >>> parser = token("num")
+    >>> parse(parser, split_tokens("1", spec)).unwrap()
+    Token(kind='num', value='1')
+    >>> parse(parser, split_tokens("+", spec)).unwrap()
+    Traceback (most recent call last):
+      ...
+    reparsec.output.ParseError: at 1:1: expected num
+
+    :param kind: Kind of expected token
+    """
+
     return label(satisfy(lambda t: t.kind == kind), kind)
 
 
 def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
+    """
+    Parses token of the specified kind and returns the token. When error
+    recovery is enabled, inserts ``Token(kind=kind, value=ins_value)`` on
+    error.
+
+    >>> import re
+    >>> spec = re.compile(r"(?P<num>[0-9]+)|(?P<op>[+])")
+    >>> parser = token_ins("num", "0")
+    >>> parse(
+    ...     parser, split_tokens("+", spec), recover=True
+    ... ).unwrap(recover=True)
+    Token(kind='num', value='0')
+
+    :param kind: Kind of expected token
+    :param ins_value: Value for inserted token
+    """
+
     def insert_fn(stream: Sequence[Token], pos: int) -> Token:
         loc = _loc_from_stream(stream, pos)
         return Token(kind, ins_value, loc, loc)
@@ -77,6 +142,14 @@ def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
 def parse(
         parser: Parser[Sequence[Token], V], stream: Sequence[Token],
         recover: bool = False) -> ParseResult[V, Sequence[Token]]:
+    """
+    Wrapper around :meth:`Parser.parse` that enables line and column tracking.
+
+    :param parser: Parser to run
+    :param stream: Stream of tokens to parse
+    :param recover: Flag to enable error recovery
+    """
+
     return parser.parse(
         stream, recover,
         get_loc=lambda _, s, p: _loc_from_stream(s, p),
