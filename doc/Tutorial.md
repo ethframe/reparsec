@@ -97,7 +97,10 @@ accept such inputs:
 
 ```
 
-## Testing incorrect inputs
+The `<<` and `>>` operators used here are similar to `+`, but return only the
+value of left or right parser, respectively.
+
+## Parsing incorrect inputs
 
 Until before we focused on parsing valid inputs. But what if we have a string
 with unexpected characters in it?
@@ -227,8 +230,54 @@ And what if we want to show them to user?
 >>> list_parser.parse("1,,,2 3", recover=True).unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 2: expected number (inserted 0), at 3: expected
-number (inserted 0), at 6: expected ',' or end of file (skipped 1 token)
+reparsec.output.ParseError: at 2: expected number (inserted 0),
+at 3: expected number (inserted 0),
+at 6: expected ',' or end of file (skipped 1 token)
+
+```
+
+## Line and column tracking
+
+Error reporting still needs another improvement. All of the messages in the
+previous examples contains indexes in the input string as error positions, but
+it is more convenient to show line and column numbers instead. To achieve this,
+we will use `reparsec.scannerless.parse`. This is a wrapper around
+`Parser.parse` that enables position tracking for parsers with string inputs:
+
+```python
+>>> from reparsec.scannerless import parse
+
+>>> src = """\
+... 1,,
+...  ,2
+... 3
+... """
+
+>>> parse(list_parser, src, recover=True).unwrap()
+Traceback (most recent call last):
+  ...
+reparsec.output.ParseError: at 1:3: expected number (inserted 0),
+at 2:2: expected number (inserted 0),
+at 3:1: expected ',' or end of file (skipped 2 tokens)
+
+```
+
+As a finishing touch, let's write a helper function so that users of our parser
+don't have to think about how to properly invoke the parser:
+
+```python
+>>> from typing import List
+
+>>> def parse_list(src: str) -> List[int]:
+...     return parse(list_parser, src, recover=True).unwrap()
+
+>>> parse_list("1, 2, 3")
+[1, 2, 3]
+>>> parse_list("1, ,2 3")
+Traceback (most recent call last):
+  ...
+reparsec.output.ParseError: at 1:4: expected number (inserted 0),
+at 1:7: expected ',' or end of file (skipped 1 token)
 
 ```
 
@@ -237,7 +286,10 @@ number (inserted 0), at 6: expected ',' or end of file (skipped 1 token)
 The final parser definition should look like this:
 
 ```python
+from typing import List
+
 from reparsec.primitive import InsertValue
+from reparsec.scannerless import parse
 from reparsec.sequence import eof, satisfy, sym
 
 spaces = satisfy(str.isspace).many()
@@ -252,4 +304,7 @@ number = digits.fmap(
 comma = sym(",") << spaces
 
 list_parser = spaces >> (number | InsertValue(0)).sep_by(comma) << eof()
+
+def parse_list(src: str) -> List[int]:
+    return parse(list_parser, src, recover=True).unwrap()
 ```
