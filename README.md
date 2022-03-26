@@ -15,4 +15,49 @@ pip install reparsec
 
 ## Usage
 
+Simple arithmetic expression parser and calculator:
+
+```python
+from typing import Callable
+
+from reparsec import Delay
+from reparsec.scannerless import literal, regexp
+from reparsec.sequence import eof
+
+
+def op_action(op: str) -> Callable[[int, int], int]:
+    return {
+        "+": lambda a, b: a + b,
+        "-": lambda a, b: a - b,
+        "*": lambda a, b: a * b,
+    }[op]
+
+
+spaces = regexp(r"\s*")
+number = regexp(r"\d+").fmap(int) << spaces
+mul_op = regexp(r"[*]").fmap(op_action) << spaces
+add_op = regexp(r"[-+]").fmap(op_action) << spaces
+l_paren = literal("(") << spaces
+r_paren = literal(")") << spaces
+
+expr = Delay[str, int]()
+value = number | expr.between(l_paren, r_paren)
+expr.define(value.chainl1(mul_op).chainl1(add_op))
+
+parser = expr << eof()
+
+print(parser.parse("1 + 2 * (3 + 4)").unwrap())
+```
+
+Output:
+
+```
+15
+```
+
+More examples:
+  * [JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json.py)
+  * [Scannerless JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json_scannerless.py)
+
 * [Tutorial](https://reparsec.readthedocs.io/en/latest/pages/tutorial.html)
+* [Documentation](https://reparsec.readthedocs.io/en/latest/index.html)
