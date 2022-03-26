@@ -15,6 +15,9 @@ pip install reparsec
 
 ## Usage
 
+* [Tutorial](https://reparsec.readthedocs.io/en/latest/pages/tutorial.html)
+* [Documentation](https://reparsec.readthedocs.io/en/latest/index.html)
+
 Simple arithmetic expression parser and calculator:
 
 ```python
@@ -58,6 +61,3 @@ Output:
 More examples:
   * [JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json.py)
   * [Scannerless JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json_scannerless.py)
-
-* [Tutorial](https://reparsec.readthedocs.io/en/latest/pages/tutorial.html)
-* [Documentation](https://reparsec.readthedocs.io/en/latest/index.html)
