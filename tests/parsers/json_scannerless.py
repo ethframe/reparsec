@@ -36,29 +36,24 @@ def punct(p: str) -> Parser[str, str]:
     return literal(p) << ows
 
 
-JsonParser = Parser[str, object]
+value = Delay[str, object]()
 
-value: Delay[str, object] = Delay()
-
-string: JsonParser = token(
+string = token(
     r'"((?:[\x20\x21\x23-\x5B\x5D-\U0010FFFF]|'
     r'\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))+)"'
 ).label("string").fmap(unescape)
-integer: JsonParser = token(
-    r"(-?(?:0|[1-9][0-9]*))"
-).label("integer").fmap(int)
-number: JsonParser = token(
+integer = token(r"(-?(?:0|[1-9][0-9]*))").label("integer").fmap(int)
+number = token(
     r"(-?(?:0|[1-9][0-9]*)(?:(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)|(?:\.[0-9]+)))"
 ).label("number").fmap(float)
-boolean: JsonParser = token(r"(true|false)").label("bool").fmap(
-    lambda s: s == "true")
-null: JsonParser = token(r"(null)").label("null").fmap(lambda _: None)
-json_dict: JsonParser = (
+boolean = token(r"(true|false)").label("bool").fmap(lambda s: s == "true")
+null = token(r"(null)").label("null").fmap(lambda _: None)
+json_dict = (
     ((string | InsertValue("a", "'\"a\"'")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")
-json_list: JsonParser = value.sep_by(punct(",")).between(
+json_list = value.sep_by(punct(",")).between(
     punct("["), punct("]")
 ).label("list")
 

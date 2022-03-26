@@ -46,21 +46,19 @@ def punct(x: str) -> Parser[Sequence[Token], Token]:
     return sym(Token("punct", x), repr(x))
 
 
-JsonParser = Parser[Sequence[Token], object]
+value = Delay[Sequence[Token], object]()
 
-value: Delay[Sequence[Token], object] = Delay()
-
-string: JsonParser = token("string").fmap(lambda t: unescape(t.value))
-integer: JsonParser = token("integer").fmap(lambda t: int(t.value))
-number: JsonParser = token("float").fmap(lambda t: float(t.value))
-boolean: JsonParser = token("bool").fmap(lambda t: t.value == "true")
-null: JsonParser = token("null").fmap(lambda t: None)
-json_dict: JsonParser = (
+string = token("string").fmap(lambda t: unescape(t.value))
+integer = token("integer").fmap(lambda t: int(t.value))
+number = token("float").fmap(lambda t: float(t.value))
+boolean = token("bool").fmap(lambda t: t.value == "true")
+null = token("null").fmap(lambda t: None)
+json_dict = (
     ((string | InsertValue("a", "'\"a\"'")) << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")
-json_list: JsonParser = value.sep_by(punct(",")).between(
+json_list = value.sep_by(punct(",")).between(
     punct("["), punct("]")
 ).label("list")
 
@@ -71,7 +69,7 @@ value.define(
     ).label("value")
 )
 
-parser = value.seql(eof())
+parser = value << eof()
 
 
 def loads(src: str) -> object:
