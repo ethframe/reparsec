@@ -51,6 +51,7 @@ class Parser(ParseObj[S_contra, V_co]):
         Transforms the result of the parser by applying ``fn`` to it.
 
         >>> from reparsec.sequence import satisfy
+
         >>> satisfy(str.isdigit).fmap(lambda x: int(x) + 1).parse("0").unwrap()
         1
 
@@ -67,7 +68,9 @@ class Parser(ParseObj[S_contra, V_co]):
         returned parser.
 
         >>> from reparsec.sequence import satisfy, sym
+
         >>> parser = satisfy(lambda _: True).bind(lambda x: sym(x))
+
         >>> parser.parse("aa").unwrap()
         'a'
         >>> parser.parse("bb").unwrap()
@@ -109,6 +112,7 @@ class Parser(ParseObj[S_contra, V_co]):
         parser.
 
         >>> from reparsec.sequence import sym
+
         >>> (sym("a") << sym("b")).parse("ab").unwrap()
         'a'
 
@@ -125,6 +129,7 @@ class Parser(ParseObj[S_contra, V_co]):
         parser.
 
         >>> from reparsec.sequence import sym
+
         >>> (sym("a") >> sym("b")).parse("ab").unwrap()
         'b'
 
@@ -140,7 +145,9 @@ class Parser(ParseObj[S_contra, V_co]):
         Applies two parsers sequentially and returns a tuple of their results.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = sym("a") + sym("b")
+
         >>> parser.parse("ab").unwrap()
         ('a', 'b')
         >>> parser.parse("ac").unwrap()
@@ -162,7 +169,9 @@ class Parser(ParseObj[S_contra, V_co]):
         and its' result is returned.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = sym("a") | sym("b")
+
         >>> parser.parse("a").unwrap()
         'a'
         >>> parser.parse("b").unwrap()
@@ -185,7 +194,9 @@ class Parser(ParseObj[S_contra, V_co]):
         Identical to ``parser | Pure(None)``.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = (sym("a") << sym("b")).maybe()
+
         >>> parser.parse("ab").unwrap()
         'a'
         >>> parser.parse("bb").unwrap()
@@ -203,7 +214,9 @@ class Parser(ParseObj[S_contra, V_co]):
         the parsed values if the parser failed withoud consuming input.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = (sym("a") << sym("b")).many()
+
         >>> parser.parse("abab").unwrap()
         ['a', 'a']
         >>> parser.parse("abbb").unwrap()
@@ -225,7 +238,9 @@ class Parser(ParseObj[S_contra, V_co]):
         PEG-like.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = (sym("a") << sym("b"))
+
         >>> parser.maybe().parse("aa").unwrap()
         Traceback (most recent call last):
           ...
@@ -241,7 +256,9 @@ class Parser(ParseObj[S_contra, V_co]):
         ``[expected]`` if no input was consumed.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = (sym("a") + sym("b")).label("x")
+
         >>> parser.parse("bb").unwrap()
         Traceback (most recent call last):
           ...
@@ -266,7 +283,9 @@ class Parser(ParseObj[S_contra, V_co]):
         result of recovering from the error.
 
         >>> from reparsec.sequence import satisfy
+
         >>> parser = satisfy(str.isalpha).insert_on_error(lambda s, p: "b")
+
         >>> parser.parse("a").unwrap()
         'a'
         >>> parser.parse("0").unwrap()
@@ -294,7 +313,9 @@ class Parser(ParseObj[S_contra, V_co]):
         list of the values parsed by the parser.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = sym("a").sep_by(sym(","))
+
         >>> parser.parse("a,a,a").unwrap()
         ['a', 'a', 'a']
 
@@ -311,7 +332,9 @@ class Parser(ParseObj[S_contra, V_co]):
         value parsed by the parser.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = sym("a").between(sym("("), sym(")"))
+
         >>> parser.parse("(a)").unwrap()
         'a'
 
@@ -330,9 +353,11 @@ class Parser(ParseObj[S_contra, V_co]):
         to the values parsed by the parser.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = sym("a").chainl1(
         ...     sym("+").fmap(lambda _: "({}+{})".format)
         ... )
+
         >>> parser.parse("a+a+a").unwrap()
         '((a+a)+a)'
 
@@ -350,9 +375,11 @@ class Parser(ParseObj[S_contra, V_co]):
         to the values parsed by the parser.
 
         >>> from reparsec.sequence import sym
+
         >>> parser = sym("a").chainr1(
         ...     sym("^").fmap(lambda _: "({}^{})".format)
         ... )
+
         >>> parser.parse("a^a^a").unwrap()
         '(a^(a^a))'
 
@@ -509,9 +536,12 @@ class Delay(Parser[S_contra, V_co]):
     """
     Special parser to use as a forward declaration.
 
+    >>> from reparsec import Delay
     >>> from reparsec.sequence import sym
+
     >>> parser = Delay()
     >>> parser.define((sym("a") + parser).maybe())
+
     >>> parser.parse("aaa").unwrap()
     ('a', ('a', ('a', None)))
     """
@@ -529,12 +559,15 @@ class Delay(Parser[S_contra, V_co]):
         """
         Define the parser.
 
+        >>> from reparsec import Delay
         >>> from reparsec.sequence import sym
+
         >>> parser = Delay()
         >>> parser.parse("a")
         Traceback (most recent call last):
           ...
         RuntimeError: Delayed parser was not defined
+
         >>> parser.define(sym("a"))
         >>> parser.parse("a").unwrap()
         'a'

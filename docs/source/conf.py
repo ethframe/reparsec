@@ -32,6 +32,7 @@ release = '0.3.0'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.doctest',
     'sphinx_autodoc_typehints',
     'm2r2',
 ]

@@ -17,7 +17,10 @@ def literal(s: str) -> Parser[str, str]:
     """
     Parses the string ``s`` and returns it.
 
+    >>> from reparsec.scannerless import literal
+
     >>> parser = literal("ab")
+
     >>> parser.parse("ab").unwrap()
     'ab'
     >>> parser.parse("ac").unwrap()
@@ -36,7 +39,10 @@ def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, str]:
     Parses the prefix of input that matches ``pat`` and returns the value of
     ``group``.
 
+    >>> from reparsec.scannerless import regexp
+
     >>> parser = regexp("a(.)", 1)
+
     >>> parser.parse("ab").unwrap()
     'b'
     >>> parser.parse("bb").unwrap()
@@ -58,7 +64,10 @@ def parse(
     Wrapper around :meth:`Parser.parse` that enables line and column tracking
     for scannerless parsers.
 
+    >>> from reparsec.scannerless import literal, parse
+
     >>> parser = literal("a\\n") + literal("b") + literal("c")
+
     >>> parser.parse("a\\nbb").unwrap()
     Traceback (most recent call last):
       ...

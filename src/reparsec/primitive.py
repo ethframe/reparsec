@@ -17,6 +17,8 @@ class Pure(primitive.Pure[S_contra, V_co], Parser[S_contra, V_co]):
     """
     Parser that always succeeds, consumes no input, and returns constant value.
 
+    >>> from reparsec.primitive import Pure
+
     >>> Pure(0).parse("").unwrap()
     0
 
@@ -28,6 +30,8 @@ class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
     """
     Parser that always succeeds, consumes no input, and returns the result of
     function.
+
+    >>> from reparsec.primitive import PureFn
 
     >>> PureFn(lambda: list()).parse("").unwrap()
     []
@@ -42,15 +46,19 @@ class InsertValue(
     Parser that consumes no input, fails when recovery is not allowed, and
     recovers with constant value.
 
-    >>> InsertValue(0).parse("").unwrap()
+    >>> from reparsec.primitive import InsertValue
+
+    >>> parser = InsertValue(0, "zero")
+
+    >>> parser.parse("").unwrap()
     Traceback (most recent call last):
       ...
     reparsec.output.ParseError: at 0: unexpected input
-    >>> InsertValue(0, "zero").parse("", recover=True).unwrap()
+    >>> parser.parse("", recover=True).unwrap()
     Traceback (most recent call last):
       ...
     reparsec.output.ParseError: at 0: unexpected input (inserted zero)
-    >>> InsertValue(0).parse("", recover=True).unwrap(recover=True)
+    >>> parser.parse("", recover=True).unwrap(recover=True)
     0
 
     :param x: Value to return
@@ -62,6 +70,8 @@ class InsertFn(primitive.InsertFn[S_contra, V_co], Parser[S_contra, V_co]):
     """
     Parser that consumes no input, fails when recovery is not allowed, and
     recovers with constant value.
+
+    >>> from reparsec.primitive import InsertFn
 
     >>> InsertFn(lambda: list()).parse("", recover=True).unwrap(recover=True)
     []

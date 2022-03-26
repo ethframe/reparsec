@@ -85,9 +85,12 @@ def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
     capture groups for individual tokens. Only the last capture group is taken
     into account. If no capture group matches, the token is skipped.
 
+    >>> from reparsec.lexer import split_tokens
     >>> import re
+
     >>> spec = re.compile(r"(?P<num>[0-9]+)|(?P<op>[+])|\\s+")
-    >>> split_tokens("1 + 2 + 3", spec)
+
+    >>> split_tokens("1 + 2 + 3", spec)  # doctest: +NORMALIZE_WHITESPACE
     [Token(kind='num', value='1'), Token(kind='op', value='+'),
      Token(kind='num', value='2'), Token(kind='op', value='+'),
      Token(kind='num', value='3')]
@@ -102,11 +105,15 @@ def token(kind: str) -> Parser[Sequence[Token], Token]:
     """
     Parses token of the specified kind and returns the token.
 
+    >>> from reparsec.lexer import parse, split_tokens, token
     >>> import re
+
     >>> spec = re.compile(r"(?P<num>[0-9]+)|(?P<op>[+])")
     >>> parser = token("num")
+
     >>> parse(parser, split_tokens("1", spec)).unwrap()
     Token(kind='num', value='1')
+
     >>> parse(parser, split_tokens("+", spec)).unwrap()
     Traceback (most recent call last):
       ...
@@ -124,9 +131,12 @@ def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
     recovery is enabled, inserts ``Token(kind=kind, value=ins_value)`` on
     error.
 
+    >>> from reparsec.lexer import parse, split_tokens, token_ins
     >>> import re
+
     >>> spec = re.compile(r"(?P<num>[0-9]+)|(?P<op>[+])")
     >>> parser = token_ins("num", "0")
+
     >>> parse(
     ...     parser, split_tokens("+", spec), recover=True
     ... ).unwrap(recover=True)

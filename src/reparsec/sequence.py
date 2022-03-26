@@ -16,6 +16,8 @@ def eof() -> Parser[Sized, None]:
     """
     Succeeds at the end of the input.
 
+    >>> from reparsec.sequence import eof
+
     >>> eof().parse("").unwrap()
     >>> eof().parse("a").unwrap()
     Traceback (most recent call last):
@@ -31,7 +33,10 @@ def satisfy(test: Callable[[T], bool]) -> Parser[Sequence[T], T]:
     Succeeds for sequence element for which ``test`` returns ``True`` and
     returns that element.
 
+    >>> from reparsec.sequence import satisfy
+
     >>> parser = satisfy(lambda c: c.isalpha())
+
     >>> parser.parse("a").unwrap()
     'a'
     >>> parser.parse("0").unwrap()
@@ -48,6 +53,8 @@ def satisfy(test: Callable[[T], bool]) -> Parser[Sequence[T], T]:
 def sym(s: T, label: Optional[str] = None) -> Parser[Sequence[T], T]:
     """
     Parses ``s`` and returns the parsed element.
+
+    >>> from reparsec.sequence import sym
 
     >>> sym("a").parse("a").unwrap()
     'a'
