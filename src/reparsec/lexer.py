@@ -1,3 +1,7 @@
+"""
+Simple lexer based on regular expressions.
+"""
+
 from dataclasses import dataclass, field
 from typing import Iterator, List, Pattern, Sequence, TypeVar
 

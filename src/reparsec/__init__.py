@@ -1,3 +1,7 @@
+"""
+Public API.
+"""
+
 from . import layout, lexer, primitive, scannerless, sequence
 from .core.result import Insert, RepairOp, Skip
 from .core.state import Loc

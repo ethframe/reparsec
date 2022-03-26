@@ -1,8 +1,10 @@
-# Intro
+# Tutorial
 
 Suppose we need to parse a list of numbers separated by commas without an
 external lexer. This means that we should build our parser from the simplest
 ones.
+
+## Parsing numbers
 
 First, we need to recognize digits. For this we will use the `satisfy` parser.
 It is parameterized with a predicate to test the input token.
@@ -15,9 +17,8 @@ It is parameterized with a predicate to test the input token.
 ```
 
 Let's try it in action. We can use the `parse` method of our freshly created
-parser to parse a sequence of tokens. It returns either a result of successful
-parse or an error. You can get the actual value or exception with an `unwrap`
-method.
+parser to parse a string. It returns either a result of successful parse or an
+error. You can get the actual value or exception with an `unwrap` method:
 
 ```python
 >>> digit.parse("123").unwrap()
@@ -34,7 +35,7 @@ So far, so good. Next, we want to parse numbers. For simplicity let's assume
 that a number is a sequence of one or more digits:
 
 ```python
->>> number = digit + digit.many()
+>>> digits = digit + digit.many()
 
 ```
 
@@ -42,7 +43,7 @@ We use method `many` to construct parser that tries to apply original parser
 zero or more times, and operator `+` to sequentially apply two parsers.
 
 ```python
->>> number.parse("123").unwrap()
+>>> digits.parse("123").unwrap()
 ('1', ['2', '3'])
 
 ```
@@ -51,15 +52,19 @@ The output doesn't looks like a number yet. We need `fmap` to convert it to a
 number:
 
 ```python
->>> number = (digit + digit.many()).fmap(lambda v: int(v[0] + "".join(v[1])))
+>>> number = digits.fmap(lambda v: int(v[0] + "".join(v[1])))
 
 >>> number.parse("123").unwrap()
 123
 
 ```
 
-Done. Now we are ready to parse the list. The list is just a sequence of
-numbers separated by commas:
+## Parsing lists
+
+Now we are ready to parse the list. The list is just a sequence of numbers
+separated by commas. To parse a single comma we will use the `sym` parser,
+which is parameterized with expected character. Parsers for sequences with
+separators are usually constructed using the `sep_by` combinator:
 
 ```python
 >>> from reparsec.sequence import sym
@@ -73,22 +78,26 @@ numbers separated by commas:
 
 Success!
 
+## Allowing whitespace
+
 What if we want to allow whitespace around numbers? Let's extend the parser to
 accept such inputs:
 
 ```python
 >>> space = satisfy(str.isspace)
-
 >>> spaces = space.many()
 
->>> list_parser = spaces.seqr(
-...     number.seql(spaces).sep_by(sym(",") + spaces)
-... )
+>>> number = digits.fmap(lambda v: int(v[0] + "".join(v[1]))) << spaces
+>>> comma = sym(",") << spaces
+
+>>> list_parser = spaces >> number.sep_by(comma)
 
 >>> list_parser.parse(" 1 , 2 ").unwrap()
 [1, 2]
 
 ```
+
+## Testing incorrect inputs
 
 Until before we focused on parsing valid inputs. But what if we have a string
 with unexpected characters in it?
@@ -117,9 +126,7 @@ after the list using the `eof` parser:
 ```python
 >>> from reparsec.sequence import eof
 
->>> list_parser = number.seql(spaces).sep_by(
-...     sym(",") + spaces
-... ).between(spaces, eof())
+>>> list_parser = spaces >> number.sep_by(comma) << eof()
 
 >>> list_parser.parse("1a").unwrap()
 Traceback (most recent call last):
@@ -128,7 +135,11 @@ reparsec.output.ParseError: at 1: expected ',' or end of file
 
 ```
 
-Much better. Next, let's take a closer look at the errors messages:
+Much better.
+
+## Improving error reporting
+
+Let's take a closer look at the errors messages:
 
 ```python
 >>> list_parser.parse("1 2").unwrap()
@@ -153,14 +164,13 @@ idea about the expected token. Let's add some labels to help it:
 
 ```python
 >>> digit = satisfy(str.isdigit).label("digit")
+>>> digits = digit + digit.many()
 
->>> number = (digit + digit.many()).fmap(
+>>> number = digits.fmap(
 ...     lambda v: int(v[0] + "".join(v[1]))
-... ).label("number")
+... ).label("number") << spaces
 
->>> list_parser = number.seql(spaces).sep_by(
-...     sym(",") + spaces
-... ).between(spaces, eof())
+>>> list_parser = spaces >> number.sep_by(comma) << eof()
 
 >>> list_parser.parse("1,").unwrap()
 Traceback (most recent call last):
@@ -168,6 +178,8 @@ Traceback (most recent call last):
 reparsec.output.ParseError: at 2: expected number
 
 ```
+
+## Recovering from errors
 
 And now for something completely different:
 
@@ -194,13 +206,7 @@ We can use `InsertValue` to return some value during error recovery:
 ``` python
 >>> from reparsec.primitive import InsertValue
 
->>> number = (digit + digit.many()).fmap(
-...     lambda v: int(v[0] + "".join(v[1]))
-... ).label("number") | InsertValue(0)
-
->>> list_parser = number.seql(spaces).sep_by(
-...     sym(",") + spaces
-... ).between(spaces, eof())
+>>> list_parser = spaces >> (number | InsertValue(0)).sep_by(comma) << eof()
 
 >>> list_parser.parse("1,", recover=True).unwrap(recover=True)
 [1, 0]
@@ -226,21 +232,24 @@ number (inserted 0), at 6: expected ',' or end of file (skipped 1 token)
 
 ```
 
+## Conclusion
+
 The final parser definition should look like this:
 
 ```python
 from reparsec.primitive import InsertValue
 from reparsec.sequence import eof, satisfy, sym
 
+spaces = satisfy(str.isspace).many()
+
 digit = satisfy(str.isdigit).label("digit")
+digits = digit + digit.many()
 
-number = (digit + digit.many()).fmap(
+number = digits.fmap(
     lambda v: int(v[0] + "".join(v[1]))
-).label("number") | InsertValue(0)
+).label("number") << spaces
 
-space = satisfy(str.isspace).many()
+comma = sym(",") << spaces
 
-list_parser = number.seql(spaces).sep_by(
-    sym(",") + spaces
-).between(spaces, eof())
+list_parser = spaces >> (number | InsertValue(0)).sep_by(comma) << eof()
 ```

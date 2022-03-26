@@ -1,3 +1,7 @@
+"""
+Parsers for arbitrary sequences.
+"""
+
 from typing import Callable, Optional, Sequence, Sized, TypeVar
 
 from .core import sequence

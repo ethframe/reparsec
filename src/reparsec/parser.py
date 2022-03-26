@@ -1,3 +1,7 @@
+"""
+Core parser API and parser combinators.
+"""
+
 from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .core import combinators
@@ -35,7 +39,7 @@ class Parser(ParseObj[S_contra, V_co]):
         :param recover: Flag to enable error recovery
         :param get_loc: Function that constructs new ``Loc`` from a previous
             ``Loc``, a stream, and position in the stream
-        :param fmt_loc: Function that constructs ``Loc``
+        :param fmt_loc: Function that converts ``Loc`` to string
         """
 
         ctx = Ctx(0, Loc(0, 0, 0), get_loc)

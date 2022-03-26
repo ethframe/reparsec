@@ -1,2 +1,3 @@
 sphinx
 sphinx_autodoc_typehints
+m2r2

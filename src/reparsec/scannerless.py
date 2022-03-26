@@ -1,3 +1,7 @@
+"""
+Parsers for scannerless parsing of strings.
+"""
+
 from typing import TypeVar, Union
 
 from .core import scannerless
