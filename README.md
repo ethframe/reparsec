@@ -58,6 +58,26 @@ Output:
 15
 ```
 
+Out-of-the-box error recovery:
+
+```python
+result = parser.parse("1 + 2 * * (3 + 4", recover=True)
+
+try:
+    result.unwrap()
+except ParseError as e:
+    print(e)
+
+print(result.unwrap(recover=True))
+```
+
+Output:
+
+```
+at 8: expected '(' (skipped 2 tokens), at 16: expected ')' (inserted ')')
+15
+```
+
 More examples:
   * [JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json.py)
   * [Scannerless JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json_scannerless.py)
