@@ -38,12 +38,12 @@ def literal(s: str) -> ParseFn[str, str]:
             )
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = Pending(1, s, ctx, Insert(rs), consumed=True)
+            pending = Pending(1, s, pos, ctx, Insert(rs), consumed=True)
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
                     sel = Selected(
-                        cur, 0, cur + ls, 0, s,
+                        cur, 0, 0, s, cur + ls,
                         ctx.update_loc(stream, cur + ls), Skip(cur - pos),
                         consumed=True
                     )
@@ -80,7 +80,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                     if v is not None:
                         end = r.end()
                         sel = Selected(
-                            cur, 0, end, 0, v, ctx.update_loc(stream, end),
+                            cur, 0, 0, v, end, ctx.update_loc(stream, end),
                             Skip(cur - pos), consumed=True
                         )
                         return Recovered(sel, None, pos, loc)

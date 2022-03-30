@@ -200,7 +200,7 @@ def insert_on_error(
             return Recovered(
                 None,
                 Pending(
-                    1, value, ctx,
+                    1, value, pos, ctx,
                     Insert(repr(value) if label is None else label)
                 ),
                 pos, loc, consumed=True

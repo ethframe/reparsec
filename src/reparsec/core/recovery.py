@@ -35,10 +35,10 @@ def continue_parse(
     pa = ra.pending
     if pa is not None:
         rb = parse(
-            pa.value, stream, ra.pos, pa.ctx,
+            pa.value, stream, pa.pos, pa.ctx,
             decrease_recovery_steps(rm, pa.count)
         )
-        st, pending = _append_pending(pa, ra.pos, rb, merge)
+        st, pending = _append_pending(pa, rb, merge)
         if selected is None or st is not None and (
                 selected.selected > st.selected or
                 selected.selected == st.selected and (
@@ -62,8 +62,8 @@ def _append_selected(
         merge: MergeFn[V, U, X]) -> Optional[Selected[X, S]]:
     if type(rb) is Ok:
         return Selected(
-            rep.selected, rep.prefix, rb.pos, rep.count,
-            merge(rep.value, rb.value), rb.ctx, rep.op,
+            rep.selected, rep.prefix, rep.count, merge(rep.value, rb.value),
+            rb.pos, rb.ctx, rep.op,
             _append_expected(rep, rb.expected, rb.consumed),
             rep.consumed or rb.consumed, rep.ops
         )
@@ -72,15 +72,15 @@ def _append_selected(
         pb = rb.pending
         if pb is not None and (sb is None or sb.count > pb.count):
             return Selected(
-                rep.selected, rep.prefix, rep.pos, rep.count + pb.count,
-                merge(rep.value, pb.value), pb.ctx, rep.op,
+                rep.selected, rep.prefix, rep.count + pb.count,
+                merge(rep.value, pb.value), pb.pos, pb.ctx, rep.op,
                 _append_expected(rep, pb.expected, pb.consumed),
                 rep.consumed or pb.consumed, _join_ops(rep, rb, pb)
             )
         if sb is not None:
             return Selected(
-                rep.selected, rep.prefix, rep.pos, rep.count + sb.count,
-                merge(rep.value, sb.value), sb.ctx, rep.op,
+                rep.selected, rep.prefix, rep.count + sb.count,
+                merge(rep.value, sb.value), sb.pos, sb.ctx, rep.op,
                 _append_expected(rep, sb.expected, sb.consumed),
                 rep.consumed or sb.consumed, _join_ops(rep, rb, sb)
             )
@@ -88,15 +88,15 @@ def _append_selected(
 
 
 def _append_pending(
-        rep: Pending[V, S], pos: int, rb: Result[U, S],
+        rep: Pending[V, S], rb: Result[U, S],
         merge: MergeFn[V, U, X]) -> Tuple[
             Optional[Selected[X, S]], Optional[Pending[X, S]]]:
     if type(rb) is Ok:
         if rb.consumed:
             return (
                 Selected(
-                    pos, rep.count, rb.pos, rep.count,
-                    merge(rep.value, rb.value), rb.ctx, rep.op,
+                    rep.pos, rep.count, rep.count, merge(rep.value, rb.value),
+                    rb.pos, rb.ctx, rep.op,
                     _append_expected(rep, rb.expected, rb.consumed), True,
                     rep.ops
                 ),
@@ -105,7 +105,7 @@ def _append_pending(
         return (
             None,
             Pending(
-                rep.count, merge(rep.value, rb.value), rb.ctx, rep.op,
+                rep.count, merge(rep.value, rb.value), rb.pos, rb.ctx, rep.op,
                 _append_expected(rep, rb.expected, rb.consumed), rep.consumed,
                 rep.ops
             )
@@ -115,14 +115,15 @@ def _append_pending(
         pb = rb.pending
         return (
             None if sb is None else Selected(
-                sb.selected, rep.count + sb.prefix, sb.pos, sb.count,
-                merge(rep.value, sb.value), sb.ctx, rep.op,
+                sb.selected, rep.count + sb.prefix, sb.count,
+                merge(rep.value, sb.value), sb.pos, sb.ctx, rep.op,
                 _append_expected(rep, sb.expected, sb.consumed),
                 rep.consumed or sb.consumed, _join_ops(rep, rb, sb)
             ),
             None if pb is None else Pending(
-                rep.count + pb.count, merge(rep.value, pb.value), pb.ctx,
-                rep.op, _append_expected(rep, pb.expected, pb.consumed),
+                rep.count + pb.count, merge(rep.value, pb.value), pb.pos,
+                pb.ctx, rep.op,
+                _append_expected(rep, pb.expected, pb.consumed),
                 rep.consumed or pb.consumed, _join_ops(rep, rb, pb)
             )
         )

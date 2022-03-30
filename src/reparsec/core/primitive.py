@@ -43,7 +43,9 @@ class InsertValue(ParseObj[S_contra, V_co]):
         if rm:
             return Recovered(
                 None,
-                Pending(1, self._x, ctx, Insert(self._label), consumed=True),
+                Pending(
+                    1, self._x, pos, ctx, Insert(self._label), consumed=True
+                ),
                 pos, loc
             )
         return Error(pos, loc)
@@ -64,7 +66,7 @@ class InsertFn(ParseObj[S_contra, V_co]):
             if label is None:
                 label = repr(x)
             return Recovered(
-                None, Pending(1, x, ctx, Insert(label), consumed=True), pos,
-                loc
+                None, Pending(1, x, pos, ctx, Insert(label), consumed=True),
+                pos, loc
             )
         return Error(pos, loc)

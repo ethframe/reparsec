@@ -115,6 +115,7 @@ class OpItem:
 class BaseRepair(Generic[V_co, S]):
     count: int
     value: V_co
+    pos: int
     ctx: Ctx[S]
     op: RepairOp
     expected: Iterable[str] = ()
@@ -130,7 +131,6 @@ class Pending(BaseRepair[V_co, S]):
 class _Selected:
     selected: int
     prefix: int
-    pos: int
 
 
 @dataclass
@@ -167,13 +167,13 @@ class Recovered(Generic[V_co, S]):
         pending = self.pending
         return Recovered(
             None if selected is None else Selected(
-                selected.selected, selected.prefix, selected.pos,
-                selected.count, fn(selected.value), selected.ctx, selected.op,
+                selected.selected, selected.prefix, selected.count,
+                fn(selected.value), selected.pos, selected.ctx, selected.op,
                 selected.expected, selected.consumed, selected.ops
             ),
             None if pending is None else Pending(
-                pending.count, fn(pending.value), pending.ctx, pending.op,
-                pending.expected, pending.consumed, pending.ops
+                pending.count, fn(pending.value), pending.pos, pending.ctx,
+                pending.op, pending.expected, pending.consumed, pending.ops
             ),
             self.pos, self.loc, self.expected, self.consumed
         )
