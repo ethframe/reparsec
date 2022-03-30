@@ -1,7 +1,5 @@
 from abc import abstractmethod
-from typing import Callable, Generic, TypeVar
-
-from typing_extensions import Literal
+from typing import Callable, Generic, Optional, TypeVar
 
 from .result import Result
 from .state import Ctx
@@ -12,18 +10,27 @@ V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
 
 
-RecoveryMode = Literal[None, False, True]
+RecoveryMode = Optional[int]
 
 
 def disallow_recovery(rm: RecoveryMode) -> RecoveryMode:
     if rm is None:
         return None
-    return False
+    return 0
 
 
-def maybe_allow_recovery(rm: RecoveryMode, consumed: bool) -> RecoveryMode:
+def maybe_allow_recovery(
+        ctx: Ctx[S], rm: RecoveryMode, consumed: bool) -> RecoveryMode:
     if rm is not None and consumed:
-        return True
+        return ctx.max_insertions
+    return rm
+
+
+def decrease_recovery_steps(rm: RecoveryMode, count: int) -> RecoveryMode:
+    if rm:
+        if rm > count:
+            return rm - count
+        return 0
     return rm
 
 

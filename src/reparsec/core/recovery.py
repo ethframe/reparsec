@@ -6,7 +6,7 @@ from .result import (
     ops_prepend_expected
 )
 from .state import Ctx
-from .types import RecoveryMode, maybe_allow_recovery
+from .types import RecoveryMode, decrease_recovery_steps, maybe_allow_recovery
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -26,7 +26,7 @@ def continue_parse(
     if sa is not None:
         rb = parse(
             sa.value, stream, sa.pos, sa.ctx,
-            maybe_allow_recovery(rm, sa.consumed)
+            maybe_allow_recovery(sa.ctx, rm, sa.consumed)
         )
         selected = _append_selected(sa, rb, merge)
     else:
@@ -36,7 +36,7 @@ def continue_parse(
     if pa is not None:
         rb = parse(
             pa.value, stream, ra.pos, pa.ctx,
-            maybe_allow_recovery(rm, pa.consumed)
+            decrease_recovery_steps(rm, pa.count)
         )
         st, pending = _append_pending(pa, ra.pos, rb, merge)
         if selected is None or st is not None and (

@@ -38,8 +38,8 @@ def alt(
         if type(rb) is Ok:
             return rb.set_expected(expected)
         if rm:
-            rra = parse_fn(stream, pos, ctx, True)
-            rrb = second_fn(stream, pos, ctx, True)
+            rra = parse_fn(stream, pos, ctx, rm)
+            rrb = second_fn(stream, pos, ctx, rm)
             if type(rra) is Recovered:
                 if type(rrb) is Recovered:
                     return join_repairs(rra, rrb).set_expected(expected)
@@ -67,7 +67,7 @@ def bind(
                 lambda _, v: v
             )
         return fn(ra.value).parse_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra.consumed)
+            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rm, ra.consumed)
         ).prepend_expected(ra.expected, ra.consumed)
 
     return bind
@@ -89,7 +89,7 @@ def _seq(
             )
         va = ra.value
         return second_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(rm, ra.consumed)
+            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rm, ra.consumed)
         ).fmap(
             lambda vb: merge(va, vb)
         ).prepend_expected(ra.expected, ra.consumed)
@@ -167,7 +167,7 @@ def attempt(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
         if rm:
-            return parse_fn(stream, pos, ctx, True)
+            return parse_fn(stream, pos, ctx, ctx.max_insertions)
         r = parse_fn(stream, pos, ctx, None)
         if type(r) is Error:
             return Error(r.pos, r.loc, r.expected)

@@ -29,6 +29,7 @@ def _fmt_loc(loc: Loc) -> str:
 class Parser(ParseObj[S_contra, V_co]):
     def parse(
             self, stream: S_contra, recover: bool = False, *,
+            max_insertions: int = 5,
             get_loc: Callable[[Loc, S_contra, int], Loc] = _get_loc,
             fmt_loc: Callable[[Loc], str] = _fmt_loc
     ) -> ParseResult[V_co, S_contra]:
@@ -37,13 +38,17 @@ class Parser(ParseObj[S_contra, V_co]):
 
         :param stream: Input to parse
         :param recover: Flag to enable error recovery
+        :param max_insertions: Maximal number of token insertions in a row
+            during error recovery
         :param get_loc: Function that constructs new ``Loc`` from a previous
             ``Loc``, a stream, and position in the stream
         :param fmt_loc: Function that converts ``Loc`` to string
         """
 
-        ctx = Ctx(0, Loc(0, 0, 0), get_loc)
-        result = self.parse_fn(stream, 0, ctx, True if recover else None)
+        ctx = Ctx(0, Loc(0, 0, 0), max_insertions, get_loc)
+        result = self.parse_fn(
+            stream, 0, ctx, ctx.max_insertions if recover else None
+        )
         return _ParseResult(result, fmt_loc)
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Parser[S_contra, U]":
