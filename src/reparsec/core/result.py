@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
 
 from typing_extensions import final
@@ -114,12 +114,12 @@ class OpItem:
 @dataclass
 class BaseRepair(Generic[V_co, S]):
     count: int
+    ops: List[OpItem]
     value: V_co
     pos: int
     ctx: Ctx[S]
     expected: Iterable[str] = ()
     consumed: bool = False
-    ops: List[OpItem] = field(default_factory=list)
 
 
 class Pending(BaseRepair[V_co, S]):
@@ -167,12 +167,12 @@ class Recovered(Generic[V_co, S]):
         return Recovered(
             None if selected is None else Selected(
                 selected.selected, selected.prefix, selected.count,
-                fn(selected.value), selected.pos, selected.ctx,
-                selected.expected, selected.consumed, selected.ops
+                selected.ops, fn(selected.value), selected.pos, selected.ctx,
+                selected.expected, selected.consumed
             ),
             None if pending is None else Pending(
-                pending.count, fn(pending.value), pending.pos, pending.ctx,
-                pending.expected, pending.consumed, pending.ops
+                pending.count, pending.ops, fn(pending.value), pending.pos,
+                pending.ctx, pending.expected, pending.consumed
             ),
             self.pos, self.loc, self.expected, self.consumed
         )
