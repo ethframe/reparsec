@@ -1,6 +1,7 @@
 from typing import Callable, Optional, TypeVar
 
-from .result import Error, Insert, Ok, Pending, Recovered, Result
+from .recovery import make_insert
+from .result import Error, Ok, Recovered, Result
 from .state import Ctx
 from .types import ParseObj, RecoveryMode
 
@@ -42,11 +43,8 @@ class InsertValue(ParseObj[S_contra, V_co]):
         loc = ctx.get_loc(stream, pos)
         if rm:
             return Recovered(
-                None,
-                Pending(
-                    1, self._x, pos, ctx, Insert(self._label), consumed=True
-                ),
-                pos, loc
+                None, make_insert(self._x, pos, ctx, loc, self._label), pos,
+                loc
             )
         return Error(pos, loc)
 
@@ -66,7 +64,6 @@ class InsertFn(ParseObj[S_contra, V_co]):
             if label is None:
                 label = repr(x)
             return Recovered(
-                None, Pending(1, x, pos, ctx, Insert(label), consumed=True),
-                pos, loc
+                None, make_insert(x, pos, ctx, loc, label), pos, loc
             )
         return Error(pos, loc)

@@ -1,9 +1,8 @@
 import re
 from typing import Optional, TypeVar, Union
 
-from .result import (
-    Error, Insert, Ok, Pending, Recovered, Result, Selected, Skip
-)
+from .recovery import make_insert, make_skip
+from .result import Error, Ok, Recovered, Result
 from .state import Ctx, Loc
 from .types import ParseFn, RecoveryMode
 
@@ -38,14 +37,13 @@ def literal(s: str) -> ParseFn[str, str]:
             )
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = Pending(1, s, pos, ctx, Insert(rs), consumed=True)
+            pending = make_insert(s, pos, ctx, loc, rs, expected)
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
-                    sel = Selected(
-                        cur, 0, 0, s, cur + ls,
-                        ctx.update_loc(stream, cur + ls), Skip(cur - pos),
-                        consumed=True
+                    sel = make_skip(
+                        cur, s, cur + ls, ctx.update_loc(stream, cur + ls),
+                        loc, cur - pos, expected
                     )
                     return Recovered(sel, pending, pos, loc, expected)
                 cur += 1
@@ -79,9 +77,9 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                     v = r.group(group)
                     if v is not None:
                         end = r.end()
-                        sel = Selected(
-                            cur, 0, 0, v, end, ctx.update_loc(stream, end),
-                            Skip(cur - pos), consumed=True
+                        sel = make_skip(
+                            cur, v, end, ctx.update_loc(stream, end), loc,
+                            cur - pos
                         )
                         return Recovered(sel, None, pos, loc)
                 cur += 1

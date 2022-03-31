@@ -1,8 +1,7 @@
 from typing import Callable, Optional, Sequence, Sized, TypeVar
 
-from .result import (
-    Error, Insert, Ok, Pending, Recovered, Result, Selected, Skip
-)
+from .recovery import make_insert, make_skip
+from .result import Error, Ok, Recovered, Result
 from .state import Ctx
 from .types import ParseFn, RecoveryMode
 
@@ -19,8 +18,8 @@ def eof() -> ParseFn[Sized, None]:
         if rm:
             sl = len(stream)
             return Recovered(
-                Selected(sl, 0, 0, None, sl, ctx, Skip(sl - pos)), None, pos,
-                loc, ["end of file"]
+                make_skip(sl, None, sl, ctx, loc, sl - pos, ["end of file"]),
+                None, pos, loc, ["end of file"]
             )
         return Error(pos, loc, ["end of file"])
 
@@ -42,10 +41,9 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                 t = stream[cur]
                 if test(t):
                     return Recovered(
-                        Selected(
-                            cur, 0, 0, t, cur + 1,
-                            ctx.update_loc(stream, cur + 1), Skip(cur - pos),
-                            consumed=True
+                        make_skip(
+                            cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
+                            loc, cur - pos
                         ),
                         None, pos, loc
                     )
@@ -71,14 +69,14 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                 return Ok(t, pos + 1, ctx, consumed=True)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = Pending(1, s, pos, ctx, Insert(label_), consumed=True)
+            pending = make_insert(s, pos, ctx, loc, label_, expected)
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
                 if t == s:
-                    sel = Selected(
-                        cur, 0, 0, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                        Skip(cur - pos), consumed=True
+                    sel = make_skip(
+                        cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
+                        loc, cur - pos, expected
                     )
                     return Recovered(sel, pending, pos, loc, expected)
                 cur += 1

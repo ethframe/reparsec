@@ -699,17 +699,10 @@ class _ParseResult(ParseResult[V_co, S]):
                 ])
         if recover:
             return repair.value
-        errors: List[ErrorItem] = [
+        errors = [
             ErrorItem(
-                self._result.loc, self._fmt_loc(self._result.loc),
-                list(self._result.expected), repair.op
+                item.loc, self._fmt_loc(item.loc), list(item.expected), item.op
             )
+            for item in repair.ops
         ]
-        for item in repair.ops:
-            errors.append(
-                ErrorItem(
-                    item.loc, self._fmt_loc(item.loc), list(item.expected),
-                    item.op
-                )
-            )
         raise ParseError(errors)

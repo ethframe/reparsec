@@ -107,8 +107,8 @@ RepairOp = Union[Skip, Insert]
 class OpItem:
     op: RepairOp
     loc: Loc
-    expected: Iterable[str]
-    consumed: bool
+    expected: Iterable[str] = ()
+    consumed: bool = False
 
 
 @dataclass
@@ -117,7 +117,6 @@ class BaseRepair(Generic[V_co, S]):
     value: V_co
     pos: int
     ctx: Ctx[S]
-    op: RepairOp
     expected: Iterable[str] = ()
     consumed: bool = False
     ops: List[OpItem] = field(default_factory=list)
@@ -168,12 +167,12 @@ class Recovered(Generic[V_co, S]):
         return Recovered(
             None if selected is None else Selected(
                 selected.selected, selected.prefix, selected.count,
-                fn(selected.value), selected.pos, selected.ctx, selected.op,
+                fn(selected.value), selected.pos, selected.ctx,
                 selected.expected, selected.consumed, selected.ops
             ),
             None if pending is None else Pending(
                 pending.count, fn(pending.value), pending.pos, pending.ctx,
-                pending.op, pending.expected, pending.consumed, pending.ops
+                pending.expected, pending.consumed, pending.ops
             ),
             self.pos, self.loc, self.expected, self.consumed
         )

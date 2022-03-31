@@ -1,8 +1,8 @@
 from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .chain import Append
-from .recovery import MergeFn, continue_parse, join_repairs
-from .result import Error, Insert, Ok, Pending, Recovered, Result
+from .recovery import MergeFn, continue_parse, join_repairs, make_insert
+from .result import Error, Ok, Recovered, Result
 from .state import Ctx
 from .types import (
     ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
@@ -199,11 +199,11 @@ def insert_on_error(
             loc = ctx.get_loc(stream, pos)
             return Recovered(
                 None,
-                Pending(
-                    1, value, pos, ctx,
-                    Insert(repr(value) if label is None else label)
+                make_insert(
+                    value, pos, ctx, loc,
+                    repr(value) if label is None else label
                 ),
-                pos, loc, consumed=True
+                pos, loc
             )
         return r
 
