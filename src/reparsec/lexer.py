@@ -157,7 +157,8 @@ def parse(
         parser: Parser[Sequence[Token], V], stream: Sequence[Token],
         recover: bool = False) -> ParseResult[V, Sequence[Token]]:
     """
-    Wrapper around :meth:`Parser.parse` that enables line and column tracking.
+    Wrapper around :meth:`reparsec.Parser.parse` that enables line and column
+    tracking.
 
     :param parser: Parser to run
     :param stream: Stream of tokens to parse
