@@ -61,7 +61,7 @@ def parse(
         parser: Parser[str, V], stream: str,
         recover: bool = False) -> ParseResult[V, str]:
     """
-    Wrapper around :meth:`reparse.Parser.parse` that enables line and column
+    Wrapper around :meth:`reparsec.Parser.parse` that enables line and column
     tracking for scannerless parsers.
 
     >>> from reparsec.scannerless import literal, parse
