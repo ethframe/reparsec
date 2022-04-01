@@ -5,9 +5,9 @@ Core parser API and parser combinators.
 from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .core import combinators
+from .core.parser import ParseFn, ParseObj
 from .core.result import BaseRepair, Error, Ok, Result
-from .core.state import Ctx, Loc
-from .core.types import ParseFn, ParseObj, RecoveryMode
+from .core.types import Ctx, Loc, RecoveryMode
 from .output import ErrorItem, ParseError, ParseResult
 
 S = TypeVar("S")

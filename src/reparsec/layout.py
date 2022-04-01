@@ -8,7 +8,7 @@ tracking, and should be used with proper ``get_col`` function passed to
 from typing import TypeVar
 
 from .core import layout
-from .core.types import ParseObj
+from .core.parser import ParseObj
 from .parser import FnParser, Parser
 
 __all__ = ("block", "same", "indented")

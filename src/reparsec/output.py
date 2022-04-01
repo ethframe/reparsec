@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
 from .core.result import RepairOp, Skip
-from .core.state import Loc
+from .core.types import Loc
 
 S = TypeVar("S")
 V_co = TypeVar("V_co", covariant=True)

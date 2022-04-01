@@ -1,10 +1,10 @@
 import re
 from typing import Optional, TypeVar, Union
 
+from .parser import ParseFn
 from .recovery import make_insert, make_skip
 from .result import Error, Ok, Recovered, Result
-from .state import Ctx, Loc
-from .types import ParseFn, RecoveryMode
+from .types import Ctx, Loc, RecoveryMode
 
 V = TypeVar("V")
 

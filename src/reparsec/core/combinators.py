@@ -1,12 +1,10 @@
 from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .chain import Append
+from .parser import ParseFn, ParseObj
 from .recovery import MergeFn, continue_parse, join_repairs, make_insert
 from .result import Error, Ok, Recovered, Result
-from .state import Ctx
-from .types import (
-    ParseFn, ParseObj, RecoveryMode, disallow_recovery, maybe_allow_recovery
-)
+from .types import Ctx, RecoveryMode, disallow_recovery, maybe_allow_recovery
 
 S = TypeVar("S")
 V = TypeVar("V")

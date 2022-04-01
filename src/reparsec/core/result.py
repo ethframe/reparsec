@@ -4,7 +4,7 @@ from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
 from typing_extensions import final
 
 from .chain import Append
-from .state import Ctx, Loc
+from .types import Ctx, Loc
 
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)

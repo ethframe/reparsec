@@ -1,13 +1,41 @@
-from abc import abstractmethod
-from typing import Callable, Generic, Optional, TypeVar
-
-from .result import Result
-from .state import Ctx
+from typing import Callable, Generic, NamedTuple, Optional, TypeVar
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
+
+
+class Loc(NamedTuple):
+    pos: int
+    line: int
+    col: int
+
+
+class Ctx(Generic[S_contra]):
+    __slots__ = "anchor", "loc", "max_insertions", "_get_loc"
+
+    def __init__(
+            self, anchor: int, loc: Loc, max_insertions: int,
+            get_loc: Callable[[Loc, S_contra, int], Loc]):
+        self.anchor = anchor
+        self.loc = loc
+        self.max_insertions = max_insertions
+        self._get_loc = get_loc
+
+    def get_loc(self, stream: S_contra, pos: int) -> Loc:
+        return self._get_loc(self.loc, stream, pos)
+
+    def update_loc(self, stream: S_contra, pos: int) -> "Ctx[S_contra]":
+        if pos == self.loc.pos:
+            return self
+        return Ctx(
+            self.anchor, self._get_loc(self.loc, stream, pos),
+            self.max_insertions, self._get_loc
+        )
+
+    def set_anchor(self, anchor: int) -> "Ctx[S_contra]":
+        return Ctx(anchor, self.loc, self.max_insertions, self._get_loc)
 
 
 RecoveryMode = Optional[int]
@@ -32,20 +60,3 @@ def decrease_recovery_steps(rm: RecoveryMode, count: int) -> RecoveryMode:
             return rm - count
         return 0
     return rm
-
-
-ParseFn = Callable[
-    [S_contra, int, Ctx[S_contra], RecoveryMode],
-    Result[V_co, S_contra]
-]
-
-
-class ParseObj(Generic[S_contra, V_co]):
-    @abstractmethod
-    def parse_fn(
-            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            rm: RecoveryMode) -> Result[V_co, S_contra]:
-        ...
-
-    def to_fn(self) -> ParseFn[S_contra, V_co]:
-        return self.parse_fn

@@ -5,7 +5,7 @@ Simple lexer based on regular expressions.
 from dataclasses import dataclass, field
 from typing import Iterator, List, Pattern, Sequence, TypeVar
 
-from .core.state import Loc
+from .core.types import Loc
 from .output import ParseResult
 from .parser import Parser, label
 from .sequence import satisfy

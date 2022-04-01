@@ -5,8 +5,9 @@ from .result import (
     BaseRepair, Error, Insert, Ok, OpItem, Pending, Recovered, Result,
     Selected, Skip, ops_prepend_expected
 )
-from .state import Ctx, Loc
-from .types import RecoveryMode, decrease_recovery_steps, maybe_allow_recovery
+from .types import (
+    Ctx, Loc, RecoveryMode, decrease_recovery_steps, maybe_allow_recovery
+)
 
 S = TypeVar("S")
 V = TypeVar("V")

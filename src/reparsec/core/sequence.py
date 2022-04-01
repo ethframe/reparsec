@@ -1,9 +1,9 @@
 from typing import Callable, Optional, Sequence, Sized, TypeVar
 
+from .parser import ParseFn
 from .recovery import make_insert, make_skip
 from .result import Error, Ok, Recovered, Result
-from .state import Ctx
-from .types import ParseFn, RecoveryMode
+from .types import Ctx, RecoveryMode
 
 T = TypeVar("T")
 
