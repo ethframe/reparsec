@@ -25,11 +25,12 @@ def make_insert(
 
 
 def make_skip(
-        selected: int, value: V, pos: int, ctx: Ctx[S], loc: Loc,
-        skip: int, expected: Iterable[str] = ()) -> Selected[V, S]:
+        selected: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        expected: Iterable[str] = (),
+        consumed: bool = False) -> Selected[V, S]:
     return Selected(
         selected, 0, 0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
-        consumed=True
+        consumed=consumed
     )
 
 
@@ -171,7 +172,8 @@ def join_repairs(
             selected, pending, rb.pos, rb.loc, rb.expected, rb.consumed
         )
     return Recovered(
-        selected, pending, ra.pos, ra.loc, Append(ra.expected, rb.expected)
+        selected, pending, ra.pos, ra.loc, Append(ra.expected, rb.expected),
+        ra.consumed or rb.consumed
     )
 
 

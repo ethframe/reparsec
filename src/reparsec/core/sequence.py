@@ -43,7 +43,7 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                     return Recovered(
                         make_skip(
                             cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                            loc, cur - pos
+                            loc, cur - pos, consumed=True
                         ),
                         None, pos, loc
                     )
@@ -76,7 +76,7 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                 if t == s:
                     sel = make_skip(
                         cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                        loc, cur - pos, expected
+                        loc, cur - pos, expected, True
                     )
                     return Recovered(sel, pending, pos, loc, expected)
                 cur += 1
