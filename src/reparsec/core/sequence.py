@@ -19,9 +19,9 @@ def eof() -> ParseFn[Sized, None]:
             sl = len(stream)
             return Recovered(
                 make_skip(sl, None, sl, ctx, loc, sl - pos, ["end of file"]),
-                None, pos, loc, ["end of file"]
+                None, loc, ["end of file"]
             )
-        return Error(pos, loc, ["end of file"])
+        return Error(loc, ["end of file"])
 
     return eof
 
@@ -45,10 +45,10 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                             cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
                             loc, cur - pos, consumed=True
                         ),
-                        None, pos, loc
+                        None, loc
                     )
                 cur += 1
-        return Error(pos, loc)
+        return Error(loc)
 
     return satisfy
 
@@ -78,9 +78,9 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                         cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
                         loc, cur - pos, expected, True
                     )
-                    return Recovered(sel, pending, pos, loc, expected)
+                    return Recovered(sel, pending, loc, expected)
                 cur += 1
-            return Recovered(None, pending, pos, loc, expected)
-        return Error(pos, loc, expected)
+            return Recovered(None, pending, loc, expected)
+        return Error(loc, expected)
 
     return sym

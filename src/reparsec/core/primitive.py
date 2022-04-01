@@ -43,10 +43,9 @@ class InsertValue(ParseObj[S_contra, V_co]):
         loc = ctx.get_loc(stream, pos)
         if rm:
             return Recovered(
-                None, make_insert(self._x, pos, ctx, loc, self._label), pos,
-                loc
+                None, make_insert(self._x, pos, ctx, loc, self._label), loc
             )
-        return Error(pos, loc)
+        return Error(loc)
 
 
 class InsertFn(ParseObj[S_contra, V_co]):
@@ -63,7 +62,5 @@ class InsertFn(ParseObj[S_contra, V_co]):
             label = self._label
             if label is None:
                 label = repr(x)
-            return Recovered(
-                None, make_insert(x, pos, ctx, loc, label), pos, loc
-            )
-        return Error(pos, loc)
+            return Recovered(None, make_insert(x, pos, ctx, loc, label), loc)
+        return Error(loc)

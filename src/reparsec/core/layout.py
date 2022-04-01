@@ -28,7 +28,7 @@ def same(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
         ctx = ctx.update_loc(stream, pos)
         if ctx.anchor == ctx.loc.col:
             return parse_fn(stream, pos, ctx, rm)
-        return Error(pos, ctx.loc, ["indentation"])
+        return Error(ctx.loc, ["indentation"])
 
     return same
 
@@ -43,6 +43,6 @@ def indented(delta: int, parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
             return parse_fn(
                 stream, pos, ctx.set_anchor(level), rm
             ).set_ctx(ctx)
-        return Error(pos, ctx.loc, ["indentation"])
+        return Error(ctx.loc, ["indentation"])
 
     return indented

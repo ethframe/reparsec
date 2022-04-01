@@ -45,10 +45,10 @@ def literal(s: str) -> ParseFn[str, str]:
                         cur, s, cur + ls, ctx.update_loc(stream, cur + ls),
                         loc, cur - pos, expected, True
                     )
-                    return Recovered(sel, pending, pos, loc, expected)
+                    return Recovered(sel, pending, loc, expected)
                 cur += 1
-            return Recovered(None, pending, pos, loc, expected)
-        return Error(pos, loc, expected)
+            return Recovered(None, pending, loc, expected)
+        return Error(loc, expected)
 
     return literal
 
@@ -81,8 +81,8 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                             cur, v, end, ctx.update_loc(stream, end), loc,
                             cur - pos, consumed=True
                         )
-                        return Recovered(sel, None, pos, loc)
+                        return Recovered(sel, None, loc)
                 cur += 1
-        return Error(pos, loc)
+        return Error(loc)
 
     return regexp

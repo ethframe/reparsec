@@ -54,20 +54,19 @@ class Ok(Generic[V_co, S]):
 
 @final
 class Error:
-    __slots__ = "pos", "loc", "expected", "consumed"
+    __slots__ = "loc", "expected", "consumed"
 
     def __init__(
-            self, pos: int, loc: Loc, expected: Iterable[str] = (),
+            self, loc: Loc, expected: Iterable[str] = (),
             consumed: bool = False):
-        self.pos = pos
         self.loc = loc
         self.expected = expected
         self.consumed = consumed
 
     def __repr__(self) -> str:
         return (
-            "Error(pos={!r}, loc={!r}, expected={!r}, consumed={!r})"
-        ).format(self.pos, self.loc, self.expected, self.consumed)
+            "Error(loc={!r}, expected={!r}, consumed={!r})"
+        ).format(self.loc, self.expected, self.consumed)
 
     def fmap(self, fn: object) -> "Error":
         return self
@@ -139,26 +138,24 @@ class Selected(BaseRepair[V_co, S], _Selected):
 
 @final
 class Recovered(Generic[V_co, S]):
-    __slots__ = "selected", "pending", "pos", "loc", "expected", "consumed"
+    __slots__ = "selected", "pending", "loc", "expected", "consumed"
 
     def __init__(
             self, selected: Optional[Selected[V_co, S]],
-            pending: Optional[Pending[V_co, S]], pos: int, loc: Loc,
+            pending: Optional[Pending[V_co, S]], loc: Loc,
             expected: Iterable[str] = (), consumed: bool = False):
         self.selected = selected
         self.pending = pending
-        self.pos = pos
         self.loc = loc
         self.expected = expected
         self.consumed = consumed
 
     def __repr__(self) -> str:
         return (
-            "Recovered(selected={!r}, pending={!r}, pos={!r}, loc={!r}, " +
+            "Recovered(selected={!r}, pending={!r}, loc={!r}, " +
             "expected={!r}, consumed={!r})"
         ).format(
-            self.selected, self.pending, self.pos, self.loc, self.expected,
-            self.consumed
+            self.selected, self.pending, self.loc, self.expected, self.consumed
         )
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U, S]":
@@ -174,7 +171,7 @@ class Recovered(Generic[V_co, S]):
                 pending.count, pending.ops, fn(pending.value), pending.pos,
                 pending.ctx, pending.expected, pending.consumed
             ),
-            self.pos, self.loc, self.expected, self.consumed
+            self.loc, self.expected, self.consumed
         )
 
     def set_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":

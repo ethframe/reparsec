@@ -44,7 +44,7 @@ def alt(
                 return rra.set_expected(expected)
             if type(rrb) is Recovered:
                 return rrb.set_expected(expected)
-        return Error(pos, ra.loc, expected)
+        return Error(ra.loc, expected)
 
     return alt
 
@@ -138,15 +138,16 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
                 raise RuntimeError("parser shouldn't accept empty string")
             consumed = True
             value.append(r.value)
+            pos = r.pos
             ctx = r.ctx
-            r = parse_fn(stream, r.pos, ctx, rm)
+            r = parse_fn(stream, pos, ctx, rm)
         if type(r) is Recovered:
             return continue_parse(
                 stream, r, rm, parse, lambda a, b: [*value, a, *b]
             )
         if r.consumed:
             return r
-        return Ok(value, r.pos, ctx, r.expected, consumed)
+        return Ok(value, pos, ctx, r.expected, consumed)
 
     def parse(
             _: V, stream: S, pos: int, ctx: Ctx[S],
@@ -168,7 +169,7 @@ def attempt(
             return parse_fn(stream, pos, ctx, ctx.max_insertions)
         r = parse_fn(stream, pos, ctx, None)
         if type(r) is Error:
-            return Error(r.pos, r.loc, r.expected)
+            return Error(r.loc, r.expected)
         return r
 
     return attempt
@@ -201,7 +202,7 @@ def insert_on_error(
                     value, pos, ctx, loc,
                     repr(value) if label is None else label
                 ),
-                pos, loc
+                loc
             )
         return r
 
