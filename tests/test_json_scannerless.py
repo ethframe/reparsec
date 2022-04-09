@@ -94,6 +94,13 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
         "at 1:9: expected value (inserted 1), " +
         "at 1:9: expected ',' or '}' (skipped 1 token)"
     ),
+    (
+        '{"a", "b", "c", "d"}', {"a": "b", "c": "d"},
+        "at 1:5: expected ':' (inserted ':'), " +
+        "at 1:5: expected value (skipped 2 tokens), " +
+        "at 1:15: expected ':' (inserted ':'), " +
+        "at 1:15: expected value (skipped 2 tokens)"
+    ),
 ]
 
 

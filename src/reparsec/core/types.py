@@ -37,6 +37,14 @@ class Ctx(Generic[S_contra]):
     def set_anchor(self, anchor: int) -> "Ctx[S_contra]":
         return Ctx(anchor, self.loc, self.max_insertions, self._get_loc)
 
+    def decrease_max_insertions(self, count: int) -> "Ctx[S_contra]":
+        if self.max_insertions == 0:
+            return self
+        return Ctx(
+            self.anchor, self.loc, max(self.max_insertions - count, 0),
+            self._get_loc
+        )
+
 
 RecoveryMode = Optional[int]
 
@@ -51,12 +59,4 @@ def maybe_allow_recovery(
         ctx: Ctx[S], rm: RecoveryMode, consumed: bool) -> RecoveryMode:
     if rm is not None and consumed:
         return ctx.max_insertions
-    return rm
-
-
-def decrease_recovery_steps(rm: RecoveryMode, count: int) -> RecoveryMode:
-    if rm:
-        if rm > count:
-            return rm - count
-        return 0
     return rm
