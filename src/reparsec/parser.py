@@ -47,7 +47,7 @@ class Parser(ParseObj[S_contra, V_co]):
 
         ctx = Ctx(0, Loc(0, 0, 0), max_insertions, get_loc)
         result = self.parse_fn(
-            stream, 0, ctx, ctx.max_insertions if recover else None
+            stream, 0, ctx, bool(max_insertions) if recover else None
         )
         return _ParseResult(result, fmt_loc)
 

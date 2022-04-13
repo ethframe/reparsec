@@ -46,17 +46,17 @@ class Ctx(Generic[S_contra]):
         )
 
 
-RecoveryMode = Optional[int]
+RecoveryMode = Optional[bool]
 
 
 def disallow_recovery(rm: RecoveryMode) -> RecoveryMode:
     if rm is None:
         return None
-    return 0
+    return False
 
 
 def maybe_allow_recovery(
         ctx: Ctx[S], rm: RecoveryMode, consumed: bool) -> RecoveryMode:
     if rm is not None and consumed:
-        return ctx.max_insertions
+        return bool(ctx.max_insertions)
     return rm

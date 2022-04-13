@@ -105,7 +105,7 @@ DATA_RECOVERY: List[Tuple[str, object, str]] = [
 
 
 @pytest.mark.parametrize("data, value, expected", DATA_RECOVERY)
-def test_recovery(data: str, value: str, expected: str) -> None:
+def test_recovery(data: str, value: object, expected: str) -> None:
     r = parse(json_scannerless.parser, data, recover=True)
     assert r.unwrap(recover=True) == value
     with pytest.raises(ParseError) as err:

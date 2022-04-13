@@ -166,7 +166,7 @@ def attempt(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
         if rm:
-            return parse_fn(stream, pos, ctx, ctx.max_insertions)
+            return parse_fn(stream, pos, ctx, True)
         r = parse_fn(stream, pos, ctx, None)
         if type(r) is Error:
             return Error(r.loc, r.expected)
