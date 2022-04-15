@@ -2,5 +2,8 @@
 requires = ["setuptools>=40.8.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.mypy]
+strict = true
+
 [tool.pyright]
 reportInvalidTypeVarUse = false
