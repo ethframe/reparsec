@@ -42,10 +42,11 @@ def continue_parse(
 
     sa = ra.selected
     if sa is not None:
+        ctx = sa.ctx.decrease_max_insertions(sa.count)
         rb = parse(
-            sa.value, stream, sa.pos, sa.ctx,
-            maybe_allow_recovery(sa.ctx, rm, sa.consumed)
-        )
+            sa.value, stream, sa.pos, ctx,
+            maybe_allow_recovery(ctx, rm, sa.consumed)
+        ).set_ctx(sa.ctx)
         selected = _append_selected(sa, rb, merge)
     else:
         selected = None
@@ -79,7 +80,7 @@ def _append_selected(
         merge: MergeFn[V, U, X]) -> Optional[Selected[X, S]]:
     if type(rb) is Ok:
         return Selected(
-            rep.selected, rep.prefix, rep.count, rep.ops,
+            rep.selected, rep.prefix, 0, rep.ops,
             merge(rep.value, rb.value), rb.pos, rb.ctx,
             _append_expected(rep, rb.expected, rb.consumed),
             rep.consumed or rb.consumed,
@@ -96,8 +97,8 @@ def _append_selected(
             )
         if sb is not None:
             return Selected(
-                rep.selected, rep.prefix, rep.count + sb.count,
-                _join_ops(rep, sb), merge(rep.value, sb.value), sb.pos, sb.ctx,
+                rep.selected, rep.prefix, sb.count, _join_ops(rep, sb),
+                merge(rep.value, sb.value), sb.pos, sb.ctx,
                 _append_expected(rep, sb.expected, sb.consumed),
                 rep.consumed or sb.consumed
             )
@@ -112,7 +113,7 @@ def _append_pending(
         if rb.consumed:
             return (
                 Selected(
-                    rep.pos, rep.count, rep.count, rep.ops,
+                    rep.pos, rep.count, 0, rep.ops,
                     merge(rep.value, rb.value), rb.pos, rb.ctx,
                     _append_expected(rep, rb.expected, rb.consumed), True
                 ),
