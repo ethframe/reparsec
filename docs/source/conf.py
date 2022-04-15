@@ -22,7 +22,8 @@ copyright = '2022, ethframe'
 author = 'ethframe'
 
 # The full version, including alpha/beta/rc tags
-release = '0.3.3'
+import reparsec
+release = reparsec.__version__
 
 
 # -- General configuration ---------------------------------------------------
