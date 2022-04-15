@@ -113,6 +113,73 @@ def seq(
     return _seq(parse_fn, second_fn, lambda l, r: (l, r))
 
 
+V0 = TypeVar("V0")
+V1 = TypeVar("V1")
+V2 = TypeVar("V2")
+V3 = TypeVar("V3")
+V4 = TypeVar("V4")
+V5 = TypeVar("V5")
+V6 = TypeVar("V6")
+V7 = TypeVar("V7")
+
+
+def tuple3(
+        parse_fn: ParseFn[S, Tuple[V0, V1]],
+        second_fn: ParseFn[S, V2]) -> ParseFn[S, Tuple[V0, V1, V2]]:
+    def merge(a: Tuple[V0, V1], b: V2) -> Tuple[V0, V1, V2]:
+        return (*a, b)
+    return _seq(parse_fn, second_fn, merge)
+
+
+def tuple4(
+        parse_fn: ParseFn[S, Tuple[V0, V1, V2]],
+        second_fn: ParseFn[S, V3]) -> ParseFn[S, Tuple[V0, V1, V2, V3]]:
+    def merge(a: Tuple[V0, V1, V2], b: V3) -> Tuple[V0, V1, V2, V3]:
+        return (*a, b)
+    return _seq(parse_fn, second_fn, merge)
+
+
+def tuple5(
+        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3]],
+        second_fn: ParseFn[S, V4]) -> ParseFn[S, Tuple[V0, V1, V2, V3, V4]]:
+    def merge(a: Tuple[V0, V1, V2, V3], b: V4) -> Tuple[V0, V1, V2, V3, V4]:
+        return (*a, b)
+    return _seq(parse_fn, second_fn, merge)
+
+
+def tuple6(
+        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3, V4]],
+        second_fn: ParseFn[S, V5]) -> ParseFn[
+            S, Tuple[V0, V1, V2, V3, V4, V5]]:
+    def merge(
+            a: Tuple[V0, V1, V2, V3, V4],
+            b: V5) -> Tuple[V0, V1, V2, V3, V4, V5]:
+        return (*a, b)
+    return _seq(parse_fn, second_fn, merge)
+
+
+def tuple7(
+        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3, V4, V5]],
+        second_fn: ParseFn[S, V6]) -> ParseFn[
+            S, Tuple[V0, V1, V2, V3, V4, V5, V6]]:
+    def merge(
+            a: Tuple[V0, V1, V2, V3, V4, V5],
+            b: V6) -> Tuple[V0, V1, V2, V3, V4, V5, V6]:
+        return (*a, b)
+    return _seq(parse_fn, second_fn, merge)
+
+
+def tuple8(
+        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3, V4, V5, V6]],
+        second_fn: ParseFn[S, V7]) -> ParseFn[
+            S, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]:
+    def merge(
+            a: Tuple[V0, V1, V2, V3, V4, V5, V6],
+            b: V7) -> Tuple[V0, V1, V2, V3, V4, V5, V6, V7]:
+        return (*a, b)
+    return _seq(parse_fn, second_fn, merge)
+
+
 def maybe(parse_fn: ParseFn[S, V]) -> ParseFn[S, Optional[V]]:
     def maybe(
             stream: S, pos: int, ctx: Ctx[S],

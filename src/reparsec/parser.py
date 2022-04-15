@@ -26,7 +26,7 @@ def _fmt_loc(loc: Loc) -> str:
     return repr(loc.pos)
 
 
-class Parser(ParseObj[S_contra, V_co]):
+class _Parser(ParseObj[S_contra, V_co]):
     def parse(
             self, stream: S_contra, recover: bool = False, *,
             max_insertions: int = 5,
@@ -394,7 +394,53 @@ class Parser(ParseObj[S_contra, V_co]):
         return chainr1(self, op)
 
 
-class FnParser(Parser[S_contra, V_co]):
+class Parser(_Parser[S_contra, V]):
+    def skip(self, other: ParseObj[S_contra, U]) -> "Parser[S_contra, V]":
+        """
+        Applies two parsers sequentially and returns the result of the first
+        parser. Similar to :meth:`Parser.seql`, but can be used in a chain of
+        calls to :meth:`Parser.then` to skip parts without starting a new
+        tuple.
+
+        >>> from reparsec.sequence import sym
+
+        >>> parser = sym("a").then(sym("b")).skip(sym("c")).then(sym("d"))
+        >>> parser.parse("abcd").unwrap()
+        ('a', 'b', 'd')
+
+        >>> parser = sym("a").then(sym("b")).seql(sym("c")).then(sym("d"))
+        >>> parser.parse("abcd").unwrap()
+        (('a', 'b'), 'd')
+
+        :param other: Second parser
+        """
+
+        return FnParser(seql(self, other).to_fn())
+
+    def then(
+            self, other: ParseObj[S_contra, U]) -> "Tuple2[S_contra, V, U]":
+        """
+        Applies up to eight parsers sequentially and returns a tuple of their
+        results.
+
+        >>> from reparsec.sequence import sym
+
+        >>> parser = sym("a").then(sym("b")).then(sym("c"))
+
+        >>> parser.parse("abc").unwrap()
+        ('a', 'b', 'c')
+        >>> parser.parse("ac").unwrap()
+        Traceback (most recent call last):
+          ...
+        reparsec.output.ParseError: at 1: expected 'b'
+
+        :param other: Next parser
+        """
+
+        return Tuple2(seq(self, other).to_fn())
+
+
+class _FnParser(ParseObj[S_contra, V_co]):
     def __init__(self, fn: ParseFn[S_contra, V_co]):
         self._fn = fn
 
@@ -405,6 +451,130 @@ class FnParser(Parser[S_contra, V_co]):
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
             rm: RecoveryMode) -> Result[V_co, S_contra]:
         return self._fn(stream, pos, ctx, rm)
+
+
+class FnParser(_FnParser[S_contra, V_co], Parser[S_contra, V_co]):
+    pass
+
+
+V0 = TypeVar("V0")
+V1 = TypeVar("V1")
+V2 = TypeVar("V2")
+V3 = TypeVar("V3")
+V4 = TypeVar("V4")
+V5 = TypeVar("V5")
+V6 = TypeVar("V6")
+V7 = TypeVar("V7")
+
+
+class _Tuple(_FnParser[S_contra, V_co], _Parser[S_contra, V_co]):
+    pass
+
+
+class Tuple2(_Tuple[S_contra, Tuple[V0, V1]]):
+    def skip(self, other: ParseObj[S_contra, U]) -> "Tuple2[S_contra, V0, V1]":
+        return Tuple2(combinators.seql(self._fn, other.to_fn()))
+
+    def then(
+            self,
+            other: ParseObj[S_contra, V2]) -> "Tuple3[S_contra, V0, V1, V2]":
+        return Tuple3(combinators.tuple3(self._fn, other.to_fn()))
+
+    def apply(self, fn: Callable[[V0, V1], U]) -> Parser[S_contra, U]:
+        return fmap(self, lambda t: fn(*t))
+
+
+class Tuple3(_Tuple[S_contra, Tuple[V0, V1, V2]]):
+    def skip(
+            self,
+            other: ParseObj[S_contra, U]) -> "Tuple3[S_contra, V0, V1, V2]":
+        return Tuple3(combinators.seql(self._fn, other.to_fn()))
+
+    def then(
+        self, other: ParseObj[S_contra, V3]
+    ) -> "Tuple4[S_contra, V0, V1, V2, V3]":
+        return Tuple4(combinators.tuple4(self._fn, other.to_fn()))
+
+    def apply(self, fn: Callable[[V0, V1, V2], U]) -> Parser[S_contra, U]:
+        return fmap(self, lambda t: fn(*t))
+
+
+class Tuple4(_Tuple[S_contra, Tuple[V0, V1, V2, V3]]):
+    def skip(
+        self, other: ParseObj[S_contra, U]
+    ) -> "Tuple4[S_contra, V0, V1, V2, V3]":
+        return Tuple4(combinators.seql(self._fn, other.to_fn()))
+
+    def then(
+        self, other: ParseObj[S_contra, V4]
+    ) -> "Tuple5[S_contra, V0, V1, V2, V3, V4]":
+        return Tuple5(combinators.tuple5(self._fn, other.to_fn()))
+
+    def apply(self, fn: Callable[[V0, V1, V2, V3], U]) -> Parser[S_contra, U]:
+        return fmap(self, lambda t: fn(*t))
+
+
+class Tuple5(_Tuple[S_contra, Tuple[V0, V1, V2, V3, V4]]):
+    def skip(
+            self, other: ParseObj[S_contra, U]
+    ) -> "Tuple5[S_contra, V0, V1, V2, V3, V4]":
+        return Tuple5(combinators.seql(self._fn, other.to_fn()))
+
+    def then(
+        self, other: ParseObj[S_contra, V5]
+    ) -> "Tuple6[S_contra, V0, V1, V2, V3, V4, V5]":
+        return Tuple6(combinators.tuple6(self._fn, other.to_fn()))
+
+    def apply(
+            self,
+            fn: Callable[[V0, V1, V2, V3, V4], U]) -> Parser[S_contra, U]:
+        return fmap(self, lambda t: fn(*t))
+
+
+class Tuple6(_Tuple[S_contra, Tuple[V0, V1, V2, V3, V4, V5]]):
+    def skip(
+            self, other: ParseObj[S_contra, U]
+    ) -> "Tuple6[S_contra, V0, V1, V2, V3, V4, V5]":
+        return Tuple6(combinators.seql(self._fn, other.to_fn()))
+
+    def then(
+            self, other: ParseObj[S_contra, V6]
+    ) -> "Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]":
+        return Tuple7(combinators.tuple7(self._fn, other.to_fn()))
+
+    def apply(
+            self,
+            fn: Callable[[V0, V1, V2, V3, V4, V5], U]) -> Parser[S_contra, U]:
+        return fmap(self, lambda t: fn(*t))
+
+
+class Tuple7(_Tuple[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]]):
+    def skip(
+            self, other: ParseObj[S_contra, U]
+    ) -> "Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]":
+        return Tuple7(combinators.seql(self._fn, other.to_fn()))
+
+    def then(
+            self, other: ParseObj[S_contra, V7]
+    ) -> "Tuple8[S_contra, V0, V1, V2, V3, V4, V5, V6, V7]":
+        return Tuple8(combinators.tuple8(self._fn, other.to_fn()))
+
+    def apply(
+            self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6], U]
+    ) -> Parser[S_contra, U]:
+        return fmap(self, lambda t: fn(*t))
+
+
+class Tuple8(_Tuple[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]):
+    def skip(
+            self, other: ParseObj[S_contra, U]
+    ) -> "Tuple8[S_contra, V0, V1, V2, V3, V4, V5, V6, V7]":
+        return Tuple8(combinators.seql(self._fn, other.to_fn()))
+
+    def apply(
+        self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6, V7], U]
+    ) -> Parser[S_contra, U]:
+        return fmap(self, lambda t: fn(*t))
 
 
 def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> Parser[S, U]:
