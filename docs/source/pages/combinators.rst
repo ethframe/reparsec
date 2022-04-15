@@ -7,4 +7,5 @@ Parser interface and combinators
 
    .. autoclass:: reparsec.Parser
       :members:
+      :inherited-members:
       :special-members: __add__, __or__, __lshift__, __rshift__
