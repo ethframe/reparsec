@@ -21,3 +21,5 @@ __all__ = (
     "chainr1", "fmap", "insert_on_error", "label", "many", "maybe", "sep_by",
     "seq", "seql", "seqr"
 )
+
+__version__ = "0.3.3"
