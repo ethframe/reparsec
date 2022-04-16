@@ -2,7 +2,6 @@
 Core parser API and parser combinators.
 """
 
-from abc import abstractmethod
 from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .core import combinators
@@ -447,7 +446,6 @@ V7 = TypeVar("V7")
 
 
 class Tuple2(Parser[S_contra, Tuple[V0, V1]]):
-    @abstractmethod
     def then(
             self,
             other: ParseObj[S_contra, V2]) -> "Tuple3[S_contra, V0, V1, V2]":
@@ -455,7 +453,8 @@ class Tuple2(Parser[S_contra, Tuple[V0, V1]]):
         See :meth:`EParser.then`.
         """
 
-    @abstractmethod
+        return _Tuple3(combinators.tuple3(self.to_fn(), other.to_fn()))
+
     def apply(self, fn: Callable[[V0, V1], U]) -> Parser[S_contra, U]:
         """
         Applies ``fn`` to elements of parsed tuple.
@@ -463,9 +462,14 @@ class Tuple2(Parser[S_contra, Tuple[V0, V1]]):
         :param fn: Function to apply
         """
 
+        return fmap(self, lambda t: fn(*t))
+
+
+class _Tuple2(_FnParseObj[S_contra, Tuple[V0, V1]], Tuple2[S_contra, V0, V1]):
+    pass
+
 
 class Tuple3(Parser[S_contra, Tuple[V0, V1, V2]]):
-    @abstractmethod
     def then(
         self, other: ParseObj[S_contra, V3]
     ) -> "Tuple4[S_contra, V0, V1, V2, V3]":
@@ -473,7 +477,8 @@ class Tuple3(Parser[S_contra, Tuple[V0, V1, V2]]):
         See :meth:`EParser.then`.
         """
 
-    @abstractmethod
+        return _Tuple4(combinators.tuple4(self.to_fn(), other.to_fn()))
+
     def apply(self, fn: Callable[[V0, V1, V2], U]) -> Parser[S_contra, U]:
         """
         Applies ``fn`` to elements of parsed tuple.
@@ -481,183 +486,142 @@ class Tuple3(Parser[S_contra, Tuple[V0, V1, V2]]):
         :param fn: Function to apply
         """
 
-
-class Tuple4(Parser[S_contra, Tuple[V0, V1, V2, V3]]):
-    @abstractmethod
-    def then(
-        self, other: ParseObj[S_contra, V4]
-    ) -> "Tuple5[S_contra, V0, V1, V2, V3, V4]":
-        """
-        See :meth:`EParser.then`.
-        """
-
-    @abstractmethod
-    def apply(self, fn: Callable[[V0, V1, V2, V3], U]) -> Parser[S_contra, U]:
-        """
-        Applies ``fn`` to elements of parsed tuple.
-
-        :param fn: Function to apply
-        """
-
-
-class Tuple5(Parser[S_contra, Tuple[V0, V1, V2, V3, V4]]):
-    @abstractmethod
-    def then(
-        self, other: ParseObj[S_contra, V5]
-    ) -> "Tuple6[S_contra, V0, V1, V2, V3, V4, V5]":
-        """
-        See :meth:`EParser.then`.
-        """
-
-    @abstractmethod
-    def apply(
-            self,
-            fn: Callable[[V0, V1, V2, V3, V4], U]) -> Parser[S_contra, U]:
-        """
-        Applies ``fn`` to elements of parsed tuple.
-
-        :param fn: Function to apply
-        """
-
-
-class Tuple6(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5]]):
-    @abstractmethod
-    def then(
-            self, other: ParseObj[S_contra, V6]
-    ) -> "Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]":
-        """
-        See :meth:`EParser.then`.
-        """
-
-    @abstractmethod
-    def apply(
-            self,
-            fn: Callable[[V0, V1, V2, V3, V4, V5], U]) -> Parser[S_contra, U]:
-        """
-        Applies ``fn`` to elements of parsed tuple.
-
-        :param fn: Function to apply
-        """
-
-
-class Tuple7(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]]):
-    @abstractmethod
-    def then(
-            self, other: ParseObj[S_contra, V7]
-    ) -> "Tuple8[S_contra, V0, V1, V2, V3, V4, V5, V6, V7]":
-        """
-        See :meth:`EParser.then`.
-        """
-
-    @abstractmethod
-    def apply(
-            self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6], U]
-    ) -> Parser[S_contra, U]:
-        """
-        Applies ``fn`` to elements of parsed tuple.
-
-        :param fn: Function to apply
-        """
-
-
-class Tuple8(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]):
-    @abstractmethod
-    def apply(
-        self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6, V7], U]
-    ) -> Parser[S_contra, U]:
-        """
-        Applies ``fn`` to elements of parsed tuple.
-
-        :param fn: Function to apply
-        """
-
-
-class _Tuple(_FnParseObj[S_contra, V_co], Parser[S_contra, V_co]):
-    pass
-
-
-class _Tuple2(_Tuple[S_contra, Tuple[V0, V1]], Tuple2[S_contra, V0, V1]):
-    def then(
-            self,
-            other: ParseObj[S_contra, V2]) -> "Tuple3[S_contra, V0, V1, V2]":
-        return _Tuple3(combinators.tuple3(self._fn, other.to_fn()))
-
-    def apply(self, fn: Callable[[V0, V1], U]) -> Parser[S_contra, U]:
         return fmap(self, lambda t: fn(*t))
 
 
 class _Tuple3(
-        _Tuple[S_contra, Tuple[V0, V1, V2]], Tuple3[S_contra, V0, V1, V2]):
-    def then(
-        self, other: ParseObj[S_contra, V3]
-    ) -> "Tuple4[S_contra, V0, V1, V2, V3]":
-        return _Tuple4(combinators.tuple4(self._fn, other.to_fn()))
+        _FnParseObj[S_contra, Tuple[V0, V1, V2]],
+        Tuple3[S_contra, V0, V1, V2]):
+    pass
 
-    def apply(self, fn: Callable[[V0, V1, V2], U]) -> Parser[S_contra, U]:
+
+class Tuple4(Parser[S_contra, Tuple[V0, V1, V2, V3]]):
+    def then(
+        self, other: ParseObj[S_contra, V4]
+    ) -> "Tuple5[S_contra, V0, V1, V2, V3, V4]":
+        """
+        See :meth:`EParser.then`.
+        """
+
+        return _Tuple5(combinators.tuple5(self.to_fn(), other.to_fn()))
+
+    def apply(self, fn: Callable[[V0, V1, V2, V3], U]) -> Parser[S_contra, U]:
+        """
+        Applies ``fn`` to elements of parsed tuple.
+
+        :param fn: Function to apply
+        """
+
         return fmap(self, lambda t: fn(*t))
 
 
 class _Tuple4(
-        _Tuple[S_contra, Tuple[V0, V1, V2, V3]],
+        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3]],
         Tuple4[S_contra, V0, V1, V2, V3]):
-    def then(
-        self, other: ParseObj[S_contra, V4]
-    ) -> "Tuple5[S_contra, V0, V1, V2, V3, V4]":
-        return _Tuple5(combinators.tuple5(self._fn, other.to_fn()))
-
-    def apply(self, fn: Callable[[V0, V1, V2, V3], U]) -> Parser[S_contra, U]:
-        return fmap(self, lambda t: fn(*t))
+    pass
 
 
-class _Tuple5(
-        _Tuple[S_contra, Tuple[V0, V1, V2, V3, V4]],
-        Tuple5[S_contra, V0, V1, V2, V3, V4]):
+class Tuple5(Parser[S_contra, Tuple[V0, V1, V2, V3, V4]]):
     def then(
         self, other: ParseObj[S_contra, V5]
     ) -> "Tuple6[S_contra, V0, V1, V2, V3, V4, V5]":
-        return _Tuple6(combinators.tuple6(self._fn, other.to_fn()))
+        """
+        See :meth:`EParser.then`.
+        """
+
+        return _Tuple6(combinators.tuple6(self.to_fn(), other.to_fn()))
 
     def apply(
             self,
             fn: Callable[[V0, V1, V2, V3, V4], U]) -> Parser[S_contra, U]:
+        """
+        Applies ``fn`` to elements of parsed tuple.
+
+        :param fn: Function to apply
+        """
+
         return fmap(self, lambda t: fn(*t))
 
 
-class _Tuple6(
-        _Tuple[S_contra, Tuple[V0, V1, V2, V3, V4, V5]],
-        Tuple6[S_contra, V0, V1, V2, V3, V4, V5]):
+class _Tuple5(
+        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4]],
+        Tuple5[S_contra, V0, V1, V2, V3, V4]):
+    pass
+
+
+class Tuple6(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5]]):
     def then(
             self, other: ParseObj[S_contra, V6]
     ) -> "Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]":
-        return _Tuple7(combinators.tuple7(self._fn, other.to_fn()))
+        """
+        See :meth:`EParser.then`.
+        """
+
+        return _Tuple7(combinators.tuple7(self.to_fn(), other.to_fn()))
 
     def apply(
             self,
             fn: Callable[[V0, V1, V2, V3, V4, V5], U]) -> Parser[S_contra, U]:
+        """
+        Applies ``fn`` to elements of parsed tuple.
+
+        :param fn: Function to apply
+        """
+
         return fmap(self, lambda t: fn(*t))
 
 
-class _Tuple7(
-        _Tuple[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]],
-        Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]):
+class _Tuple6(
+        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4, V5]],
+        Tuple6[S_contra, V0, V1, V2, V3, V4, V5]):
+    pass
+
+
+class Tuple7(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]]):
     def then(
             self, other: ParseObj[S_contra, V7]
     ) -> "Tuple8[S_contra, V0, V1, V2, V3, V4, V5, V6, V7]":
-        return _Tuple8(combinators.tuple8(self._fn, other.to_fn()))
+        """
+        See :meth:`EParser.then`.
+        """
+
+        return _Tuple8(combinators.tuple8(self.to_fn(), other.to_fn()))
 
     def apply(
             self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6], U]
     ) -> Parser[S_contra, U]:
+        """
+        Applies ``fn`` to elements of parsed tuple.
+
+        :param fn: Function to apply
+        """
+
+        return fmap(self, lambda t: fn(*t))
+
+
+class _Tuple7(
+        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]],
+        Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]):
+    pass
+
+
+class Tuple8(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]):
+    def apply(
+        self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6, V7], U]
+    ) -> Parser[S_contra, U]:
+        """
+        Applies ``fn`` to elements of parsed tuple.
+
+        :param fn: Function to apply
+        """
+
         return fmap(self, lambda t: fn(*t))
 
 
 class _Tuple8(
-        _Tuple[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]],
+        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]],
         Tuple8[S_contra, V0, V1, V2, V3, V4, V5, V6, V7]):
-    def apply(
-        self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6, V7], U]
-    ) -> Parser[S_contra, U]:
-        return fmap(self, lambda t: fn(*t))
+    pass
 
 
 def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> EParser[S, U]:
