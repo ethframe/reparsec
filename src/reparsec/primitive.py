@@ -5,7 +5,7 @@ Primitive input-agnostic parsers.
 from typing import TypeVar
 
 from .core import primitive
-from .parser import Parser
+from .parser import EParser
 
 __all__ = ("Pure", "PureFn", "InsertValue", "InsertFn")
 
@@ -13,7 +13,7 @@ S_contra = TypeVar("S_contra", contravariant=True)
 V_co = TypeVar("V_co", covariant=True)
 
 
-class Pure(primitive.Pure[S_contra, V_co], Parser[S_contra, V_co]):
+class Pure(primitive.Pure[S_contra, V_co], EParser[S_contra, V_co]):
     """
     Parser that always succeeds, consumes no input, and returns constant value.
 
@@ -26,7 +26,7 @@ class Pure(primitive.Pure[S_contra, V_co], Parser[S_contra, V_co]):
     """
 
 
-class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
+class PureFn(primitive.PureFn[S_contra, V_co], EParser[S_contra, V_co]):
     """
     Parser that always succeeds, consumes no input, and returns the result of
     function.
@@ -41,7 +41,7 @@ class PureFn(primitive.PureFn[S_contra, V_co], Parser[S_contra, V_co]):
 
 
 class InsertValue(
-        primitive.InsertValue[S_contra, V_co], Parser[S_contra, V_co]):
+        primitive.InsertValue[S_contra, V_co], EParser[S_contra, V_co]):
     """
     Parser that consumes no input, fails when recovery is not allowed, and
     recovers with constant value.
@@ -66,7 +66,7 @@ class InsertValue(
     """
 
 
-class InsertFn(primitive.InsertFn[S_contra, V_co], Parser[S_contra, V_co]):
+class InsertFn(primitive.InsertFn[S_contra, V_co], EParser[S_contra, V_co]):
     """
     Parser that consumes no input, fails when recovery is not allowed, and
     recovers with constant value.

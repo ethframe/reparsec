@@ -6,14 +6,14 @@ from typing import TypeVar, Union
 
 from .core import scannerless
 from .output import ParseResult
-from .parser import FnParser, Parser
+from .parser import EParser, FnParser, Parser
 
 __all__ = ("literal", "regexp", "parse")
 
 V = TypeVar("V")
 
 
-def literal(s: str) -> Parser[str, str]:
+def literal(s: str) -> EParser[str, str]:
     """
     Parses the string ``s`` and returns it.
 
@@ -34,7 +34,7 @@ def literal(s: str) -> Parser[str, str]:
     return FnParser(scannerless.literal(s))
 
 
-def regexp(pat: str, group: Union[int, str] = 0) -> Parser[str, str]:
+def regexp(pat: str, group: Union[int, str] = 0) -> EParser[str, str]:
     """
     Parses the prefix of input that matches ``pat`` and returns the value of
     ``group``.

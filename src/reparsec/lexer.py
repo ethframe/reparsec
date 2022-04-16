@@ -7,7 +7,7 @@ from typing import Iterator, List, Pattern, Sequence, TypeVar
 
 from .core.types import Loc
 from .output import ParseResult
-from .parser import Parser, label
+from .parser import EParser, Parser, label
 from .sequence import satisfy
 
 __all__ = ("Token", "LexError", "split_tokens", "token", "token_ins", "parse")
@@ -101,7 +101,7 @@ def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
     return list(iter_tokens(src, spec))
 
 
-def token(kind: str) -> Parser[Sequence[Token], Token]:
+def token(kind: str) -> EParser[Sequence[Token], Token]:
     """
     Parses token of the specified kind and returns the token.
 
@@ -125,7 +125,7 @@ def token(kind: str) -> Parser[Sequence[Token], Token]:
     return label(satisfy(lambda t: t.kind == kind), kind)
 
 
-def token_ins(kind: str, ins_value: str) -> Parser[Sequence[Token], Token]:
+def token_ins(kind: str, ins_value: str) -> EParser[Sequence[Token], Token]:
     """
     Parses token of the specified kind and returns the token. When error
     recovery is enabled, inserts ``Token(kind=kind, value=ins_value)`` on

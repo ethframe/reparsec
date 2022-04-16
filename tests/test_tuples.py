@@ -18,73 +18,69 @@ comma = sym(",")
 DATA_POSITIVE: List[
     Tuple[Parser[str, Tuple[str, ...]], str, Tuple[str, ...]]
 ] = [
-    (a.skip(comma).then(b), "a,b", ("a", "b")),
-    (a.skip(comma).then(b).skip(comma), "a,b,", ("a", "b")),
-    (a.skip(comma).then(b).skip(comma).then(c), "a,b,c", ("a", "b", "c")),
+    ((a << comma).then(b), "a,b", ("a", "b")),
+    ((a << comma).then(b << comma), "a,b,", ("a", "b")),
+    ((a << comma).then(b << comma).then(c), "a,b,c", ("a", "b", "c")),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma),
+        (a << comma).then(b << comma).then(c << comma),
         "a,b,c,",
         ("a", "b", "c")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d),
+        (a << comma).then(b << comma).then(c << comma).then(d),
         "a,b,c,d",
         ("a", "b", "c", "d")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma),
         "a,b,c,d,",
         ("a", "b", "c", "d")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e),
         "a,b,c,d,e",
         ("a", "b", "c", "d", "e")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e).skip(comma),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e << comma),
         "a,b,c,d,e,",
         ("a", "b", "c", "d", "e")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e).skip(comma).then(f),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e << comma).then(f),
         "a,b,c,d,e,f",
         ("a", "b", "c", "d", "e", "f")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e).skip(comma).then(f).skip(comma),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e << comma).then(f << comma),
         "a,b,c,d,e,f,",
         ("a", "b", "c", "d", "e", "f")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e).skip(comma).then(f).skip(comma).then(g),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e << comma).then(f << comma).then(g),
         "a,b,c,d,e,f,g",
         ("a", "b", "c", "d", "e", "f", "g")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e).skip(comma).then(f).skip(comma).then(g)
-        .skip(comma),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e << comma).then(f << comma).then(g << comma),
         "a,b,c,d,e,f,g,",
         ("a", "b", "c", "d", "e", "f", "g")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e).skip(comma).then(f).skip(comma).then(g)
-        .skip(comma).then(h),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e << comma).then(f << comma).then(g << comma).then(h),
         "a,b,c,d,e,f,g,h",
         ("a", "b", "c", "d", "e", "f", "g", "h")
     ),
     (
-        a.skip(comma).then(b).skip(comma).then(c).skip(comma).then(d)
-        .skip(comma).then(e).skip(comma).then(f).skip(comma).then(g)
-        .skip(comma).then(h).skip(comma),
+        (a << comma).then(b << comma).then(c << comma).then(d << comma)
+        .then(e << comma).then(f << comma).then(g << comma).then(h << comma),
         "a,b,c,d,e,f,g,h,",
         ("a", "b", "c", "d", "e", "f", "g", "h")
     ),

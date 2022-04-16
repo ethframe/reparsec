@@ -7,7 +7,8 @@ from .core.result import Insert, RepairOp, Skip
 from .core.types import Loc
 from .output import ErrorItem, ParseError, ParseResult
 from .parser import (
-    Delay, Parser, alt, attempt, between, bind, chainl1, chainr1, fmap,
+    Delay, EParser, Parser, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7,
+    Tuple8, alt, attempt, between, bind, chainl1, chainr1, fmap,
     insert_on_error, label, many, maybe, sep_by, seq, seql, seqr
 )
 
@@ -17,9 +18,10 @@ __all__ = (
     "Loc",
     "ErrorItem", "ParseError", "ParseResult",
 
-    "Delay", "Parser", "alt", "attempt", "between", "bind", "chainl1",
-    "chainr1", "fmap", "insert_on_error", "label", "many", "maybe", "sep_by",
-    "seq", "seql", "seqr"
+    "Delay", "EParser", "Parser", "Tuple2", "Tuple3", "Tuple4", "Tuple5",
+    "Tuple6", "Tuple7", "Tuple8", "alt", "attempt", "between", "bind",
+    "chainl1", "chainr1", "fmap", "insert_on_error", "label", "many", "maybe",
+    "sep_by", "seq", "seql", "seqr"
 )
 
 __version__ = "0.3.3"
