@@ -43,7 +43,7 @@ def literal(s: str) -> ParseFn[str, str]:
                 if stream.startswith(s, cur):
                     sel = make_skip(
                         cur, s, cur + ls, ctx.update_loc(stream, cur + ls),
-                        loc, cur - pos, expected, True
+                        loc, cur - pos, expected
                     )
                     return Recovered(sel, pending, loc, expected)
                 cur += 1
@@ -79,7 +79,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                         end = r.end()
                         sel = make_skip(
                             cur, v, end, ctx.update_loc(stream, end), loc,
-                            cur - pos, consumed=True
+                            cur - pos
                         )
                         return Recovered(sel, None, loc)
                 cur += 1

@@ -1,7 +1,7 @@
 from typing import Callable, Optional, Sequence, Sized, TypeVar
 
 from .parser import ParseFn
-from .recovery import make_insert, make_skip
+from .recovery import make_insert, make_skip, make_pending_skip
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, RecoveryMode
 
@@ -18,8 +18,11 @@ def eof() -> ParseFn[Sized, None]:
         if rm:
             sl = len(stream)
             return Recovered(
-                make_skip(sl, None, sl, ctx, loc, sl - pos, ["end of file"]),
-                None, loc, ["end of file"]
+                None,
+                make_pending_skip(
+                    None, sl, ctx, loc, sl - pos, ["end of file"]
+                ),
+                loc, ["end of file"]
             )
         return Error(loc, ["end of file"])
 
@@ -43,7 +46,7 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                     return Recovered(
                         make_skip(
                             cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                            loc, cur - pos, consumed=True
+                            loc, cur - pos
                         ),
                         None, loc
                     )
@@ -76,7 +79,7 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                 if t == s:
                     sel = make_skip(
                         cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                        loc, cur - pos, expected, True
+                        loc, cur - pos, expected
                     )
                     return Recovered(sel, pending, loc, expected)
                 cur += 1

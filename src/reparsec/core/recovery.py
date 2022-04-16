@@ -24,12 +24,17 @@ def make_insert(
 
 def make_skip(
         selected: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
-        expected: Iterable[str] = (),
-        consumed: bool = False) -> Selected[V, S]:
+        expected: Iterable[str] = ()) -> Selected[V, S]:
     return Selected(
         selected, 0, 0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
-        consumed=consumed
+        consumed=True
     )
+
+
+def make_pending_skip(
+        value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        expected: Iterable[str] = ()) -> Pending[V, S]:
+    return Pending(0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx)
 
 
 ContinueFn = Callable[[V, S, int, Ctx[S], RecoveryMode], Result[U, S]]
