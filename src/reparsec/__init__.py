@@ -24,4 +24,4 @@ __all__ = (
     "sep_by", "seq", "seql", "seqr"
 )
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"
