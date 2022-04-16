@@ -1,7 +1,7 @@
 from typing import Callable, Optional, Sequence, Sized, TypeVar
 
 from .parser import ParseFn
-from .recovery import make_insert, make_skip, make_pending_skip
+from .recovery import make_insert, make_pending_skip, make_skip
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, RecoveryMode
 
