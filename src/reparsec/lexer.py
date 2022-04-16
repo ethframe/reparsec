@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from typing import Iterator, List, Pattern, Sequence, TypeVar
 
 from .core.types import Loc
-from .output import ParseResult
-from .parser import EParser, Parser, label
+from .parser import Parser, TupleParser, label
 from .sequence import satisfy
+from .types import ParseResult
 
 __all__ = ("Token", "LexError", "split_tokens", "token", "token_ins", "parse")
 
@@ -101,7 +101,7 @@ def split_tokens(src: str, spec: Pattern[str]) -> List[Token]:
     return list(iter_tokens(src, spec))
 
 
-def token(kind: str) -> EParser[Sequence[Token], Token]:
+def token(kind: str) -> TupleParser[Sequence[Token], Token]:
     """
     Parses token of the specified kind and returns the token.
 
@@ -117,7 +117,7 @@ def token(kind: str) -> EParser[Sequence[Token], Token]:
     >>> parse(parser, split_tokens("+", spec)).unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 1:1: expected num
+    reparsec.types.ParseError: at 1:1: expected num
 
     :param kind: Kind of expected token
     """
@@ -125,7 +125,8 @@ def token(kind: str) -> EParser[Sequence[Token], Token]:
     return label(satisfy(lambda t: t.kind == kind), kind)
 
 
-def token_ins(kind: str, ins_value: str) -> EParser[Sequence[Token], Token]:
+def token_ins(
+        kind: str, ins_value: str) -> TupleParser[Sequence[Token], Token]:
     """
     Parses token of the specified kind and returns the token. When error
     recovery is enabled, inserts ``Token(kind=kind, value=ins_value)`` on

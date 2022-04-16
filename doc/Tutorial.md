@@ -27,7 +27,7 @@ error. You can get the actual value or exception with an `unwrap` method:
 >>> digit.parse("a").unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 0: unexpected input
+reparsec.types.ParseError: at 0: unexpected input
 
 ```
 
@@ -109,7 +109,7 @@ with unexpected characters in it?
 >>> list_parser.parse("1,a").unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 2: unexpected input
+reparsec.types.ParseError: at 2: unexpected input
 
 ```
 
@@ -134,7 +134,7 @@ after the list using the `eof` parser:
 >>> list_parser.parse("1a").unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 1: expected ',' or end of file
+reparsec.types.ParseError: at 1: expected ',' or end of file
 
 ```
 
@@ -148,7 +148,7 @@ Let's take a closer look at the errors messages:
 >>> list_parser.parse("1 2").unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 2: expected ',' or end of file
+reparsec.types.ParseError: at 2: expected ',' or end of file
 
 ```
 
@@ -158,7 +158,7 @@ Seems informative.
 >>> list_parser.parse("1,").unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 2: unexpected input
+reparsec.types.ParseError: at 2: unexpected input
 
 ```
 
@@ -178,7 +178,7 @@ idea about the expected token. Let's add some labels to help it:
 >>> list_parser.parse("1,").unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 2: expected number
+reparsec.types.ParseError: at 2: expected number
 
 ```
 
@@ -200,7 +200,7 @@ some parts of the input:
 >>> list_parser.parse("1,", recover=True).unwrap(recover=True)
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 2: expected number
+reparsec.types.ParseError: at 2: expected number
 
 ```
 
@@ -230,7 +230,7 @@ And what if we want to show them to user?
 >>> list_parser.parse("1,,,2 3", recover=True).unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 2: expected number (inserted 0),
+reparsec.types.ParseError: at 2: expected number (inserted 0),
 at 3: expected number (inserted 0),
 at 6: expected ',' or end of file (skipped 1 token)
 
@@ -256,7 +256,7 @@ we will use `reparsec.scannerless.parse`. This is a wrapper around
 >>> parse(list_parser, src, recover=True).unwrap()
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 1:3: expected number (inserted 0),
+reparsec.types.ParseError: at 1:3: expected number (inserted 0),
 at 2:2: expected number (inserted 0),
 at 3:1: expected ',' or end of file (skipped 2 tokens)
 
@@ -276,7 +276,7 @@ don't have to think about how to properly invoke the parser:
 >>> parse_list("1, ,2 3")
 Traceback (most recent call last):
   ...
-reparsec.output.ParseError: at 1:4: expected number (inserted 0),
+reparsec.types.ParseError: at 1:4: expected number (inserted 0),
 at 1:7: expected ',' or end of file (skipped 1 token)
 
 ```

@@ -5,15 +5,15 @@ Parsers for scannerless parsing of strings.
 from typing import TypeVar, Union
 
 from .core import scannerless
-from .output import ParseResult
-from .parser import EParser, FnParser, Parser
+from .parser import FnParser, Parser, TupleParser
+from .types import ParseResult
 
 __all__ = ("literal", "regexp", "parse")
 
 V = TypeVar("V")
 
 
-def literal(s: str) -> EParser[str, str]:
+def literal(s: str) -> TupleParser[str, str]:
     """
     Parses the string ``s`` and returns it.
 
@@ -26,7 +26,7 @@ def literal(s: str) -> EParser[str, str]:
     >>> parser.parse("ac").unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 0: expected 'ab'
+    reparsec.types.ParseError: at 0: expected 'ab'
 
     :param s: String to parse
     """
@@ -34,7 +34,7 @@ def literal(s: str) -> EParser[str, str]:
     return FnParser(scannerless.literal(s))
 
 
-def regexp(pat: str, group: Union[int, str] = 0) -> EParser[str, str]:
+def regexp(pat: str, group: Union[int, str] = 0) -> TupleParser[str, str]:
     """
     Parses the prefix of input that matches ``pat`` and returns the value of
     ``group``.
@@ -48,7 +48,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> EParser[str, str]:
     >>> parser.parse("bb").unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 0: unexpected input
+    reparsec.types.ParseError: at 0: unexpected input
 
     :param pat: Regular expression
     :param group: Group index or name
@@ -71,11 +71,11 @@ def parse(
     >>> parser.parse("a\\nbb").unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 3: expected 'c'
+    reparsec.types.ParseError: at 3: expected 'c'
     >>> parse(parser, "a\\nbb").unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 2:2: expected 'c'
+    reparsec.types.ParseError: at 2:2: expected 'c'
 
     :param parser: Parser to run
     :param stream: String to parse

@@ -5,14 +5,14 @@ Parsers for arbitrary sequences.
 from typing import Callable, Optional, Sequence, Sized, TypeVar
 
 from .core import sequence
-from .parser import EParser, FnParser
+from .parser import FnParser, TupleParser
 
 __all__ = ("eof", "satisfy", "sym", "letter", "digit")
 
 T = TypeVar("T")
 
 
-def eof() -> EParser[Sized, None]:
+def eof() -> TupleParser[Sized, None]:
     """
     Succeeds at the end of the input.
 
@@ -22,13 +22,13 @@ def eof() -> EParser[Sized, None]:
     >>> eof().parse("a").unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 0: expected end of file
+    reparsec.types.ParseError: at 0: expected end of file
     """
 
     return FnParser(sequence.eof())
 
 
-def satisfy(test: Callable[[T], bool]) -> EParser[Sequence[T], T]:
+def satisfy(test: Callable[[T], bool]) -> TupleParser[Sequence[T], T]:
     """
     Succeeds for sequence element for which ``test`` returns ``True`` and
     returns that element.
@@ -42,7 +42,7 @@ def satisfy(test: Callable[[T], bool]) -> EParser[Sequence[T], T]:
     >>> parser.parse("0").unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 0: unexpected input
+    reparsec.types.ParseError: at 0: unexpected input
 
     :param test: Predicate for sequence elements
     """
@@ -50,7 +50,7 @@ def satisfy(test: Callable[[T], bool]) -> EParser[Sequence[T], T]:
     return FnParser(sequence.satisfy(test))
 
 
-def sym(s: T, label: Optional[str] = None) -> EParser[Sequence[T], T]:
+def sym(s: T, label: Optional[str] = None) -> TupleParser[Sequence[T], T]:
     """
     Parses ``s`` and returns the parsed element.
 
@@ -61,7 +61,7 @@ def sym(s: T, label: Optional[str] = None) -> EParser[Sequence[T], T]:
     >>> sym("a").parse("0").unwrap()
     Traceback (most recent call last):
       ...
-    reparsec.output.ParseError: at 0: expected 'a'
+    reparsec.types.ParseError: at 0: expected 'a'
 
     :param s: Value to parse
     :param label: Label to use instead of ``repr(s)``
@@ -70,5 +70,5 @@ def sym(s: T, label: Optional[str] = None) -> EParser[Sequence[T], T]:
     return FnParser(sequence.sym(s, label))
 
 
-letter: EParser[Sequence[str], str] = satisfy(str.isalpha).label("letter")
-digit: EParser[Sequence[str], str] = satisfy(str.isdigit).label("digit")
+letter: TupleParser[Sequence[str], str] = satisfy(str.isalpha).label("letter")
+digit: TupleParser[Sequence[str], str] = satisfy(str.isdigit).label("digit")
