@@ -131,10 +131,7 @@ def join_repairs(
     sb = rb.selected
     if selected is None or sb is not None and (
             selected.selected > sb.selected or
-            selected.selected == sb.selected and (
-                selected.prefix > sb.prefix or
-                selected.prefix == sb.prefix and
-                selected.count > sb.count)):
+            selected.selected == sb.selected and selected.prefix > sb.prefix):
         selected = sb
     pending: Optional[Pending[Union[V, U], S]] = ra.pending
     pb = rb.pending
