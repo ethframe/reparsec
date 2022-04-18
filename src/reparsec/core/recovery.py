@@ -1,40 +1,14 @@
 from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from .chain import Append
-from .result import (
-    BaseRepair, Error, Insert, Ok, OpItem, Pending, Recovered, Result,
-    Selected, Skip, ops_prepend_expected
-)
-from .types import Ctx, Loc, RecoveryMode, maybe_allow_recovery
+from .repair import BaseRepair, OpItem, Pending, Selected, ops_prepend_expected
+from .result import Error, Ok, Recovered, Result
+from .types import Ctx, RecoveryMode, maybe_allow_recovery
 
 S = TypeVar("S")
 V = TypeVar("V")
 U = TypeVar("U")
 X = TypeVar("X")
-
-
-def make_insert(
-        value: V, pos: int, ctx: Ctx[S], loc: Loc,
-        label: str, expected: Iterable[str] = ()) -> Pending[V, S]:
-    return Pending(
-        1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
-        consumed=True
-    )
-
-
-def make_skip(
-        selected: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
-        expected: Iterable[str] = ()) -> Selected[V, S]:
-    return Selected(
-        selected, 0, 0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
-        consumed=True
-    )
-
-
-def make_pending_skip(
-        value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
-        expected: Iterable[str] = ()) -> Pending[V, S]:
-    return Pending(0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx)
 
 
 ContinueFn = Callable[[V, S, int, Ctx[S], RecoveryMode], Result[U, S]]

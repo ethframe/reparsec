@@ -2,7 +2,7 @@ import re
 from typing import Optional, TypeVar, Union
 
 from .parser import ParseFn
-from .recovery import make_insert, make_skip
+from .repair import make_insert, make_skip
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, Loc, RecoveryMode
 

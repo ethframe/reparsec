@@ -1,7 +1,7 @@
 from typing import Callable, Optional, TypeVar
 
 from .parser import ParseObj
-from .recovery import make_insert
+from .repair import make_insert
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, RecoveryMode
 

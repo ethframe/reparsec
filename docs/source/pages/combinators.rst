@@ -3,8 +3,8 @@ Parser interface and combinators
 
 .. automodule:: reparsec
 
-Core parser interface
----------------------
+Parser
+------
 
 .. autoclass:: reparsec.Parser
    :members:
@@ -14,10 +14,10 @@ Core parser interface
 Helper types
 ------------
 
-.. autoclass:: reparsec.Delay
+.. autoclass:: reparsec.TupleParser
    :members:
 
-.. autoclass:: reparsec.TupleParser
+.. autoclass:: reparsec.Delay
    :members:
 
 .. autoclass:: reparsec.Tuple2

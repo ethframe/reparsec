@@ -2,7 +2,8 @@ from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .chain import Append
 from .parser import ParseFn, ParseObj
-from .recovery import MergeFn, continue_parse, join_repairs, make_insert
+from .recovery import MergeFn, continue_parse, join_repairs
+from .repair import make_insert
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, RecoveryMode, disallow_recovery, maybe_allow_recovery
 

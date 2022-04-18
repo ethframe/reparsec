@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
 from .core.parser import ParseObj
-from .core.result import BaseRepair, Error, Ok, RepairOp, Result, Skip
+from .core.repair import BaseRepair, RepairOp, Skip
+from .core.result import Error, Ok, Result
 from .core.types import Ctx, Loc
 
 S = TypeVar("S")

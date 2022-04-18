@@ -3,7 +3,7 @@ Public API.
 """
 
 from . import layout, lexer, primitive, scannerless, sequence
-from .core.result import Insert, RepairOp, Skip
+from .core.repair import Insert, RepairOp, Skip
 from .core.types import Loc
 from .parser import (
     Delay, Parser, Tuple2, Tuple3, Tuple4, Tuple5, Tuple6, Tuple7, Tuple8,

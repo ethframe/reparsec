@@ -1,9 +1,9 @@
-from dataclasses import dataclass
-from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
+from typing import Callable, Generic, Iterable, Optional, TypeVar, Union
 
 from typing_extensions import final
 
 from .chain import Append
+from .repair import Pending, Selected, ops_prepend_expected, ops_set_expected
 from .types import Ctx, Loc
 
 V = TypeVar("V")
@@ -87,55 +87,6 @@ class Error:
         return self
 
 
-@dataclass
-@final
-class Skip:
-    count: int
-
-
-@dataclass
-@final
-class Insert:
-    label: str
-
-
-RepairOp = Union[Skip, Insert]
-
-
-@dataclass
-class OpItem:
-    op: RepairOp
-    loc: Loc
-    expected: Iterable[str] = ()
-    consumed: bool = False
-
-
-@dataclass
-class BaseRepair(Generic[V_co, S]):
-    count: int
-    ops: List[OpItem]
-    value: V_co
-    pos: int
-    ctx: Ctx[S]
-    expected: Iterable[str] = ()
-    consumed: bool = False
-
-
-class Pending(BaseRepair[V_co, S]):
-    pass
-
-
-@dataclass
-class _Selected:
-    selected: int
-    prefix: int
-
-
-@dataclass
-class Selected(BaseRepair[V_co, S], _Selected):
-    pass
-
-
 @final
 class Recovered(Generic[V_co, S]):
     __slots__ = "selected", "pending", "loc", "expected", "consumed"
@@ -217,20 +168,6 @@ class Recovered(Generic[V_co, S]):
                 pending.consumed |= consumed
             ops_prepend_expected(pending.ops, expected, consumed)
         return self
-
-
-def ops_set_expected(ops: List[OpItem], expected: Iterable[str]) -> None:
-    for op in ops:
-        if not op.consumed:
-            op.expected = expected
-
-
-def ops_prepend_expected(
-        ops: List[OpItem], expected: Iterable[str], consumed: bool) -> None:
-    for op in ops:
-        if not op.consumed:
-            op.expected = Append(expected, op.expected)
-            op.consumed |= consumed
 
 
 Result = Union[Recovered[V, S], Ok[V, S], Error]

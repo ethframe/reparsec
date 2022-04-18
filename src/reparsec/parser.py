@@ -641,6 +641,65 @@ class _Tuple8(
     pass
 
 
+class Delay(TupleParser[S_contra, V_co]):
+    """
+    A subclass of :class:`TupleParser` to use as a forward declaration.
+
+    >>> from reparsec import Delay
+    >>> from reparsec.sequence import sym
+
+    >>> parser = Delay()
+    >>> parser.define((sym("a") + parser).maybe())
+
+    >>> parser.parse("aaa").unwrap()
+    ('a', ('a', ('a', None)))
+    """
+
+    def __init__(self) -> None:
+        def _fn(
+                stream: S_contra, pos: int, ctx: Ctx[S_contra],
+                rm: RecoveryMode) -> Result[V_co, S_contra]:
+            raise RuntimeError("Delayed parser was not defined")
+
+        self._defined = False
+        self._fn: ParseFn[S_contra, V_co] = _fn
+
+    def define(self, parser: ParseObj[S_contra, V_co]) -> None:
+        """
+        Define the parser.
+
+        >>> from reparsec import Delay
+        >>> from reparsec.sequence import sym
+
+        >>> parser = Delay()
+        >>> parser.parse("a")
+        Traceback (most recent call last):
+          ...
+        RuntimeError: Delayed parser was not defined
+
+        >>> parser.define(sym("a"))
+        >>> parser.parse("a").unwrap()
+        'a'
+
+        :param parser: Parser definition
+        """
+
+        if self._defined:
+            raise RuntimeError("Delayed parser was already defined")
+        self._defined = True
+        self._fn = parser.to_fn()
+
+    def parse_fn(
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
+            rm: RecoveryMode) -> Result[V_co, S_contra]:
+        return self._fn(stream, pos, ctx, rm)
+
+    def to_fn(self) -> ParseFn[S_contra, V_co]:
+        if self._defined:
+            return self._fn
+        return super().to_fn()
+
+
 def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> TupleParser[S, U]:
     """
     :meth:`Parser.fmap` as a function.
@@ -769,65 +828,6 @@ def insert_on_error(
     return FnParser(
         combinators.insert_on_error(parser.to_fn(), insert_fn, label)
     )
-
-
-class Delay(TupleParser[S_contra, V_co]):
-    """
-    A subclass of :class:`TupleParser` to use as a forward declaration.
-
-    >>> from reparsec import Delay
-    >>> from reparsec.sequence import sym
-
-    >>> parser = Delay()
-    >>> parser.define((sym("a") + parser).maybe())
-
-    >>> parser.parse("aaa").unwrap()
-    ('a', ('a', ('a', None)))
-    """
-
-    def __init__(self) -> None:
-        def _fn(
-                stream: S_contra, pos: int, ctx: Ctx[S_contra],
-                rm: RecoveryMode) -> Result[V_co, S_contra]:
-            raise RuntimeError("Delayed parser was not defined")
-
-        self._defined = False
-        self._fn: ParseFn[S_contra, V_co] = _fn
-
-    def define(self, parser: ParseObj[S_contra, V_co]) -> None:
-        """
-        Define the parser.
-
-        >>> from reparsec import Delay
-        >>> from reparsec.sequence import sym
-
-        >>> parser = Delay()
-        >>> parser.parse("a")
-        Traceback (most recent call last):
-          ...
-        RuntimeError: Delayed parser was not defined
-
-        >>> parser.define(sym("a"))
-        >>> parser.parse("a").unwrap()
-        'a'
-
-        :param parser: Parser definition
-        """
-
-        if self._defined:
-            raise RuntimeError("Delayed parser was already defined")
-        self._defined = True
-        self._fn = parser.to_fn()
-
-    def parse_fn(
-            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            rm: RecoveryMode) -> Result[V_co, S_contra]:
-        return self._fn(stream, pos, ctx, rm)
-
-    def to_fn(self) -> ParseFn[S_contra, V_co]:
-        if self._defined:
-            return self._fn
-        return super().to_fn()
 
 
 def sep_by(
