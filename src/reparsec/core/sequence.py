@@ -36,7 +36,7 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
         if pos < len(stream):
             t = stream[pos]
             if test(t):
-                return Ok(t, pos + 1, ctx, consumed=True)
+                return Ok(t, pos + 1, ctx, (), True)
         loc = ctx.get_loc(stream, pos)
         if rm:
             cur = pos + 1
@@ -69,7 +69,7 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
         if pos < len(stream):
             t = stream[pos]
             if t == s:
-                return Ok(t, pos + 1, ctx, consumed=True)
+                return Ok(t, pos + 1, ctx, (), True)
         loc = ctx.get_loc(stream, pos)
         if rm:
             pending = make_insert(s, pos, ctx, loc, label_, expected)

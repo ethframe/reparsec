@@ -32,9 +32,7 @@ def literal(s: str) -> ParseFn[str, str]:
             stream: str, pos: int, ctx: Ctx[str],
             rm: RecoveryMode) -> Result[str, str]:
         if stream.startswith(s, pos):
-            return Ok(
-                s, pos + ls, ctx.update_loc(stream, pos + ls), consumed=True
-            )
+            return Ok(s, pos + ls, ctx.update_loc(stream, pos + ls), (), True)
         loc = ctx.get_loc(stream, pos)
         if rm:
             pending = make_insert(s, pos, ctx, loc, rs, expected)
@@ -65,9 +63,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
             v: Optional[str] = r.group(group)
             if v is not None:
                 end = r.end()
-                return Ok(
-                    v, end, ctx.update_loc(stream, end), consumed=end != pos
-                )
+                return Ok(v, end, ctx.update_loc(stream, end), (), end != pos)
         loc = ctx.get_loc(stream, pos)
         if rm:
             cur = pos + 1

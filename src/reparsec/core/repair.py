@@ -78,8 +78,7 @@ def make_insert(
         value: V, pos: int, ctx: Ctx[S], loc: Loc,
         label: str, expected: Iterable[str] = ()) -> Pending[V, S]:
     return Pending(
-        1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
-        consumed=True
+        1, [OpItem(Insert(label), loc, expected)], value, pos, ctx, (), True
     )
 
 
@@ -88,7 +87,7 @@ def make_skip(
         expected: Iterable[str] = ()) -> Selected[V, S]:
     return Selected(
         selected, 0, 0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
-        consumed=True
+        (), True
     )
 
 
