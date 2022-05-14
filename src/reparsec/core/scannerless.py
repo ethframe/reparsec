@@ -35,7 +35,9 @@ def literal(s: str) -> ParseFn[str, str]:
             return Ok(s, pos + ls, ctx.update_loc(stream, pos + ls), (), True)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = make_insert(s, pos, ctx, loc, rs, expected)
+            pending = (
+                make_insert(s, pos, ctx, loc, rs, expected) if rm[0] else None
+            )
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):

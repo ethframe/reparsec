@@ -72,7 +72,10 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                 return Ok(t, pos + 1, ctx, (), True)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = make_insert(s, pos, ctx, loc, label_, expected)
+            pending = (
+                make_insert(s, pos, ctx, loc, label_, expected) if rm[0]
+                else None
+            )
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]

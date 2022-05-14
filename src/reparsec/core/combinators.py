@@ -234,7 +234,7 @@ def attempt(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
         if rm:
-            return parse_fn(stream, pos, ctx, True)
+            return parse_fn(stream, pos, ctx, rm)
         r = parse_fn(stream, pos, ctx, None)
         if type(r) is Error:
             return Error(r.loc, r.expected)
@@ -261,7 +261,7 @@ def insert_on_error(
             stream: S, pos: int, ctx: Ctx[S],
             rm: RecoveryMode) -> Result[V, S]:
         r = parse_fn(stream, pos, ctx, rm)
-        if rm and type(r) is Error and not r.consumed:
+        if rm and rm[0] and type(r) is Error and not r.consumed:
             value = insert_fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             return Recovered(

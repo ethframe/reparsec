@@ -3,7 +3,7 @@ from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 from .chain import Append
 from .repair import BaseRepair, OpItem, Pending, Selected, ops_prepend_expected
 from .result import Error, Ok, Recovered, Result
-from .types import Ctx, RecoveryMode, maybe_allow_recovery
+from .types import Ctx, RecoveryMode, decrease_insertions, maybe_allow_recovery
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -21,22 +21,26 @@ def continue_parse(
 
     sa = ra.selected
     if sa is not None:
-        ctx = sa.ctx.decrease_max_insertions(sa.count)
         rb = parse(
-            sa.value, stream, sa.pos, ctx,
-            maybe_allow_recovery(ctx, rm, sa.consumed)
-        ).set_ctx(sa.ctx)
+            sa.value, stream, sa.pos, sa.ctx,
+            decrease_insertions(
+                maybe_allow_recovery(sa.ctx, rm, sa.consumed),
+                sa.count
+            )
+        )
         selected = _append_selected(sa, rb, merge)
     else:
         selected = None
 
     pa = ra.pending
     if pa is not None:
-        ctx = pa.ctx.decrease_max_insertions(pa.count)
         rb = parse(
-            pa.value, stream, pa.pos, ctx,
-            maybe_allow_recovery(ctx, rm, pa.consumed)
-        ).set_ctx(pa.ctx)
+            pa.value, stream, pa.pos, pa.ctx,
+            decrease_insertions(
+                maybe_allow_recovery(pa.ctx, rm, pa.consumed),
+                pa.count
+            )
+        )
         st, pending = _append_pending(pa, rb, merge)
         if selected is None or st is not None and (
                 selected.selected > st.selected or
