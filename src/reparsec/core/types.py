@@ -56,7 +56,11 @@ def maybe_allow_recovery(
     return rm
 
 
-def decrease_insertions(rm: RecoveryMode, count: int) -> RecoveryMode:
+def update_rm_after_recovery(
+        ctx: Ctx[S], rm: RecoveryMode, consumed: bool,
+        count: int) -> RecoveryMode:
     if rm:
         return (max(rm[0] - count, 0),)
+    if rm is False and consumed:
+        return (max(ctx.rm[0] - count, 0),)
     return rm

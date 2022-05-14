@@ -3,7 +3,7 @@ from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 from .chain import Append
 from .repair import BaseRepair, OpItem, Pending, Selected, ops_prepend_expected
 from .result import Error, Ok, Recovered, Result
-from .types import Ctx, RecoveryMode, decrease_insertions, maybe_allow_recovery
+from .types import Ctx, RecoveryMode, update_rm_after_recovery
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -23,10 +23,7 @@ def continue_parse(
     if sa is not None:
         rb = parse(
             sa.value, stream, sa.pos, sa.ctx,
-            decrease_insertions(
-                maybe_allow_recovery(sa.ctx, rm, sa.consumed),
-                sa.count
-            )
+            update_rm_after_recovery(sa.ctx, rm, sa.consumed, sa.count)
         )
         selected = _append_selected(sa, rb, merge)
     else:
@@ -36,10 +33,7 @@ def continue_parse(
     if pa is not None:
         rb = parse(
             pa.value, stream, pa.pos, pa.ctx,
-            decrease_insertions(
-                maybe_allow_recovery(pa.ctx, rm, pa.consumed),
-                pa.count
-            )
+            update_rm_after_recovery(pa.ctx, rm, pa.consumed, pa.count)
         )
         st, pending = _append_pending(pa, rb, merge)
         if selected is None or st is not None and (
