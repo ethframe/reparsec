@@ -7,7 +7,7 @@ from typing import Callable, List, Optional, Tuple, TypeVar, Union
 from .core import combinators
 from .core.parser import ParseFn, ParseObj
 from .core.result import Result
-from .core.types import Ctx, RecoveryMode
+from .core.types import Ctx, RecoveryState
 from .types import ParserParseObj
 
 S = TypeVar("S")
@@ -433,8 +433,8 @@ class _FnParseObj(ParseObj[S_contra, V_co]):
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            rm: RecoveryMode) -> Result[V_co, S_contra]:
-        return self._fn(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[V_co, S_contra]:
+        return self._fn(stream, pos, ctx, rs)
 
 
 class FnParser(_FnParseObj[S_contra, V_co], TupleParser[S_contra, V_co]):
@@ -689,7 +689,7 @@ class Delay(TupleParser[S_contra, V_co]):
     def __init__(self) -> None:
         def _fn(
                 stream: S_contra, pos: int, ctx: Ctx[S_contra],
-                rm: RecoveryMode) -> Result[V_co, S_contra]:
+                rs: RecoveryState) -> Result[V_co, S_contra]:
             raise RuntimeError("Delayed parser was not defined")
 
         self._defined = False
@@ -722,8 +722,8 @@ class Delay(TupleParser[S_contra, V_co]):
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            rm: RecoveryMode) -> Result[V_co, S_contra]:
-        return self._fn(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[V_co, S_contra]:
+        return self._fn(stream, pos, ctx, rs)
 
     def to_fn(self) -> ParseFn[S_contra, V_co]:
         if self._defined:

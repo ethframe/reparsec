@@ -5,7 +5,7 @@ from .parser import ParseFn, ParseObj
 from .recovery import MergeFn, continue_parse, join_repairs
 from .repair import make_insert
 from .result import Error, Ok, Recovered, Result
-from .types import Ctx, RecoveryMode, disallow_recovery, maybe_allow_recovery
+from .types import Ctx, RecoveryState, disallow_recovery, maybe_allow_recovery
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -16,8 +16,8 @@ X = TypeVar("X")
 def fmap(parse_fn: ParseFn[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
     def fmap(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[U, S]:
-        return parse_fn(stream, pos, ctx, rm).fmap(fn)
+            rs: RecoveryState) -> Result[U, S]:
+        return parse_fn(stream, pos, ctx, rs).fmap(fn)
     return fmap
 
 
@@ -26,19 +26,19 @@ def alt(
         second_fn: ParseFn[S, U]) -> ParseFn[S, Union[V, U]]:
     def alt(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[Union[V, U], S]:
-        ra = parse_fn(stream, pos, ctx, disallow_recovery(rm))
+            rs: RecoveryState) -> Result[Union[V, U], S]:
+        ra = parse_fn(stream, pos, ctx, disallow_recovery(rs))
         if type(ra) is Ok or ra.consumed:
             return ra
-        rb = second_fn(stream, pos, ctx, disallow_recovery(rm))
+        rb = second_fn(stream, pos, ctx, disallow_recovery(rs))
         if rb.consumed:
             return rb
         expected = Append(ra.expected, rb.expected)
         if type(rb) is Ok:
             return rb.set_expected(expected)
-        if rm:
-            rra = parse_fn(stream, pos, ctx, rm)
-            rrb = second_fn(stream, pos, ctx, rm)
+        if rs:
+            rra = parse_fn(stream, pos, ctx, rs)
+            rrb = second_fn(stream, pos, ctx, rs)
             if type(rra) is Recovered:
                 if type(rrb) is Recovered:
                     return join_repairs(rra, rrb).set_expected(expected)
@@ -55,8 +55,8 @@ def bind(
         fn: Callable[[V], ParseObj[S, U]]) -> ParseFn[S, U]:
     def bind(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[U, S]:
-        ra = parse_fn(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[U, S]:
+        ra = parse_fn(stream, pos, ctx, rs)
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
@@ -65,7 +65,7 @@ def bind(
                 lambda _, v: v
             )
         return fn(ra.value).parse_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rm, ra.consumed)
+            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rs, ra.consumed)
         ).prepend_expected(ra.expected, ra.consumed)
 
     return bind
@@ -76,8 +76,8 @@ def _seq(
         merge: MergeFn[V, U, X]) -> ParseFn[S, X]:
     def seq(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[X, S]:
-        ra = parse_fn(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[X, S]:
+        ra = parse_fn(stream, pos, ctx, rs)
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
@@ -86,7 +86,7 @@ def _seq(
             )
         va = ra.value
         return second_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rm, ra.consumed)
+            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rs, ra.consumed)
         ).fmap(
             lambda vb: merge(va, vb)
         ).prepend_expected(ra.expected, ra.consumed)
@@ -182,8 +182,8 @@ def tuple8(
 def maybe(parse_fn: ParseFn[S, V]) -> ParseFn[S, Optional[V]]:
     def maybe(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[Optional[V], S]:
-        r = parse_fn(stream, pos, ctx, disallow_recovery(rm))
+            rs: RecoveryState) -> Result[Optional[V], S]:
+        r = parse_fn(stream, pos, ctx, disallow_recovery(rs))
         if r.consumed or type(r) is Ok:
             return r
         return Ok(None, pos, ctx, r.expected)
@@ -194,11 +194,11 @@ def maybe(parse_fn: ParseFn[S, V]) -> ParseFn[S, Optional[V]]:
 def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
     def many(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[List[V], S]:
-        rm = disallow_recovery(rm)
+            rs: RecoveryState) -> Result[List[V], S]:
+        rs = disallow_recovery(rs)
         consumed = False
         value: List[V] = []
-        r = parse_fn(stream, pos, ctx, rm)
+        r = parse_fn(stream, pos, ctx, rs)
         while type(r) is Ok:
             if not r.consumed:
                 raise RuntimeError("parser shouldn't accept empty string")
@@ -206,7 +206,7 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
             value.append(r.value)
             pos = r.pos
             ctx = r.ctx
-            r = parse_fn(stream, pos, ctx, rm)
+            r = parse_fn(stream, pos, ctx, rs)
         if type(r) is Recovered:
             return continue_parse(
                 stream, r, parse, lambda a, b: [*value, a, *b]
@@ -217,8 +217,8 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
 
     def parse(
             _: V, stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[List[V], S]:
-        r = many(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[List[V], S]:
+        r = many(stream, pos, ctx, rs)
         if type(r) is Error and not r.consumed:
             return Ok[List[V], S]([], pos, ctx, r.expected)
         return r
@@ -230,9 +230,9 @@ def attempt(
         parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     def attempt(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[V, S]:
-        if rm:
-            return parse_fn(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[V, S]:
+        if rs:
+            return parse_fn(stream, pos, ctx, rs)
         r = parse_fn(stream, pos, ctx, None)
         if type(r) is Error:
             return Error(r.loc, r.expected)
@@ -246,8 +246,8 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
 
     def label(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[V, S]:
-        return parse_fn(stream, pos, ctx, rm).set_expected(expected)
+            rs: RecoveryState) -> Result[V, S]:
+        return parse_fn(stream, pos, ctx, rs).set_expected(expected)
 
     return label
 
@@ -257,16 +257,16 @@ def recover_with(
         label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
     def recover_with(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[Union[V, U], S]:
-        r = parse_fn(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[Union[V, U], S]:
+        r = parse_fn(stream, pos, ctx, rs)
         if type(r) is Ok or r.consumed:
             return r
-        if rm and rm[0]:
+        if rs and rs[0]:
             loc = ctx.get_loc(stream, pos)
             ra = Recovered(
                 [
                     make_insert(
-                        rm[0], value, pos, ctx, loc,
+                        rs[0], value, pos, ctx, loc,
                         repr(value) if label is None else label, r.expected
                     )
                 ], None, loc
@@ -284,17 +284,17 @@ def recover_with_fn(
         label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
     def recover_with_fn(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[Union[V, U], S]:
-        r = parse_fn(stream, pos, ctx, rm)
+            rs: RecoveryState) -> Result[Union[V, U], S]:
+        r = parse_fn(stream, pos, ctx, rs)
         if type(r) is Ok or r.consumed:
             return r
-        if rm and rm[0]:
+        if rs and rs[0]:
             value = value_fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             ra = Recovered(
                 [
                     make_insert(
-                        rm[0], value, pos, ctx, loc,
+                        rs[0], value, pos, ctx, loc,
                         repr(value) if label is None else label, r.expected
                     )
                 ], None, loc

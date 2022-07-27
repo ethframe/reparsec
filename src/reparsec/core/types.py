@@ -15,14 +15,14 @@ class Loc(NamedTuple):
 
 
 class Ctx(Generic[S_contra]):
-    __slots__ = "anchor", "loc", "rm", "_get_loc"
+    __slots__ = "anchor", "loc", "rs", "_get_loc"
 
     def __init__(
-            self, anchor: int, loc: Loc, rm: Tuple[int],
+            self, anchor: int, loc: Loc, rs: Tuple[int],
             get_loc: Callable[[Loc, S_contra, int], Loc]):
         self.anchor = anchor
         self.loc = loc
-        self.rm = rm
+        self.rs = rs
         self._get_loc = get_loc
 
     def get_loc(self, stream: S_contra, pos: int) -> Loc:
@@ -32,25 +32,25 @@ class Ctx(Generic[S_contra]):
         if pos == self.loc.pos:
             return self
         return Ctx(
-            self.anchor, self._get_loc(self.loc, stream, pos), self.rm,
+            self.anchor, self._get_loc(self.loc, stream, pos), self.rs,
             self._get_loc
         )
 
     def set_anchor(self, anchor: int) -> "Ctx[S_contra]":
-        return Ctx(anchor, self.loc, self.rm, self._get_loc)
+        return Ctx(anchor, self.loc, self.rs, self._get_loc)
 
 
-RecoveryMode = Union[Literal[None, False], Tuple[int]]
+RecoveryState = Union[Literal[None, False], Tuple[int]]
 
 
-def disallow_recovery(rm: RecoveryMode) -> RecoveryMode:
-    if rm is None:
+def disallow_recovery(rs: RecoveryState) -> RecoveryState:
+    if rs is None:
         return None
     return False
 
 
 def maybe_allow_recovery(
-        ctx: Ctx[S], rm: RecoveryMode, consumed: bool) -> RecoveryMode:
-    if rm is False and consumed:
-        return ctx.rm
-    return rm
+        ctx: Ctx[S], rs: RecoveryState, consumed: bool) -> RecoveryState:
+    if rs is False and consumed:
+        return ctx.rs
+    return rs
