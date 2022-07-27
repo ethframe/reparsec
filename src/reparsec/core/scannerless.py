@@ -4,7 +4,7 @@ from typing import List, Optional, TypeVar, Union
 from .parser import ParseFn
 from .repair import Repair, make_insert, make_skip
 from .result import Error, Ok, Recovered, Result
-from .types import Ctx, Loc, RecoveryMode
+from .types import Ctx, Loc, RecoveryState
 
 V = TypeVar("V")
 
@@ -25,25 +25,25 @@ def literal(s: str) -> ParseFn[str, str]:
         raise ValueError("Expected non-empty value")
 
     ls = len(s)
-    rs = repr(s)
-    expected = [rs]
+    ss = repr(s)
+    expected = [ss]
 
     def literal(
             stream: str, pos: int, ctx: Ctx[str],
-            rm: RecoveryMode) -> Result[str, str]:
+            rs: RecoveryState) -> Result[str, str]:
         if stream.startswith(s, pos):
             return Ok(s, pos + ls, ctx.update_loc(stream, pos + ls), (), True)
         loc = ctx.get_loc(stream, pos)
-        if rm:
+        if rs:
             reps: List[Repair[str, str]] = []
-            if rm[0]:
-                reps.append(make_insert(rm[0], s, pos, ctx, loc, rs, expected))
+            if rs[0]:
+                reps.append(make_insert(rs[0], s, pos, ctx, loc, ss, expected))
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
                     reps.append(
                         make_skip(
-                            rm[0], s, cur + ls,
+                            rs[0], s, cur + ls,
                             ctx.update_loc(stream, cur + ls), loc, cur - pos,
                             expected
                         )
@@ -62,7 +62,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
 
     def regexp(
             stream: str, pos: int, ctx: Ctx[str],
-            rm: RecoveryMode) -> Result[str, str]:
+            rs: RecoveryState) -> Result[str, str]:
         r = match(stream, pos=pos)
         if r is not None:
             v: Optional[str] = r.group(group)
@@ -70,7 +70,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                 end = r.end()
                 return Ok(v, end, ctx.update_loc(stream, end), (), end != pos)
         loc = ctx.get_loc(stream, pos)
-        if rm:
+        if rs:
             cur = pos + 1
             while cur < len(stream):
                 r = match(stream, pos=cur)
@@ -81,7 +81,7 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                         return Recovered(
                             [
                                 make_skip(
-                                    rm[0], v, end, ctx.update_loc(stream, end),
+                                    rs[0], v, end, ctx.update_loc(stream, end),
                                     loc, cur - pos
                                 )
                             ], cur - pos, loc

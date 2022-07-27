@@ -3,7 +3,7 @@ from typing import Callable, Iterable, List, TypeVar, Union
 from .chain import Append
 from .repair import OpItem, Repair, ops_prepend_expected
 from .result import Ok, Recovered, Result
-from .types import Ctx, RecoveryMode
+from .types import Ctx, RecoveryState
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -11,7 +11,7 @@ U = TypeVar("U")
 X = TypeVar("X")
 
 
-ContinueFn = Callable[[V, S, int, Ctx[S], RecoveryMode], Result[U, S]]
+ContinueFn = Callable[[V, S, int, Ctx[S], RecoveryState], Result[U, S]]
 MergeFn = Callable[[V, U], X]
 
 
@@ -22,11 +22,10 @@ def continue_parse(
     reps: List[Repair[X, S]] = []
     for r in ra.repairs:
         rb = parse(r.value, stream, r.pos, r.ctx, (r.cap,))
-        # Merge
         if type(rb) is Ok:
             reps.append(
                 Repair(
-                    r.cost, r.skip, rb.ctx.rm[0] if rb.consumed else r.cap,
+                    r.cost, r.skip, rb.ctx.rs[0] if rb.consumed else r.cap,
                     r.ops, merge(r.value, rb.value), rb.pos, rb.ctx,
                     _append_expected(r, rb.expected, rb.consumed),
                     r.consumed or rb.consumed
