@@ -2,7 +2,6 @@ import re
 from typing import Match
 
 from reparsec import Delay, Parser
-from reparsec.primitive import InsertValue
 from reparsec.scannerless import literal, parse, regexp
 from reparsec.sequence import eof
 
@@ -49,7 +48,7 @@ number = token(
 boolean = token(r"(true|false)").label("bool").fmap(lambda s: s == "true")
 null = token(r"(null)").label("null").fmap(lambda _: None)
 json_dict = (
-    ((string | InsertValue("a", "'\"a\"'")) << punct(":")) + value
+    (string.recover_with("a", "'\"a\"'") << punct(":")) + value
 ).sep_by(punct(",")).fmap(lambda v: dict(v)).between(
     punct("{"), punct("}")
 ).label("object")
@@ -59,7 +58,7 @@ json_list = value.sep_by(punct(",")).between(
 
 value.define(
     (
-        number | integer | boolean | null | string | InsertValue(1)
+        (number | integer | boolean | null | string).recover_with(1)
         | json_dict | json_list
     ).label("value")
 )

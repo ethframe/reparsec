@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
 from .core.parser import ParseObj
-from .core.repair import BaseRepair, RepairOp, Skip
+from .core.repair import RepairOp, Skip
 from .core.result import Error, Ok, Result
 from .core.types import Ctx, Loc
 
@@ -154,17 +154,15 @@ class _ParseResult(ParseResult[V_co, S]):
                 )
             ])
 
-        repair: Optional[BaseRepair[V_co, S]] = self._result.selected
-        if repair is None:
-            repair = self._result.pending
-            if repair is None:
-                raise ParseError([
-                    ErrorItem(
-                        self._result.loc,
-                        self._fmt_loc(self._result.loc),
-                        list(self._result.expected)
-                    )
-                ])
+        if not self._result.repairs:
+            raise ParseError([
+                ErrorItem(
+                    self._result.loc,
+                    self._fmt_loc(self._result.loc),
+                    list(self._result.expected)
+                )
+            ])
+        repair = min(self._result.repairs, key=lambda r: (r.cost, -r.pos))
         if recover:
             return repair.value
         errors = [

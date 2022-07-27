@@ -147,11 +147,11 @@ def token_ins(
     :param ins_value: Value for inserted token
     """
 
-    def insert_fn(stream: Sequence[Token], pos: int) -> Token:
+    def value_fn(stream: Sequence[Token], pos: int) -> Token:
         loc = _loc_from_stream(stream, pos)
         return Token(kind, ins_value, loc, loc)
 
-    return token(kind).insert_on_error(insert_fn, kind)
+    return token(kind).recover_with_fn(value_fn, kind)
 
 
 def parse(

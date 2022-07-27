@@ -1,7 +1,7 @@
-from typing import Callable, Optional, Sequence, Sized, TypeVar
+from typing import Callable, List, Optional, Sequence, Sized, TypeVar
 
 from .parser import ParseFn
-from .repair import make_insert, make_pending_skip, make_skip
+from .repair import Repair, make_insert, make_pending_skip, make_skip
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, RecoveryMode
 
@@ -18,11 +18,11 @@ def eof() -> ParseFn[Sized, None]:
         if rm:
             sl = len(stream)
             return Recovered(
-                None,
-                make_pending_skip(
-                    None, sl, ctx, loc, sl - pos, ["end of file"]
-                ),
-                loc, ["end of file"]
+                [
+                    make_pending_skip(
+                        rm[0], None, sl, ctx, loc, sl - pos, ["end of file"]
+                    ),
+                ], None, loc, ["end of file"]
             )
         return Error(loc, ["end of file"])
 
@@ -44,11 +44,12 @@ def satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                 t = stream[cur]
                 if test(t):
                     return Recovered(
-                        make_skip(
-                            cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                            loc, cur - pos
-                        ),
-                        None, loc
+                        [
+                            make_skip(
+                                rm[0], t, cur + 1,
+                                ctx.update_loc(stream, cur + 1), loc, cur - pos
+                            ),
+                        ], cur - pos, loc
                     )
                 cur += 1
         return Error(loc)
@@ -72,21 +73,24 @@ def sym(s: T, label: Optional[str] = None) -> ParseFn[Sequence[T], T]:
                 return Ok(t, pos + 1, ctx, (), True)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = (
-                make_insert(s, pos, ctx, loc, label_, expected) if rm[0]
-                else None
-            )
+            reps: List[Repair[T, Sequence[T]]] = []
+            if rm[0]:
+                reps.append(
+                    make_insert(rm[0], s, pos, ctx, loc, label_, expected)
+                )
             cur = pos + 1
             while cur < len(stream):
                 t = stream[cur]
                 if t == s:
-                    sel = make_skip(
-                        cur, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                        loc, cur - pos, expected
+                    reps.append(
+                        make_skip(
+                            rm[0], t, cur + 1, ctx.update_loc(stream, cur + 1),
+                            loc, cur - pos, expected
+                        )
                     )
-                    return Recovered(sel, pending, loc, expected)
+                    return Recovered(reps, cur - pos, loc, expected)
                 cur += 1
-            return Recovered(None, pending, loc, expected)
+            return Recovered(reps, None, loc, expected)
         return Error(loc, expected)
 
     return sym

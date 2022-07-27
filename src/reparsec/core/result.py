@@ -1,9 +1,9 @@
-from typing import Callable, Generic, Iterable, Optional, TypeVar, Union
+from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
 
 from typing_extensions import final
 
 from .chain import Append
-from .repair import Pending, Selected, ops_prepend_expected, ops_set_expected
+from .repair import Repair, ops_prepend_expected, ops_set_expected
 from .types import Ctx, Loc
 
 V = TypeVar("V")
@@ -89,64 +89,49 @@ class Error:
 
 @final
 class Recovered(Generic[V_co, S]):
-    __slots__ = "selected", "pending", "loc", "expected", "consumed"
+    __slots__ = "repairs", "min_skip", "loc", "expected", "consumed"
 
     def __init__(
-            self, selected: Optional[Selected[V_co, S]],
-            pending: Optional[Pending[V_co, S]], loc: Loc,
-            expected: Iterable[str] = (), consumed: bool = False):
-        self.selected = selected
-        self.pending = pending
+            self, repairs: List[Repair[V_co, S]], min_skip: Optional[int],
+            loc: Loc, expected: Iterable[str] = (), consumed: bool = False):
+        self.repairs = repairs
+        self.min_skip = min_skip
         self.loc = loc
         self.expected = expected
         self.consumed = consumed
 
     def __repr__(self) -> str:
         return (
-            "Recovered(selected={!r}, pending={!r}, loc={!r}, " +
-            "expected={!r}, consumed={!r})"
+            "Recovered(repairs={!r}, min_skip={!r}, loc={!r}, expected={!r},"
+            " consumed={!r})"
         ).format(
-            self.selected, self.pending, self.loc, self.expected, self.consumed
+            self.repairs, self.min_skip, self.loc, self.expected, self.consumed
         )
 
     def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U, S]":
-        selected = self.selected
-        pending = self.pending
         return Recovered(
-            None if selected is None else Selected(
-                selected.selected, selected.prefix, selected.count,
-                selected.ops, fn(selected.value), selected.pos, selected.ctx,
-                selected.expected, selected.consumed
-            ),
-            None if pending is None else Pending(
-                pending.count, pending.ops, fn(pending.value), pending.pos,
-                pending.ctx, pending.expected, pending.consumed
-            ),
-            self.loc, self.expected, self.consumed
+            [
+                Repair(
+                    r.cost, r.skip, r.cap, r.ops, fn(r.value), r.pos, r.ctx,
+                    r.expected, r.consumed
+                )
+                for r in self.repairs
+            ],
+            self.min_skip, self.loc, self.expected, self.consumed
         )
 
     def set_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
-        selected = self.selected
-        if selected is not None:
-            selected.ctx = ctx
-        pending = self.pending
-        if pending is not None:
-            pending.ctx = ctx
+        for r in self.repairs:
+            r.ctx = ctx
         return self
 
     def set_expected(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
         if not self.consumed:
             self.expected = expected
-        selected = self.selected
-        if selected is not None:
-            if not selected.consumed:
-                selected.expected = expected
-            ops_set_expected(selected.ops, expected)
-        pending = self.pending
-        if pending is not None:
-            if not pending.consumed:
-                pending.expected = expected
-            ops_set_expected(pending.ops, expected)
+        for r in self.repairs:
+            if not r.consumed:
+                r.expected = expected
+            ops_set_expected(r.ops, expected)
         return self
 
     def prepend_expected(
@@ -155,18 +140,11 @@ class Recovered(Generic[V_co, S]):
         if not self.consumed:
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
-        selected = self.selected
-        if selected is not None:
-            if not selected.consumed:
-                selected.expected = Append(expected, selected.expected)
-                selected.consumed |= consumed
-            ops_prepend_expected(selected.ops, expected, consumed)
-        pending = self.pending
-        if pending is not None:
-            if not pending.consumed:
-                pending.expected = Append(expected, pending.expected)
-                pending.consumed |= consumed
-            ops_prepend_expected(pending.ops, expected, consumed)
+        for r in self.repairs:
+            if not r.consumed:
+                r.expected = Append(expected, r.expected)
+                r.consumed |= consumed
+            ops_prepend_expected(r.ops, expected, consumed)
         return self
 
 
