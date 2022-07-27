@@ -3,7 +3,6 @@ from typing import List, Tuple
 import pytest
 
 from reparsec import Parser
-from reparsec.primitive import InsertFn, InsertValue
 from reparsec.sequence import eof, sym
 
 a = sym("a")
@@ -40,7 +39,7 @@ DATA_RECOVERY: List[Tuple[Parser[str, object], str, object]] = [
     (ab.maybe(), "a", "ab"),
     (ab.sep_by(comma), "ab,ab,ab", ["ab", "ab", "ab"]),
     (ab.sep_by(comma), "ab,ab,ab,", ["ab", "ab", "ab", "ab"]),
-    (ab.sep_by(comma), "ab,ab,,ab", ["ab", "ab", "ab", "ab"]),
+    (ab.sep_by(comma), "ab,ab,,ab", ["ab", "ab", "ab"]),
     (ab.sep_by(comma), "ab,abab", ["ab", "ab"]),
     (ab.sep_by(comma), "ab,a,ab", ["ab", "ab", "ab"]),
     (ab.sep_by(comma), "ab,b,ab", ["ab", "ab", "ab"]),
@@ -48,12 +47,12 @@ DATA_RECOVERY: List[Tuple[Parser[str, object], str, object]] = [
     (ab.attempt() | a, "ab", "ab"),
     (ab | a, "a", "ab"),
     (ab.attempt() | a, "a", "a"),
-    (ab | InsertValue("b"), "ab", "ab"),
-    (ab | InsertValue("b"), "_ab", "ab"),
-    (ab | InsertValue("b"), "a", "ab"),
-    (ab | InsertValue("b"), "b", "ab"),
-    (ab | InsertValue("b"), "", "b"),
-    (ab | InsertFn(lambda: "b"), "", "b"),
+    (ab.recover_with("b"), "ab", "ab"),
+    (ab.recover_with("b"), "_ab", "ab"),
+    (ab.recover_with("b"), "a", "ab"),
+    (ab.recover_with("b"), "b", "ab"),
+    (ab.recover_with("b"), "", "b"),
+    (ab.recover_with_fn(lambda _, __: "b"), "", "b"),
     (ab | cab, "ab", "ab"),
     (ab | cab, "cab", "cab"),
     (ab | cab, "b", "ab"),
@@ -61,7 +60,7 @@ DATA_RECOVERY: List[Tuple[Parser[str, object], str, object]] = [
     ((ab | cab) << a, "", "ab"),
     ((cab | ab) << a, "", "ab"),
     (abaa | caba, "b", "abaa"),
-    (caba | abaa, "b", "abaa"),
+    (caba | abaa, "b", "caba"),
     (aaba | caba, "b", "aaba"),
     (caba | aaba, "b", "caba"),
 ]

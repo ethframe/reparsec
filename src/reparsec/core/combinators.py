@@ -61,8 +61,7 @@ def bind(
             return ra
         if type(ra) is Recovered:
             return continue_parse(
-                stream, ra, rm,
-                lambda v, s, p, c, r: fn(v).parse_fn(s, p, c, r),
+                stream, ra, lambda v, s, p, c, r: fn(v).parse_fn(s, p, c, r),
                 lambda _, v: v
             )
         return fn(ra.value).parse_fn(
@@ -83,8 +82,7 @@ def _seq(
             return ra
         if type(ra) is Recovered:
             return continue_parse(
-                stream, ra, rm, lambda _, s, p, c, r: second_fn(s, p, c, r),
-                merge
+                stream, ra, lambda _, s, p, c, r: second_fn(s, p, c, r), merge
             )
         va = ra.value
         return second_fn(
@@ -211,7 +209,7 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
             r = parse_fn(stream, pos, ctx, rm)
         if type(r) is Recovered:
             return continue_parse(
-                stream, r, rm, parse, lambda a, b: [*value, a, *b]
+                stream, r, parse, lambda a, b: [*value, a, *b]
             )
         if r.consumed:
             return r
@@ -254,24 +252,56 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
     return label
 
 
-def insert_on_error(
-        parse_fn: ParseFn[S, V], insert_fn: Callable[[S, int], V],
-        label: Optional[str] = None) -> ParseFn[S, V]:
-    def insert_on_error(
+def recover_with(
+        parse_fn: ParseFn[S, V], value: U,
+        label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
+    def recover_with(
             stream: S, pos: int, ctx: Ctx[S],
-            rm: RecoveryMode) -> Result[V, S]:
+            rm: RecoveryMode) -> Result[Union[V, U], S]:
         r = parse_fn(stream, pos, ctx, rm)
-        if rm and rm[0] and type(r) is Error and not r.consumed:
-            value = insert_fn(stream, pos)
+        if type(r) is Ok or r.consumed:
+            return r
+        if rm and rm[0]:
             loc = ctx.get_loc(stream, pos)
-            return Recovered(
-                None,
-                make_insert(
-                    value, pos, ctx, loc,
-                    repr(value) if label is None else label
-                ),
-                loc
+            ra = Recovered(
+                [
+                    make_insert(
+                        rm[0], value, pos, ctx, loc,
+                        repr(value) if label is None else label, r.expected
+                    )
+                ], None, loc
             )
+            if type(r) is Error:
+                return ra
+            return join_repairs(ra, r)
         return r
 
-    return insert_on_error
+    return recover_with
+
+
+def recover_with_fn(
+        parse_fn: ParseFn[S, V], value_fn: Callable[[S, int], U],
+        label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
+    def recover_with_fn(
+            stream: S, pos: int, ctx: Ctx[S],
+            rm: RecoveryMode) -> Result[Union[V, U], S]:
+        r = parse_fn(stream, pos, ctx, rm)
+        if type(r) is Ok or r.consumed:
+            return r
+        if rm and rm[0]:
+            value = value_fn(stream, pos)
+            loc = ctx.get_loc(stream, pos)
+            ra = Recovered(
+                [
+                    make_insert(
+                        rm[0], value, pos, ctx, loc,
+                        repr(value) if label is None else label, r.expected
+                    )
+                ], None, loc
+            )
+            if type(r) is Error:
+                return ra
+            return join_repairs(ra, r)
+        return r
+
+    return recover_with_fn

@@ -204,12 +204,10 @@ reparsec.types.ParseError: at 2: expected number
 
 ```
 
-We can use `InsertValue` to return some value during error recovery:
+We can use `recover_with` to return some value during error recovery:
 
 ``` python
->>> from reparsec.primitive import InsertValue
-
->>> list_parser = spaces >> (number | InsertValue(0)).sep_by(comma) << eof()
+>>> list_parser = spaces >> number.recover_with(0).sep_by(comma) << eof()
 
 >>> list_parser.parse("1,", recover=True).unwrap(recover=True)
 [1, 0]
@@ -288,7 +286,6 @@ The final parser definition should look like this:
 ```python
 from typing import List
 
-from reparsec.primitive import InsertValue
 from reparsec.scannerless import parse
 from reparsec.sequence import eof, satisfy, sym
 
@@ -303,7 +300,7 @@ number = digits.fmap(
 
 comma = sym(",") << spaces
 
-list_parser = spaces >> (number | InsertValue(0)).sep_by(comma) << eof()
+list_parser = spaces >> number.recover_with(0).sep_by(comma) << eof()
 
 def parse_list(src: str) -> List[int]:
     return parse(list_parser, src, recover=True).unwrap()

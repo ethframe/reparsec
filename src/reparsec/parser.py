@@ -248,18 +248,17 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return label(self, expected)
 
-    def insert_on_error(
-            self, insert_fn: Callable[[S_contra, int], V_co],
-            label: Optional[str] = None) -> "TupleParser[S_contra, V_co]":
+    def recover_with(
+            self, value: U, label: Optional[str] = None
+    ) -> "TupleParser[S_contra, Union[V_co, U]]":
         """
         Applies the parser and returns its' result unless it failed without
         consuming input while error recovery is enabled. In this case, the
-        ``insert_fn`` is called to produce a value that will be returned as a
-        result of recovering from the error.
+        ``value`` is returned as a result of recovering from the error.
 
         >>> from reparsec.sequence import satisfy
 
-        >>> parser = satisfy(str.isalpha).insert_on_error(lambda s, p: "b")
+        >>> parser = satisfy(str.isalpha).recover_with("b")
 
         >>> parser.parse("a").unwrap()
         'a'
@@ -274,11 +273,43 @@ class Parser(ParserParseObj[S_contra, V_co]):
         >>> parser.parse("0", recover=True).unwrap(recover=True)
         'b'
 
-        :param insert_fn: Function that produces a parsed value
+        :param value: Parsed value
         :param label: Description of the expected input
         """
 
-        return insert_on_error(self, insert_fn, label)
+        return recover_with(self, value, label)
+
+    def recover_with_fn(
+            self, value_fn: Callable[[S_contra, int], V_co],
+            label: Optional[str] = None) -> "TupleParser[S_contra, V_co]":
+        """
+        Applies the parser and returns its' result unless it failed without
+        consuming input while error recovery is enabled. In this case, the
+        ``value_fn`` is called to produce a value that will be returned as a
+        result of recovering from the error.
+
+        >>> from reparsec.sequence import satisfy
+
+        >>> parser = satisfy(str.isalpha).recover_with_fn(lambda s, p: "b")
+
+        >>> parser.parse("a").unwrap()
+        'a'
+        >>> parser.parse("0").unwrap()
+        Traceback (most recent call last):
+          ...
+        reparsec.types.ParseError: at 0: unexpected input
+        >>> parser.parse("0", recover=True).unwrap()
+        Traceback (most recent call last):
+          ...
+        reparsec.types.ParseError: at 0: unexpected input (inserted 'b')
+        >>> parser.parse("0", recover=True).unwrap(recover=True)
+        'b'
+
+        :param value_fn: Function that produces a parsed value
+        :param label: Description of the expected input
+        """
+
+        return recover_with_fn(self, value_fn, label)
 
     def sep_by(
             self,
@@ -814,19 +845,35 @@ def label(parser: ParseObj[S, V], expected: str) -> TupleParser[S, V]:
     return FnParser(combinators.label(parser.to_fn(), expected))
 
 
-def insert_on_error(
-        parser: ParseObj[S, V], insert_fn: Callable[[S, int], V],
-        label: Optional[str] = None) -> TupleParser[S, V]:
+def recover_with(
+        parser: ParseObj[S, V], value: U,
+        label: Optional[str] = None) -> TupleParser[S, Union[V, U]]:
     """
-    :meth:`Parser.insert_on_error` as a function.
+    :meth:`Parser.recover_with` as a function.
 
     :param parser: Parser
-    :param insert_fn: Function that produces a parsed value
+    :param value: Parsed value
     :param label: Description of the expected input
     """
 
     return FnParser(
-        combinators.insert_on_error(parser.to_fn(), insert_fn, label)
+        combinators.recover_with(parser.to_fn(), value, label)
+    )
+
+
+def recover_with_fn(
+        parser: ParseObj[S, V], value_fn: Callable[[S, int], U],
+        label: Optional[str] = None) -> TupleParser[S, Union[V, U]]:
+    """
+    :meth:`Parser.recover_with_fn` as a function.
+
+    :param parser: Parser
+    :param value_fn: Function that produces a parsed value
+    :param label: Description of the expected input
+    """
+
+    return FnParser(
+        combinators.recover_with_fn(parser.to_fn(), value_fn, label)
     )
 
 

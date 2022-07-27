@@ -1,8 +1,8 @@
 import re
-from typing import Optional, TypeVar, Union
+from typing import List, Optional, TypeVar, Union
 
 from .parser import ParseFn
-from .repair import make_insert, make_skip
+from .repair import Repair, make_insert, make_skip
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, Loc, RecoveryMode
 
@@ -35,19 +35,22 @@ def literal(s: str) -> ParseFn[str, str]:
             return Ok(s, pos + ls, ctx.update_loc(stream, pos + ls), (), True)
         loc = ctx.get_loc(stream, pos)
         if rm:
-            pending = (
-                make_insert(s, pos, ctx, loc, rs, expected) if rm[0] else None
-            )
+            reps: List[Repair[str, str]] = []
+            if rm[0]:
+                reps.append(make_insert(rm[0], s, pos, ctx, loc, rs, expected))
             cur = pos + 1
             while cur < len(stream):
                 if stream.startswith(s, cur):
-                    sel = make_skip(
-                        cur, s, cur + ls, ctx.update_loc(stream, cur + ls),
-                        loc, cur - pos, expected
+                    reps.append(
+                        make_skip(
+                            rm[0], s, cur + ls,
+                            ctx.update_loc(stream, cur + ls), loc, cur - pos,
+                            expected
+                        )
                     )
-                    return Recovered(sel, pending, loc, expected)
+                    return Recovered(reps, cur - pos, loc, expected)
                 cur += 1
-            return Recovered(None, pending, loc, expected)
+            return Recovered(reps, None, loc, expected)
         return Error(loc, expected)
 
     return literal
@@ -75,11 +78,14 @@ def regexp(pat: str, group: Union[int, str] = 0) -> ParseFn[str, str]:
                     v = r.group(group)
                     if v is not None:
                         end = r.end()
-                        sel = make_skip(
-                            cur, v, end, ctx.update_loc(stream, end), loc,
-                            cur - pos
+                        return Recovered(
+                            [
+                                make_skip(
+                                    rm[0], v, end, ctx.update_loc(stream, end),
+                                    loc, cur - pos
+                                )
+                            ], cur - pos, loc
                         )
-                        return Recovered(sel, None, loc)
                 cur += 1
         return Error(loc)
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Generic, Iterable, List, TypeVar, Union
+from typing import Generic, Iterable, List, Optional, TypeVar, Union
 
 from typing_extensions import final
 
@@ -35,29 +35,16 @@ class OpItem:
 
 
 @dataclass
-class BaseRepair(Generic[V_co, S]):
-    count: int
+class Repair(Generic[V_co, S]):
+    cost: int
+    skip: Optional[int]
+    cap: int
     ops: List[OpItem]
     value: V_co
     pos: int
     ctx: Ctx[S]
     expected: Iterable[str] = ()
     consumed: bool = False
-
-
-class Pending(BaseRepair[V_co, S]):
-    pass
-
-
-@dataclass
-class _Selected:
-    selected: int
-    prefix: int
-
-
-@dataclass
-class Selected(BaseRepair[V_co, S], _Selected):
-    pass
 
 
 def ops_set_expected(ops: List[OpItem], expected: Iterable[str]) -> None:
@@ -75,23 +62,26 @@ def ops_prepend_expected(
 
 
 def make_insert(
-        value: V, pos: int, ctx: Ctx[S], loc: Loc,
-        label: str, expected: Iterable[str] = ()) -> Pending[V, S]:
-    return Pending(
-        1, [OpItem(Insert(label), loc, expected)], value, pos, ctx, (), True
+        cap: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, label: str,
+        expected: Iterable[str] = ()) -> Repair[V, S]:
+    return Repair(
+        1, 1, cap - 1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
+        (), True
     )
 
 
 def make_skip(
-        selected: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
-        expected: Iterable[str] = ()) -> Selected[V, S]:
-    return Selected(
-        selected, 0, 0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
+        cap: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        expected: Iterable[str] = ()) -> Repair[V, S]:
+    return Repair(
+        skip, skip, cap, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
         (), True
     )
 
 
 def make_pending_skip(
-        value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
-        expected: Iterable[str] = ()) -> Pending[V, S]:
-    return Pending(0, [OpItem(Skip(skip), loc, expected)], value, pos, ctx)
+        cap: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        expected: Iterable[str] = ()) -> Repair[V, S]:
+    return Repair(
+        skip, None, cap, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
+    )
