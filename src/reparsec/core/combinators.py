@@ -255,6 +255,8 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
 def recover_with(
         parse_fn: ParseFn[S, V], value: U,
         label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
+    vs = repr(value) if label is None else label
+
     def recover_with(
             stream: S, pos: int, ctx: Ctx[S],
             rs: RecoveryState) -> Result[Union[V, U], S]:
@@ -263,17 +265,10 @@ def recover_with(
             return r
         if rs and rs[0]:
             loc = ctx.get_loc(stream, pos)
-            ra = Recovered(
-                [
-                    make_insert(
-                        rs[0], value, pos, ctx, loc,
-                        repr(value) if label is None else label, r.expected
-                    )
-                ], None, loc
-            )
+            rep = make_insert(rs[0], value, pos, ctx, loc, vs, r.expected)
             if type(r) is Error:
-                return ra
-            return join_repairs(ra, r)
+                return Recovered([rep], None, loc)
+            return Recovered([rep, *r.repairs], r.min_skip, loc, r.expected)
         return r
 
     return recover_with
@@ -291,17 +286,13 @@ def recover_with_fn(
         if rs and rs[0]:
             value = value_fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
-            ra = Recovered(
-                [
-                    make_insert(
-                        rs[0], value, pos, ctx, loc,
-                        repr(value) if label is None else label, r.expected
-                    )
-                ], None, loc
+            rep = make_insert(
+                rs[0], value, pos, ctx, loc,
+                repr(value) if label is None else label, r.expected
             )
             if type(r) is Error:
-                return ra
-            return join_repairs(ra, r)
+                return Recovered([rep], None, loc)
+            return Recovered([rep, *r.repairs], r.min_skip, loc, r.expected)
         return r
 
     return recover_with_fn
