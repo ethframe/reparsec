@@ -126,7 +126,7 @@ class ParserParseObj(ParseObj[S_contra, V_co]):
         :param fmt_loc: Function that converts ``Loc`` to string
         """
 
-        ctx = Ctx(0, Loc(0, 0, 0), (max_insertions,), get_loc)
+        ctx = Ctx(0, Loc(0, 0, 0), max_insertions, get_loc)
         result = self.parse_fn(
             stream, 0, ctx, (max_insertions,) if recover else None
         )
