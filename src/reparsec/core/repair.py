@@ -16,11 +16,17 @@ S = TypeVar("S")
 class Skip:
     count: int
 
+    def cost(self) -> int:
+        return self.count
+
 
 @dataclass
 @final
 class Insert:
     label: str
+
+    def cost(self) -> int:
+        return 1
 
 
 RepairOp = Union[Skip, Insert]
@@ -36,7 +42,6 @@ class OpItem:
 
 @dataclass
 class Repair(Generic[V_co, S]):
-    cost: int
     skip: Optional[int]
     ins: int
     ops: List[OpItem]
@@ -45,6 +50,9 @@ class Repair(Generic[V_co, S]):
     ctx: Ctx[S]
     expected: Iterable[str] = ()
     consumed: bool = False
+
+    def cost(self) -> int:
+        return sum(op.op.cost() for op in self.ops)
 
 
 def ops_set_expected(ops: List[OpItem], expected: Iterable[str]) -> None:
@@ -65,7 +73,7 @@ def make_insert(
         ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, label: str,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        1, 1, ins - 1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
+        1, ins - 1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
         (), True
     )
 
@@ -74,8 +82,8 @@ def make_skip(
         ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        skip, skip, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
-        (), True
+        skip, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx, (),
+        True
     )
 
 
@@ -83,5 +91,5 @@ def make_pending_skip(
         ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        skip, None, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
+        None, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
     )
