@@ -64,7 +64,7 @@ json_list = value.sep_by(punct(",")).between(
 value.define(
     (
         (integer | number | boolean | null | string).recover_with(1)
-        | json_dict | json_list
+        | json_dict.recover() | json_list.recover()
     ).label("value")
 )
 

@@ -3,7 +3,7 @@ from typing import Callable, List, Optional, Tuple, TypeVar, Union
 from .chain import Append
 from .parser import ParseFn, ParseObj
 from .recovery import MergeFn, continue_parse, join_repairs
-from .repair import make_insert
+from .repair import Insert, OpItem, Repair
 from .result import Error, Ok, Recovered, Result
 from .types import Ctx, RecoveryState, disallow_recovery, maybe_allow_recovery
 
@@ -226,8 +226,7 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
     return many
 
 
-def attempt(
-        parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
+def attempt(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     def attempt(
             stream: S, pos: int, ctx: Ctx[S],
             rs: RecoveryState) -> Result[V, S]:
@@ -252,10 +251,24 @@ def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
     return label
 
 
+def recover(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
+    def recover(
+            stream: S, pos: int, ctx: Ctx[S],
+            rs: RecoveryState) -> Result[V, S]:
+        r = parse_fn(stream, pos, ctx, rs)
+        if type(r) is Recovered:
+            for p in r.repairs:
+                if p.skip is None:
+                    p.auto = False
+        return r
+
+    return recover
+
+
 def recover_with(
-        parse_fn: ParseFn[S, V], value: U,
+        parse_fn: ParseFn[S, V], x: U,
         label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
-    vs = repr(value) if label is None else label
+    vs = repr(x) if label is None else label
 
     def recover_with(
             stream: S, pos: int, ctx: Ctx[S],
@@ -265,7 +278,10 @@ def recover_with(
             return r
         if rs and rs[0]:
             loc = ctx.get_loc(stream, pos)
-            rep = make_insert(rs[0], value, pos, ctx, loc, vs, r.expected)
+            rep = Repair(
+                None, False, rs[0] - 1, [OpItem(Insert(vs), loc, r.expected)],
+                x, pos, ctx, (), True
+            )
             if type(r) is Error:
                 return Recovered([rep], None, loc)
             return Recovered([rep, *r.repairs], r.min_skip, loc, r.expected)
@@ -275,7 +291,7 @@ def recover_with(
 
 
 def recover_with_fn(
-        parse_fn: ParseFn[S, V], value_fn: Callable[[S, int], U],
+        parse_fn: ParseFn[S, V], fn: Callable[[S, int], U],
         label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
     def recover_with_fn(
             stream: S, pos: int, ctx: Ctx[S],
@@ -284,11 +300,15 @@ def recover_with_fn(
         if type(r) is Ok or r.consumed:
             return r
         if rs and rs[0]:
-            value = value_fn(stream, pos)
+            x = fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
-            rep = make_insert(
-                rs[0], value, pos, ctx, loc,
-                repr(value) if label is None else label, r.expected
+            rep = Repair(
+                None, False, rs[0] - 1, [
+                    OpItem(
+                        Insert(repr(x) if label is None else label), loc,
+                        r.expected
+                    )
+                ], x, pos, ctx, (), True
             )
             if type(r) is Error:
                 return Recovered([rep], None, loc)

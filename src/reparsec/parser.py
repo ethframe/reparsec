@@ -248,6 +248,31 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return label(self, expected)
 
+    def recover(self) -> "TupleParser[S_contra, V_co]":
+        """
+        Allows the parser to recover with repair sequences that starts with
+        automatically inserted tokens.
+
+        >>> from reparsec.sequence import eof, sym
+
+        >>> parser = (sym("a") + sym("b")) | (sym("b") + sym("c"))
+
+        >>> parser.parse("c", recover=True).unwrap()
+        Traceback (most recent call last):
+          ...
+        reparsec.types.ParseError: at 0: expected 'a' or 'b' (inserted 'a'),
+        at 0: expected 'b' (inserted 'b')
+
+        >>> parser = (sym("a") + sym("b")) | (sym("b").recover() + sym("c"))
+
+        >>> parser.parse("c", recover=True).unwrap()
+        Traceback (most recent call last):
+          ...
+        reparsec.types.ParseError: at 0: expected 'a' or 'b' (inserted 'b')
+        """
+
+        return recover(self)
+
     def recover_with(
             self, value: U, label: Optional[str] = None
     ) -> "TupleParser[S_contra, Union[V_co, U]]":
@@ -843,6 +868,16 @@ def label(parser: ParseObj[S, V], expected: str) -> TupleParser[S, V]:
     """
 
     return FnParser(combinators.label(parser.to_fn(), expected))
+
+
+def recover(parser: ParseObj[S, V]) -> TupleParser[S, V]:
+    """
+    :meth:`Parser.recover` as a function.
+
+    :param parser: Parser
+    """
+
+    return FnParser(combinators.recover(parser.to_fn()))
 
 
 def recover_with(
