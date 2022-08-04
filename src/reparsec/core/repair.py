@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Generic, Iterable, List, Optional, TypeVar, Union
+from typing import Generic, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from typing_extensions import final
 
@@ -43,6 +43,7 @@ class OpItem:
 @dataclass
 class Repair(Generic[V_co, S]):
     skip: Optional[int]
+    auto: bool
     ins: int
     ops: List[OpItem]
     value: V_co
@@ -51,8 +52,8 @@ class Repair(Generic[V_co, S]):
     expected: Iterable[str] = ()
     consumed: bool = False
 
-    def cost(self) -> int:
-        return sum(op.op.cost() for op in self.ops)
+    def cost(self) -> Tuple[int, int, int]:
+        return sum(op.op.cost() for op in self.ops), -self.pos, int(self.auto)
 
 
 def ops_set_expected(ops: List[OpItem], expected: Iterable[str]) -> None:
@@ -73,8 +74,8 @@ def make_insert(
         ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, label: str,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        1, ins - 1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
-        (), True
+        None, True, ins - 1, [OpItem(Insert(label), loc, expected)], value,
+        pos, ctx, (), True
     )
 
 
@@ -82,8 +83,8 @@ def make_skip(
         ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        skip, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx, (),
-        True
+        skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
+        (), True
     )
 
 
@@ -91,5 +92,5 @@ def make_pending_skip(
         ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        None, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
+        None, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
     )
