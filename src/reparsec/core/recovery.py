@@ -60,9 +60,9 @@ def join_repairs(
         reps.extend(r for r in rb.repairs if not r.auto or r.skip is not None)
         min_skip = rb.min_skip
     if ra.consumed:
-        return Recovered(reps, min_skip, ra.loc, ra.expected, ra.consumed)
+        return Recovered(reps, min_skip, ra.loc, ra.expected, True)
     if rb.consumed:
-        return Recovered(reps, min_skip, rb.loc, rb.expected, rb.consumed)
+        return Recovered(reps, min_skip, rb.loc, rb.expected, True)
     return Recovered(
         reps, min_skip, ra.loc, Append(ra.expected, rb.expected),
         ra.consumed or rb.consumed
