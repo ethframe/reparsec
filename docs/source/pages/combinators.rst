@@ -54,6 +54,7 @@ Combinators
 .. autofunction:: reparsec.many
 .. autofunction:: reparsec.attempt
 .. autofunction:: reparsec.label
+.. autofunction:: reparsec.recover
 .. autofunction:: reparsec.recover_with
 .. autofunction:: reparsec.recover_with_fn
 .. autofunction:: reparsec.sep_by
