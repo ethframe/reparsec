@@ -21,16 +21,16 @@ def block(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     return block
 
 
-def same(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
-    def same(
+def aligned(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
+    def aligned(
             stream: S, pos: int, ctx: Ctx[S],
             rs: RecoveryState) -> Result[V, S]:
         ctx = ctx.update_loc(stream, pos)
-        if ctx.anchor == ctx.loc.col:
+        if ctx.mark == ctx.loc.col:
             return parse_fn(stream, pos, ctx, rs)
         return Error(ctx.loc, ["indentation"])
 
-    return same
+    return aligned
 
 
 def indented(delta: int, parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
@@ -39,7 +39,7 @@ def indented(delta: int, parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
             rs: RecoveryState) -> Result[V, S]:
         ctx = ctx.update_loc(stream, pos)
         level = ctx.loc.col
-        if ctx.anchor + delta == level:
+        if ctx.mark + delta == level:
             return parse_fn(
                 stream, pos, ctx.set_anchor(level), rs
             ).set_ctx(ctx)

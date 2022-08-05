@@ -15,12 +15,12 @@ class Loc(NamedTuple):
 
 
 class Ctx(Generic[S_contra]):
-    __slots__ = "anchor", "loc", "ins", "_get_loc"
+    __slots__ = "mark", "loc", "ins", "_get_loc"
 
     def __init__(
-            self, anchor: int, loc: Loc, ins: int,
+            self, mark: int, loc: Loc, ins: int,
             get_loc: Callable[[Loc, S_contra, int], Loc]):
-        self.anchor = anchor
+        self.mark = mark
         self.loc = loc
         self.ins = ins
         self._get_loc = get_loc
@@ -32,12 +32,12 @@ class Ctx(Generic[S_contra]):
         if pos == self.loc.pos:
             return self
         return Ctx(
-            self.anchor, self._get_loc(self.loc, stream, pos), self.ins,
+            self.mark, self._get_loc(self.loc, stream, pos), self.ins,
             self._get_loc
         )
 
-    def set_anchor(self, anchor: int) -> "Ctx[S_contra]":
-        return Ctx(anchor, self.loc, self.ins, self._get_loc)
+    def set_anchor(self, mark: int) -> "Ctx[S_contra]":
+        return Ctx(mark, self.loc, self.ins, self._get_loc)
 
 
 RecoveryState = Union[Literal[None, False], Tuple[int]]

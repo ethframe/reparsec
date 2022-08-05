@@ -11,7 +11,7 @@ from .core import layout
 from .core.parser import ParseObj
 from .parser import FnParser, TupleParser
 
-__all__ = ("block", "same", "indented")
+__all__ = ("block", "aligned", "indented")
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -19,7 +19,7 @@ V = TypeVar("V")
 
 def block(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     """
-    Applies parser with anchor set to current column.
+    Applies parser with column mark set to current column.
 
     :param parser: Parser
     """
@@ -27,20 +27,20 @@ def block(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     return FnParser(layout.block(parser.to_fn()))
 
 
-def same(parser: ParseObj[S, V]) -> TupleParser[S, V]:
+def aligned(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     """
-    Applies parser if anchor is equal to current column, otherwise fails.
+    Applies parser if column mark is equal to current column, otherwise fails.
 
     :param parser: Parser
     """
 
-    return FnParser(layout.same(parser.to_fn()))
+    return FnParser(layout.aligned(parser.to_fn()))
 
 
 def indented(delta: int, parser: ParseObj[S, V]) -> TupleParser[S, V]:
     """
-    If current column is greater than anchor by ``delta``, applies parser with
-    anchor set to current column, otherwise fails.
+    If current column is greater than column mark by ``delta``, applies parser
+    with column mark set to current column, otherwise fails.
 
     :param delta: Indentation size in columns
     :param parser: Parser
