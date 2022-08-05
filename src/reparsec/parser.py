@@ -881,8 +881,8 @@ def recover(parser: ParseObj[S, V]) -> TupleParser[S, V]:
 
 
 def recover_with(
-        parser: ParseObj[S, V], x: U,
-        label: Optional[str] = None) -> TupleParser[S, Union[V, U]]:
+        parser: ParseObj[S, V], x: V,
+        label: Optional[str] = None) -> TupleParser[S, V]:
     """
     :meth:`Parser.recover_with` as a function.
 
@@ -895,8 +895,8 @@ def recover_with(
 
 
 def recover_with_fn(
-        parser: ParseObj[S, V], fn: Callable[[S, int], U],
-        label: Optional[str] = None) -> TupleParser[S, Union[V, U]]:
+        parser: ParseObj[S, V], fn: Callable[[S, int], V],
+        label: Optional[str] = None) -> TupleParser[S, V]:
     """
     :meth:`Parser.recover_with_fn` as a function.
 

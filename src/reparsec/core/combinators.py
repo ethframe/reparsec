@@ -266,13 +266,13 @@ def recover(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
 
 
 def recover_with(
-        parse_fn: ParseFn[S, V], x: U,
-        label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
+        parse_fn: ParseFn[S, V], x: V,
+        label: Optional[str] = None) -> ParseFn[S, V]:
     vs = repr(x) if label is None else label
 
     def recover_with(
             stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[Union[V, U], S]:
+            rs: RecoveryState) -> Result[V, S]:
         r = parse_fn(stream, pos, ctx, rs)
         if type(r) is Ok or r.consumed:
             return r
@@ -291,11 +291,11 @@ def recover_with(
 
 
 def recover_with_fn(
-        parse_fn: ParseFn[S, V], fn: Callable[[S, int], U],
-        label: Optional[str] = None) -> ParseFn[S, Union[V, U]]:
+        parse_fn: ParseFn[S, V], fn: Callable[[S, int], V],
+        label: Optional[str] = None) -> ParseFn[S, V]:
     def recover_with_fn(
             stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[Union[V, U], S]:
+            rs: RecoveryState) -> Result[V, S]:
         r = parse_fn(stream, pos, ctx, rs)
         if type(r) is Ok or r.consumed:
             return r
