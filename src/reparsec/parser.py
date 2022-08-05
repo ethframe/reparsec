@@ -274,12 +274,12 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return recover(self)
 
     def recover_with(
-            self, value: U, label: Optional[str] = None
+            self, x: U, label: Optional[str] = None
     ) -> "TupleParser[S_contra, Union[V_co, U]]":
         """
         Applies the parser and returns its' result unless it failed without
         consuming input while error recovery is enabled. In this case, the
-        ``value`` is returned as a result of recovering from the error.
+        ``x`` is returned as a result of recovering from the error.
 
         >>> from reparsec.sequence import satisfy
 
@@ -298,20 +298,20 @@ class Parser(ParserParseObj[S_contra, V_co]):
         >>> parser.parse("0", recover=True).unwrap(recover=True)
         'b'
 
-        :param value: Parsed value
+        :param x: Parsed value
         :param label: Description of the expected input
         """
 
-        return recover_with(self, value, label)
+        return recover_with(self, x, label)
 
     def recover_with_fn(
-            self, value_fn: Callable[[S_contra, int], V_co],
+            self, fn: Callable[[S_contra, int], V_co],
             label: Optional[str] = None) -> "TupleParser[S_contra, V_co]":
         """
         Applies the parser and returns its' result unless it failed without
         consuming input while error recovery is enabled. In this case, the
-        ``value_fn`` is called to produce a value that will be returned as a
-        result of recovering from the error.
+        ``fn`` is called to produce a value that will be returned as a result
+        of recovering from the error.
 
         >>> from reparsec.sequence import satisfy
 
@@ -330,11 +330,11 @@ class Parser(ParserParseObj[S_contra, V_co]):
         >>> parser.parse("0", recover=True).unwrap(recover=True)
         'b'
 
-        :param value_fn: Function that produces a parsed value
+        :param fn: Function that produces a parsed value
         :param label: Description of the expected input
         """
 
-        return recover_with_fn(self, value_fn, label)
+        return recover_with_fn(self, fn, label)
 
     def sep_by(
             self,
@@ -881,35 +881,31 @@ def recover(parser: ParseObj[S, V]) -> TupleParser[S, V]:
 
 
 def recover_with(
-        parser: ParseObj[S, V], value: U,
+        parser: ParseObj[S, V], x: U,
         label: Optional[str] = None) -> TupleParser[S, Union[V, U]]:
     """
     :meth:`Parser.recover_with` as a function.
 
     :param parser: Parser
-    :param value: Parsed value
+    :param x: Parsed value
     :param label: Description of the expected input
     """
 
-    return FnParser(
-        combinators.recover_with(parser.to_fn(), value, label)
-    )
+    return FnParser(combinators.recover_with(parser.to_fn(), x, label))
 
 
 def recover_with_fn(
-        parser: ParseObj[S, V], value_fn: Callable[[S, int], U],
+        parser: ParseObj[S, V], fn: Callable[[S, int], U],
         label: Optional[str] = None) -> TupleParser[S, Union[V, U]]:
     """
     :meth:`Parser.recover_with_fn` as a function.
 
     :param parser: Parser
-    :param value_fn: Function that produces a parsed value
+    :param fn: Function that produces a parsed value
     :param label: Description of the expected input
     """
 
-    return FnParser(
-        combinators.recover_with_fn(parser.to_fn(), value_fn, label)
-    )
+    return FnParser(combinators.recover_with_fn(parser.to_fn(), fn, label))
 
 
 def sep_by(
