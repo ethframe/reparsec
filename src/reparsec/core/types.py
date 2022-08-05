@@ -43,14 +43,14 @@ class Ctx(Generic[S_contra]):
 RecoveryState = Union[Literal[None, False], Tuple[int]]
 
 
-def disallow_recovery(ins: RecoveryState) -> RecoveryState:
-    if ins is None:
+def disallow_recovery(rs: RecoveryState) -> RecoveryState:
+    if rs is None:
         return None
     return False
 
 
 def maybe_allow_recovery(
-        ctx: Ctx[S], ins: RecoveryState, consumed: bool) -> RecoveryState:
-    if ins is False and consumed:
+        ctx: Ctx[S], rs: RecoveryState, consumed: bool) -> RecoveryState:
+    if rs is False and consumed:
         return (ctx.ins,)
-    return ins
+    return rs
