@@ -80,7 +80,8 @@ accept such inputs:
 The `<<` and `>>` operators used here are similar to `+`, but return only the
 value of left or right parser, respectively.
 
-## Parsing incorrect inputs
+Parsing incorrect inputs
+------------------------
 
 Until before we focused on parsing valid inputs. But what if we have a string
 with unexpected characters in it?
