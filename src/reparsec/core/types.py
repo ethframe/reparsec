@@ -36,7 +36,7 @@ class Ctx(Generic[S_contra]):
             self._get_loc
         )
 
-    def set_anchor(self, mark: int) -> "Ctx[S_contra]":
+    def set_mark(self, mark: int) -> "Ctx[S_contra]":
         return Ctx(mark, self.loc, self.ins, self._get_loc)
 
 
