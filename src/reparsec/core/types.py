@@ -1,6 +1,4 @@
-from typing import Callable, Generic, NamedTuple, Tuple, TypeVar, Union
-
-from typing_extensions import Literal
+from typing import Callable, Generic, NamedTuple, TypeVar
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
@@ -15,14 +13,13 @@ class Loc(NamedTuple):
 
 
 class Ctx(Generic[S_contra]):
-    __slots__ = "mark", "loc", "ins", "_get_loc"
+    __slots__ = "mark", "loc", "_get_loc"
 
     def __init__(
-            self, mark: int, loc: Loc, ins: int,
+            self, mark: int, loc: Loc,
             get_loc: Callable[[Loc, S_contra, int], Loc]):
         self.mark = mark
         self.loc = loc
-        self.ins = ins
         self._get_loc = get_loc
 
     def get_loc(self, stream: S_contra, pos: int) -> Loc:
@@ -32,25 +29,8 @@ class Ctx(Generic[S_contra]):
         if pos == self.loc.pos:
             return self
         return Ctx(
-            self.mark, self._get_loc(self.loc, stream, pos), self.ins,
-            self._get_loc
+            self.mark, self._get_loc(self.loc, stream, pos), self._get_loc
         )
 
     def set_mark(self, mark: int) -> "Ctx[S_contra]":
-        return Ctx(mark, self.loc, self.ins, self._get_loc)
-
-
-RecoveryState = Union[Literal[None, False], Tuple[int]]
-
-
-def disallow_recovery(rs: RecoveryState) -> RecoveryState:
-    if rs is None:
-        return None
-    return False
-
-
-def maybe_allow_recovery(
-        ctx: Ctx[S], rs: RecoveryState, consumed: bool) -> RecoveryState:
-    if rs is False and consumed:
-        return (ctx.ins,)
-    return rs
+        return Ctx(mark, self.loc, self._get_loc)

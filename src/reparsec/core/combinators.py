@@ -1,11 +1,11 @@
-from typing import Callable, List, Optional, Tuple, TypeVar, Union
+from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from .chain import Append
-from .parser import ParseFn, ParseObj
+from .parser import ParseFastFn, ParseFn, ParseFns, ParseObj, ParseSlowFn
 from .recovery import MergeFn, continue_parse, join_repairs
 from .repair import Insert, OpItem, Repair
-from .result import Error, Ok, Recovered, Result
-from .types import Ctx, RecoveryState, disallow_recovery, maybe_allow_recovery
+from .result import Error, Ok, Recovered, Result, SimpleResult
+from .types import Ctx
 
 S = TypeVar("S")
 V = TypeVar("V")
@@ -13,80 +13,226 @@ U = TypeVar("U")
 X = TypeVar("X")
 
 
-def fmap(parse_fn: ParseFn[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
-    def fmap(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[U, S]:
-        return parse_fn(stream, pos, ctx, rs).fmap(fn)
+def _fmap_fast(
+        parse_fns: ParseFns[S, V], fn: Callable[[V], U]) -> ParseFastFn[S, U]:
+    parse_fn = parse_fns.fast_fn
+
+    def fmap(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[U, S]:
+        return parse_fn(stream, pos, ctx).fmap(fn)
+
     return fmap
 
 
-def alt(
-        parse_fn: ParseFn[S, V],
-        second_fn: ParseFn[S, U]) -> ParseFn[S, Union[V, U]]:
-    def alt(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[Union[V, U], S]:
-        ra = parse_fn(stream, pos, ctx, disallow_recovery(rs))
+def _fmap(parse_fns: ParseFns[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
+    parse_fn = parse_fns.fn
+
+    def fmap(
+            stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[U, S]:
+        return parse_fn(stream, pos, ctx, ins).fmap(fn)
+    return fmap
+
+
+def _fmap_slow(
+        parse_fns: ParseFns[S, V], fn: Callable[[V], U]) -> ParseSlowFn[S, U]:
+    parse_fn = parse_fns.slow_fn
+
+    def fmap(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            cur: int) -> Result[U, S]:
+        return parse_fn(stream, pos, ctx, ins, cur).fmap(fn)
+    return fmap
+
+
+def fmap(parse_fns: ParseFns[S, V], fn: Callable[[V], U]) -> ParseFns[S, U]:
+    return ParseFns(
+        _fmap_fast(parse_fns, fn),
+        _fmap(parse_fns, fn),
+        _fmap_slow(parse_fns, fn),
+    )
+
+
+def _alt_fast(
+        parse_fns: ParseFns[S, V],
+        second_fns: ParseFns[S, U]) -> ParseFastFn[S, Union[V, U]]:
+    parse_fn = parse_fns.fast_fn
+    second_fn = second_fns.fast_fn
+
+    def alt(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[Union[V, U], S]:
+        ra = parse_fn(stream, pos, ctx)
         if type(ra) is Ok or ra.consumed:
             return ra
-        rb = second_fn(stream, pos, ctx, disallow_recovery(rs))
+        rb = second_fn(stream, pos, ctx)
         if rb.consumed:
             return rb
         expected = Append(ra.expected, rb.expected)
         if type(rb) is Ok:
             return rb.set_expected(expected)
-        if rs:
-            rra = parse_fn(stream, pos, ctx, rs)
-            rrb = second_fn(stream, pos, ctx, rs)
-            if type(rra) is Recovered:
-                if type(rrb) is Recovered:
-                    return join_repairs(rra, rrb).set_expected(expected)
-                return rra.set_expected(expected)
-            if type(rrb) is Recovered:
-                return rrb.set_expected(expected)
         return Error(ra.loc, expected)
 
     return alt
 
 
-def bind(
-        parse_fn: ParseFn[S, V],
-        fn: Callable[[V], ParseObj[S, U]]) -> ParseFn[S, U]:
-    def bind(
+def _alt(
+        parse_fns: ParseFns[S, V],
+        second_fns: ParseFns[S, U]) -> ParseFn[S, Union[V, U]]:
+    parse_fn = parse_fns.fn
+    second_fn = second_fns.fn
+
+    def alt(
             stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[U, S]:
-        ra = parse_fn(stream, pos, ctx, rs)
+            ins: int) -> Result[Union[V, U], S]:
+        ra = parse_fn(stream, pos, ctx, ins)
+        if type(ra) is Ok or ra.consumed:
+            return ra
+        rb = second_fn(stream, pos, ctx, ins)
+        if rb.consumed:
+            return rb
+        expected = Append(ra.expected, rb.expected)
+        if type(rb) is Ok:
+            return rb.set_expected(expected)
+        return Error(ra.loc, expected)
+
+    return alt
+
+
+def _alt_slow(
+        parse_fns: ParseFns[S, V],
+        second_fns: ParseFns[S, U]) -> ParseSlowFn[S, Union[V, U]]:
+    parse_fn = parse_fns.fn
+    parse_slow_fn = parse_fns.slow_fn
+    second_fn = second_fns.fn
+    second_slow_fn = second_fns.slow_fn
+
+    def alt(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[Union[V, U], S]:
+        ra = parse_fn(stream, pos, ctx, ins)
+        if type(ra) is Ok or ra.consumed:
+            return ra
+        rb = second_fn(stream, pos, ctx, ins)
+        if rb.consumed:
+            return rb
+        expected = Append(ra.expected, rb.expected)
+        if type(rb) is Ok:
+            return rb.set_expected(expected)
+        rra = parse_slow_fn(stream, pos, ctx, ins, rem)
+        rrb = second_slow_fn(stream, pos, ctx, ins, rem)
+        if type(rra) is Recovered:
+            if type(rrb) is Recovered:
+                return join_repairs(rra, rrb).set_expected(expected)
+            return rra.set_expected(expected)
+        if type(rrb) is Recovered:
+            return rrb.set_expected(expected)
+        return Error(ra.loc, expected)
+
+    return alt
+
+
+def alt(
+        parse_fns: ParseFns[S, V],
+        second_fns: ParseFns[S, U]) -> ParseFns[S, Union[V, U]]:
+    return ParseFns(
+        _alt_fast(parse_fns, second_fns),
+        _alt(parse_fns, second_fns),
+        _alt_slow(parse_fns, second_fns)
+    )
+
+
+def _bind_fast(
+        parse_fns: ParseFns[S, V],
+        fn: Callable[[V], ParseObj[S, U]]) -> ParseFastFn[S, U]:
+    parse_fn = parse_fns.fast_fn
+
+    def bind(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[U, S]:
+        ra = parse_fn(stream, pos, ctx)
         if type(ra) is Error:
             return ra
-        if type(ra) is Recovered:
-            return continue_parse(
-                stream, ra, lambda v, s, p, c, r: fn(v).parse_fn(s, p, c, r),
-                lambda _, v: v
-            )
-        return fn(ra.value).parse_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rs, ra.consumed)
+        return fn(ra.value).parse_fast_fn(
+            stream, ra.pos, ra.ctx
         ).prepend_expected(ra.expected, ra.consumed)
 
     return bind
 
 
-def _seq(
-        parse_fn: ParseFn[S, V], second_fn: ParseFn[S, U],
-        merge: MergeFn[V, U, X]) -> ParseFn[S, X]:
-    def seq(
+def _bind(
+        parse_fns: ParseFns[S, V],
+        fn: Callable[[V], ParseObj[S, U]]) -> ParseFn[S, U]:
+    parse_fn = parse_fns.fn
+
+    def bind(
             stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[X, S]:
-        ra = parse_fn(stream, pos, ctx, rs)
+            ins: int) -> Result[U, S]:
+        ra = parse_fn(stream, pos, ctx, ins)
         if type(ra) is Error:
             return ra
         if type(ra) is Recovered:
             return continue_parse(
-                stream, ra, lambda _, s, p, c, r: second_fn(s, p, c, r), merge
+                ra, ins,
+                lambda v, p, c, r: fn(v).parse_slow_fn(stream, p, c, ins, r),
+                lambda _, v: v
             )
+        if ra.consumed:
+            return fn(ra.value).parse_slow_fn(
+                stream, ra.pos, ra.ctx, ins, ins
+            ).prepend_expected(ra.expected, True)
+        return fn(ra.value).parse_fn(
+            stream, ra.pos, ra.ctx, ins
+        ).prepend_expected(ra.expected, False)
+
+    return bind
+
+
+def _bind_slow(
+        parse_fns: ParseFns[S, V],
+        fn: Callable[[V], ParseObj[S, U]]) -> ParseSlowFn[S, U]:
+    parse_fn = parse_fns.slow_fn
+
+    def bind(
+            stream: S, pos: int, ctx: Ctx[S],
+            ins: int, rem: int) -> Result[U, S]:
+        ra = parse_fn(stream, pos, ctx, ins, rem)
+        if type(ra) is Error:
+            return ra
+        if type(ra) is Recovered:
+            return continue_parse(
+                ra, ins,
+                lambda v, p, c, r: fn(v).parse_slow_fn(stream, p, c, ins, r),
+                lambda _, v: v
+            )
+        if ra.consumed:
+            return fn(ra.value).parse_slow_fn(
+                stream, ra.pos, ra.ctx, ins, ins
+            ).prepend_expected(ra.expected, ra.consumed)
+        return fn(ra.value).parse_slow_fn(
+            stream, ra.pos, ra.ctx, ins, rem
+        ).prepend_expected(ra.expected, ra.consumed)
+
+    return bind
+
+
+def bind(
+        parse_fns: ParseFns[S, V],
+        fn: Callable[[V], ParseObj[S, U]]) -> ParseFns[S, U]:
+    return ParseFns(
+        _bind_fast(parse_fns, fn),
+        _bind(parse_fns, fn),
+        _bind_slow(parse_fns, fn)
+    )
+
+
+def _seq_h_fast(
+        parse_fns: ParseFns[S, V], second_fns: ParseFns[S, U],
+        merge: MergeFn[V, U, X]) -> ParseFastFn[S, X]:
+    parse_fn = parse_fns.fast_fn
+    second_fn = second_fns.fast_fn
+
+    def seq(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[X, S]:
+        ra = parse_fn(stream, pos, ctx)
+        if type(ra) is Error:
+            return ra
         va = ra.value
         return second_fn(
-            stream, ra.pos, ra.ctx, maybe_allow_recovery(ctx, rs, ra.consumed)
+            stream, ra.pos, ra.ctx
         ).fmap(
             lambda vb: merge(va, vb)
         ).prepend_expected(ra.expected, ra.consumed)
@@ -94,22 +240,91 @@ def _seq(
     return seq
 
 
+def _seq_h(
+        parse_fns: ParseFns[S, V], second_fns: ParseFns[S, U],
+        merge: MergeFn[V, U, X]) -> ParseFn[S, X]:
+    parse_fn = parse_fns.fn
+    second_fn = second_fns.fn
+    second_slow_fn = second_fns.slow_fn
+
+    def seq(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[X, S]:
+        ra = parse_fn(stream, pos, ctx, ins)
+        if type(ra) is Error:
+            return ra
+        if type(ra) is Recovered:
+            return continue_parse(
+                ra, ins,
+                lambda _, p, c, r: second_slow_fn(stream, p, c, ins, r), merge
+            )
+        va = ra.value
+        if ra.consumed:
+            return second_slow_fn(
+                stream, ra.pos, ra.ctx, ins, ins
+            ).fmap(
+                lambda vb: merge(va, vb)
+            ).prepend_expected(ra.expected, True)
+        return second_fn(
+            stream, ra.pos, ra.ctx, ins
+        ).fmap(
+            lambda vb: merge(va, vb)
+        ).prepend_expected(ra.expected, False)
+
+    return seq
+
+
+def _seq_h_slow(
+        parse_fns: ParseFns[S, V], second_fns: ParseFns[S, U],
+        merge: MergeFn[V, U, X]) -> ParseSlowFn[S, X]:
+    parse_fn = parse_fns.slow_fn
+    second_fn = second_fns.slow_fn
+
+    def seq(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[X, S]:
+        ra = parse_fn(stream, pos, ctx, ins, rem)
+        if type(ra) is Error:
+            return ra
+        if type(ra) is Recovered:
+            return continue_parse(
+                ra, ins, lambda _, p, c, r: second_fn(stream, p, c, ins, r),
+                merge
+            )
+        va = ra.value
+        return second_fn(
+            stream, ra.pos, ra.ctx, ins, ins
+        ).fmap(
+            lambda vb: merge(va, vb)
+        ).prepend_expected(ra.expected, ra.consumed)
+
+    return seq
+
+
+def _seq(
+        parse_fns: ParseFns[S, V], second_fns: ParseFns[S, U],
+        merge: MergeFn[V, U, X]) -> ParseFns[S, X]:
+    return ParseFns(
+        _seq_h_fast(parse_fns, second_fns, merge),
+        _seq_h(parse_fns, second_fns, merge),
+        _seq_h_slow(parse_fns, second_fns, merge)
+    )
+
+
 def seql(
-        parse_fn: ParseFn[S, V],
-        second_fn: ParseFn[S, U]) -> ParseFn[S, V]:
-    return _seq(parse_fn, second_fn, lambda l, _: l)
+        parse_fns: ParseFns[S, V],
+        second_fns: ParseFns[S, U]) -> ParseFns[S, V]:
+    return _seq(parse_fns, second_fns, lambda l, _: l)
 
 
 def seqr(
-        parse_fn: ParseFn[S, V],
-        second_fn: ParseFn[S, U]) -> ParseFn[S, U]:
-    return _seq(parse_fn, second_fn, lambda _, r: r)
+        parse_fns: ParseFns[S, V],
+        second_fns: ParseFns[S, U]) -> ParseFns[S, U]:
+    return _seq(parse_fns, second_fns, lambda _, r: r)
 
 
 def seq(
-        parse_fn: ParseFn[S, V],
-        second_fn: ParseFn[S, U]) -> ParseFn[S, Tuple[V, U]]:
-    return _seq(parse_fn, second_fn, lambda l, r: (l, r))
+        parse_fns: ParseFns[S, V],
+        second_fns: ParseFns[S, U]) -> ParseFns[S, Tuple[V, U]]:
+    return _seq(parse_fns, second_fns, lambda l, r: (l, r))
 
 
 V0 = TypeVar("V0")
@@ -123,67 +338,68 @@ V7 = TypeVar("V7")
 
 
 def tuple3(
-        parse_fn: ParseFn[S, Tuple[V0, V1]],
-        second_fn: ParseFn[S, V2]) -> ParseFn[S, Tuple[V0, V1, V2]]:
+        parse_fns: ParseFns[S, Tuple[V0, V1]],
+        second_fns: ParseFns[S, V2]) -> ParseFns[S, Tuple[V0, V1, V2]]:
     def merge(a: Tuple[V0, V1], b: V2) -> Tuple[V0, V1, V2]:
         return (*a, b)
-    return _seq(parse_fn, second_fn, merge)
+    return _seq(parse_fns, second_fns, merge)
 
 
 def tuple4(
-        parse_fn: ParseFn[S, Tuple[V0, V1, V2]],
-        second_fn: ParseFn[S, V3]) -> ParseFn[S, Tuple[V0, V1, V2, V3]]:
+        parse_fns: ParseFns[S, Tuple[V0, V1, V2]],
+        second_fns: ParseFns[S, V3]) -> ParseFns[S, Tuple[V0, V1, V2, V3]]:
     def merge(a: Tuple[V0, V1, V2], b: V3) -> Tuple[V0, V1, V2, V3]:
         return (*a, b)
-    return _seq(parse_fn, second_fn, merge)
+    return _seq(parse_fns, second_fns, merge)
 
 
 def tuple5(
-        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3]],
-        second_fn: ParseFn[S, V4]) -> ParseFn[S, Tuple[V0, V1, V2, V3, V4]]:
+        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3]],
+        second_fns: ParseFns[S, V4]) -> ParseFns[S, Tuple[V0, V1, V2, V3, V4]]:
     def merge(a: Tuple[V0, V1, V2, V3], b: V4) -> Tuple[V0, V1, V2, V3, V4]:
         return (*a, b)
-    return _seq(parse_fn, second_fn, merge)
+    return _seq(parse_fns, second_fns, merge)
 
 
 def tuple6(
-        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3, V4]],
-        second_fn: ParseFn[S, V5]) -> ParseFn[
+        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3, V4]],
+        second_fns: ParseFns[S, V5]) -> ParseFns[
             S, Tuple[V0, V1, V2, V3, V4, V5]]:
     def merge(
             a: Tuple[V0, V1, V2, V3, V4],
             b: V5) -> Tuple[V0, V1, V2, V3, V4, V5]:
         return (*a, b)
-    return _seq(parse_fn, second_fn, merge)
+    return _seq(parse_fns, second_fns, merge)
 
 
 def tuple7(
-        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3, V4, V5]],
-        second_fn: ParseFn[S, V6]) -> ParseFn[
+        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3, V4, V5]],
+        second_fns: ParseFns[S, V6]) -> ParseFns[
             S, Tuple[V0, V1, V2, V3, V4, V5, V6]]:
     def merge(
             a: Tuple[V0, V1, V2, V3, V4, V5],
             b: V6) -> Tuple[V0, V1, V2, V3, V4, V5, V6]:
         return (*a, b)
-    return _seq(parse_fn, second_fn, merge)
+    return _seq(parse_fns, second_fns, merge)
 
 
 def tuple8(
-        parse_fn: ParseFn[S, Tuple[V0, V1, V2, V3, V4, V5, V6]],
-        second_fn: ParseFn[S, V7]) -> ParseFn[
+        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3, V4, V5, V6]],
+        second_fns: ParseFns[S, V7]) -> ParseFns[
             S, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]:
     def merge(
             a: Tuple[V0, V1, V2, V3, V4, V5, V6],
             b: V7) -> Tuple[V0, V1, V2, V3, V4, V5, V6, V7]:
         return (*a, b)
-    return _seq(parse_fn, second_fn, merge)
+    return _seq(parse_fns, second_fns, merge)
 
 
-def maybe(parse_fn: ParseFn[S, V]) -> ParseFn[S, Optional[V]]:
+def _maybe_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, Optional[V]]:
+    parse_fn = parse_fns.fast_fn
+
     def maybe(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[Optional[V], S]:
-        r = parse_fn(stream, pos, ctx, disallow_recovery(rs))
+            stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[Optional[V], S]:
+        r = parse_fn(stream, pos, ctx)
         if r.consumed or type(r) is Ok:
             return r
         return Ok(None, pos, ctx, r.expected)
@@ -191,14 +407,49 @@ def maybe(parse_fn: ParseFn[S, V]) -> ParseFn[S, Optional[V]]:
     return maybe
 
 
-def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
-    def many(
+def _maybe(parse_fns: ParseFns[S, V]) -> ParseFn[S, Optional[V]]:
+    parse_fn = parse_fns.fn
+
+    def maybe(
             stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[List[V], S]:
-        rs = disallow_recovery(rs)
+            ins: int) -> Result[Optional[V], S]:
+        r = parse_fn(stream, pos, ctx, ins)
+        if r.consumed or type(r) is Ok:
+            return r
+        return Ok(None, pos, ctx, r.expected)
+
+    return maybe
+
+
+def _maybe_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, Optional[V]]:
+    parse_fn = parse_fns.fn
+
+    def maybe(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[Optional[V], S]:
+        r = parse_fn(stream, pos, ctx, ins)
+        if r.consumed or type(r) is Ok:
+            return r
+        return Ok(None, pos, ctx, r.expected)
+
+    return maybe
+
+
+def maybe(parse_fns: ParseFns[S, V]) -> ParseFns[S, Optional[V]]:
+    return ParseFns(
+        _maybe_fast(parse_fns),
+        _maybe(parse_fns),
+        _maybe_slow(parse_fns)
+    )
+
+
+def _many_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, List[V]]:
+    parse_fn = parse_fns.fast_fn
+
+    def many(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[List[V], S]:
         consumed = False
         value: List[V] = []
-        r = parse_fn(stream, pos, ctx, rs)
+        r = parse_fn(stream, pos, ctx)
         while type(r) is Ok:
             if not r.consumed:
                 raise RuntimeError("parser shouldn't accept empty string")
@@ -206,33 +457,72 @@ def many(parse_fn: ParseFn[S, V]) -> ParseFn[S, List[V]]:
             value.append(r.value)
             pos = r.pos
             ctx = r.ctx
-            r = parse_fn(stream, pos, ctx, rs)
+            r = parse_fn(stream, pos, ctx)
+        if r.consumed:
+            return r
+        return Ok(value, pos, ctx, r.expected, consumed)
+
+    return many
+
+
+def _many(parse_fns: ParseFns[S, V]) -> ParseFn[S, List[V]]:
+    parse_fn = parse_fns.fn
+
+    def many(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[List[V], S]:
+        consumed = False
+        value: List[V] = []
+        r = parse_fn(stream, pos, ctx, ins)
+        while type(r) is Ok:
+            if not r.consumed:
+                raise RuntimeError("parser shouldn't accept empty string")
+            consumed = True
+            value.append(r.value)
+            pos = r.pos
+            ctx = r.ctx
+            r = parse_fn(stream, pos, ctx, ins)
         if type(r) is Recovered:
+            def parse(
+                    _: V, pos: int, ctx: Ctx[S],
+                    __: int) -> Result[List[V], S]:
+                r = many(stream, pos, ctx, ins)
+                if type(r) is Error and not r.consumed:
+                    return Ok[List[V], S]([], pos, ctx, r.expected)
+                return r
+
             return continue_parse(
-                stream, r, parse, lambda a, b: [*value, a, *b]
+                r, ins, parse, lambda a, b: [*value, a, *b]
             )
         if r.consumed:
             return r
         return Ok(value, pos, ctx, r.expected, consumed)
 
-    def parse(
-            _: V, stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[List[V], S]:
-        r = many(stream, pos, ctx, rs)
-        if type(r) is Error and not r.consumed:
-            return Ok[List[V], S]([], pos, ctx, r.expected)
-        return r
+    return many
+
+
+def _many_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, List[V]]:
+    fn = _many(parse_fns)
+
+    def many(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[List[V], S]:
+        return fn(stream, pos, ctx, ins)
 
     return many
 
 
-def attempt(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
-    def attempt(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[V, S]:
-        if rs:
-            return parse_fn(stream, pos, ctx, rs)
-        r = parse_fn(stream, pos, ctx, None)
+def many(parse_fns: ParseFns[S, V]) -> ParseFns[S, List[V]]:
+    return ParseFns(
+        _many_fast(parse_fns),
+        _many(parse_fns),
+        _many_slow(parse_fns)
+    )
+
+
+def _attempt_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
+    parse_fn = parse_fns.fast_fn
+
+    def attempt(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[V, S]:
+        r = parse_fn(stream, pos, ctx)
         if type(r) is Error:
             return Error(r.loc, r.expected)
         return r
@@ -240,22 +530,89 @@ def attempt(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     return attempt
 
 
-def label(parse_fn: ParseFn[S, V], x: str) -> ParseFn[S, V]:
-    expected = [x]
+def _attempt(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
+    parse_fn = parse_fns.fast_fn
 
-    def label(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[V, S]:
-        return parse_fn(stream, pos, ctx, rs).set_expected(expected)
+    def attempt(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[V, S]:
+        r = parse_fn(stream, pos, ctx)
+        if type(r) is Error:
+            return Error(r.loc, r.expected)
+        return r
+
+    return attempt
+
+
+def _attempt_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, V]:
+    parse_fn = parse_fns.slow_fn
+
+    def attempt(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[V, S]:
+        return parse_fn(stream, pos, ctx, ins, rem)
+
+    return attempt
+
+
+def attempt(parse_fns: ParseFns[S, V]) -> ParseFns[S, V]:
+    return ParseFns(
+        _attempt_fast(parse_fns),
+        _attempt(parse_fns),
+        _attempt_slow(parse_fns)
+    )
+
+
+def _label_fast(
+        parse_fns: ParseFns[S, V],
+        expected: Iterable[str]) -> ParseFastFn[S, V]:
+    parse_fn = parse_fns.fast_fn
+
+    def label(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[V, S]:
+        return parse_fn(stream, pos, ctx).set_expected(expected)
 
     return label
 
 
-def recover(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
-    def recover(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[V, S]:
-        r = parse_fn(stream, pos, ctx, rs)
+def _label(
+        parse_fns: ParseFns[S, V], expected: Iterable[str]) -> ParseFn[S, V]:
+    parse_fn = parse_fns.fn
+
+    def label(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[V, S]:
+        return parse_fn(stream, pos, ctx, ins).set_expected(expected)
+
+    return label
+
+
+def _label_slow(
+        parse_fns: ParseFns[S, V],
+        expected: Iterable[str]) -> ParseSlowFn[S, V]:
+    parse_fn = parse_fns.slow_fn
+
+    def label(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[V, S]:
+        return parse_fn(stream, pos, ctx, ins, rem).set_expected(expected)
+
+    return label
+
+
+def label(parse_fns: ParseFns[S, V], x: str) -> ParseFns[S, V]:
+    expected = [x]
+    return ParseFns(
+        _label_fast(parse_fns, expected),
+        _label(parse_fns, expected),
+        _label_slow(parse_fns, expected)
+    )
+
+
+def _recover_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
+    return parse_fns.fast_fn
+
+
+def _recover(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
+    parse_fn = parse_fns.fn
+
+    def recover(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[V, S]:
+        r = parse_fn(stream, pos, ctx, ins)
         if type(r) is Recovered:
             for p in r.repairs:
                 if p.skip is None:
@@ -265,21 +622,53 @@ def recover(parse_fn: ParseFn[S, V]) -> ParseFn[S, V]:
     return recover
 
 
-def recover_with(
-        parse_fn: ParseFn[S, V], x: V,
-        label: Optional[str] = None) -> ParseFn[S, V]:
-    vs = repr(x) if label is None else label
+def _recover_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, V]:
+    parse_fn = parse_fns.slow_fn
+
+    def recover(
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[V, S]:
+        r = parse_fn(stream, pos, ctx, ins, rem)
+        if type(r) is Recovered:
+            for p in r.repairs:
+                if p.skip is None:
+                    p.auto = False
+        return r
+
+    return recover
+
+
+def recover(parse_fns: ParseFns[S, V]) -> ParseFns[S, V]:
+    return ParseFns(
+        _recover_fast(parse_fns),
+        _recover(parse_fns),
+        _recover_slow(parse_fns)
+    )
+
+
+def _recover_with_fast(
+        parse_fns: ParseFns[S, V], x: V, vs: str) -> ParseFastFn[S, V]:
+    return parse_fns.fast_fn
+
+
+def _recover_with(parse_fns: ParseFns[S, V], x: V, vs: str) -> ParseFn[S, V]:
+    return parse_fns.fn
+
+
+def _recover_with_slow(
+        parse_fns: ParseFns[S, V], x: V, vs: str) -> ParseSlowFn[S, V]:
+    parse_fn = parse_fns.slow_fn
 
     def recover_with(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[V, S]:
-        r = parse_fn(stream, pos, ctx, rs)
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[V, S]:
+        r = parse_fn(stream, pos, ctx, ins, rem)
         if type(r) is Ok or r.consumed:
             return r
-        if rs and rs[0]:
+        if rem:
             loc = ctx.get_loc(stream, pos)
             rep = Repair(
-                None, False, rs[0] - 1, [OpItem(Insert(vs), loc, r.expected)],
+                None, False, rem - 1, [OpItem(Insert(vs), loc, r.expected)],
                 x, pos, ctx, (), True
             )
             if type(r) is Error:
@@ -290,25 +679,52 @@ def recover_with(
     return recover_with
 
 
-def recover_with_fn(
-        parse_fn: ParseFn[S, V], fn: Callable[[S, int], V],
-        label: Optional[str] = None) -> ParseFn[S, V]:
+def recover_with(
+        parse_fns: ParseFns[S, V], x: V,
+        label: Optional[str] = None) -> ParseFns[S, V]:
+    vs = repr(x) if label is None else label
+
+    return ParseFns(
+        _recover_with_fast(parse_fns, x, vs),
+        _recover_with(parse_fns, x, vs),
+        _recover_with_slow(parse_fns, x, vs)
+    )
+
+
+def _recover_with_fn_fast(
+        parse_fns: ParseFns[S, V], fn: Callable[[S, int], V],
+        label: Optional[str]) -> ParseFastFn[S, V]:
+    return parse_fns.fast_fn
+
+
+def _recover_with_fn(
+        parse_fns: ParseFns[S, V], fn: Callable[[S, int], V],
+        label: Optional[str]) -> ParseFn[S, V]:
+    return parse_fns.fn
+
+
+def _recover_with_fn_slow(
+        parse_fns: ParseFns[S, V], fn: Callable[[S, int], V],
+        label: Optional[str]) -> ParseSlowFn[S, V]:
+    parse_fn = parse_fns.slow_fn
+
     def recover_with_fn(
-            stream: S, pos: int, ctx: Ctx[S],
-            rs: RecoveryState) -> Result[V, S]:
-        r = parse_fn(stream, pos, ctx, rs)
+            stream: S, pos: int, ctx: Ctx[S], ins: int,
+            rem: int) -> Result[V, S]:
+        r = parse_fn(stream, pos, ctx, ins, rem)
         if type(r) is Ok or r.consumed:
             return r
-        if rs and rs[0]:
+        if rem:
             x = fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             rep = Repair(
-                None, False, rs[0] - 1, [
+                None, False, rem - 1, [
                     OpItem(
-                        Insert(repr(x) if label is None else label), loc,
-                        r.expected
+                        Insert(repr(x) if label is None else label),
+                        loc, r.expected
                     )
-                ], x, pos, ctx, (), True
+                ],
+                x, pos, ctx, (), True
             )
             if type(r) is Error:
                 return Recovered([rep], None, loc)
@@ -316,3 +732,13 @@ def recover_with_fn(
         return r
 
     return recover_with_fn
+
+
+def recover_with_fn(
+        parse_fns: ParseFns[S, V], fn: Callable[[S, int], V],
+        label: Optional[str]) -> ParseFns[S, V]:
+    return ParseFns(
+        _recover_with_fn_fast(parse_fns, fn, label),
+        _recover_with_fn(parse_fns, fn, label),
+        _recover_with_fn_slow(parse_fns, fn, label)
+    )
