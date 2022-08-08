@@ -5,9 +5,9 @@ Parser combinators.
 from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from .core import combinators
-from .core.parser import ParseFn, ParseObj
-from .core.result import Result
-from .core.types import Ctx, RecoveryState
+from .core.parser import ParseFns, ParseObj
+from .core.result import Result, SimpleResult
+from .core.types import Ctx
 from .types import ParserParseObj
 
 S = TypeVar("S")
@@ -446,20 +446,30 @@ class TupleParser(Parser[S_contra, V]):
         :param other: Next parser
         """
 
-        return _Tuple2(seq(self, other).to_fn())
+        return _Tuple2(seq(self, other).to_fns())
 
 
 class _FnParseObj(ParseObj[S_contra, V_co]):
-    def __init__(self, fn: ParseFn[S_contra, V_co]):
-        self._fn = fn
+    def __init__(self, fns: ParseFns[S_contra, V_co]):
+        self._fns = fns
 
-    def to_fn(self) -> ParseFn[S_contra, V_co]:
-        return self._fn
+    def to_fns(self) -> ParseFns[S_contra, V_co]:
+        return self._fns
+
+    def parse_fast_fn(
+            self, stream: S_contra, pos: int,
+            ctx: Ctx[S_contra]) -> SimpleResult[V_co, S_contra]:
+        return self._fns.fast_fn(stream, pos, ctx)
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            rs: RecoveryState) -> Result[V_co, S_contra]:
-        return self._fn(stream, pos, ctx, rs)
+            ins: int) -> Result[V_co, S_contra]:
+        return self._fns.fn(stream, pos, ctx, ins)
+
+    def parse_slow_fn(
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
+            rem: int) -> Result[V_co, S_contra]:
+        return self._fns.slow_fn(stream, pos, ctx, ins, rem)
 
 
 class FnParser(_FnParseObj[S_contra, V_co], TupleParser[S_contra, V_co]):
@@ -490,7 +500,7 @@ class Tuple2(Parser[S_contra, Tuple[V0, V1]]):
         :param other: Next parser
         """
 
-        return _Tuple3(combinators.tuple3(self.to_fn(), other.to_fn()))
+        return _Tuple3(combinators.tuple3(self.to_fns(), other.to_fns()))
 
     def apply(self, fn: Callable[[V0, V1], U]) -> TupleParser[S_contra, U]:
         """
@@ -520,7 +530,7 @@ class Tuple3(Parser[S_contra, Tuple[V0, V1, V2]]):
         :param other: Next parser
         """
 
-        return _Tuple4(combinators.tuple4(self.to_fn(), other.to_fn()))
+        return _Tuple4(combinators.tuple4(self.to_fns(), other.to_fns()))
 
     def apply(self, fn: Callable[[V0, V1, V2], U]) -> TupleParser[S_contra, U]:
         """
@@ -552,7 +562,7 @@ class Tuple4(Parser[S_contra, Tuple[V0, V1, V2, V3]]):
         :param other: Next parser
         """
 
-        return _Tuple5(combinators.tuple5(self.to_fn(), other.to_fn()))
+        return _Tuple5(combinators.tuple5(self.to_fns(), other.to_fns()))
 
     def apply(
             self,
@@ -586,7 +596,7 @@ class Tuple5(Parser[S_contra, Tuple[V0, V1, V2, V3, V4]]):
         :param other: Next parser
         """
 
-        return _Tuple6(combinators.tuple6(self.to_fn(), other.to_fn()))
+        return _Tuple6(combinators.tuple6(self.to_fns(), other.to_fns()))
 
     def apply(
             self,
@@ -620,7 +630,7 @@ class Tuple6(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5]]):
         :param other: Next parser
         """
 
-        return _Tuple7(combinators.tuple7(self.to_fn(), other.to_fn()))
+        return _Tuple7(combinators.tuple7(self.to_fns(), other.to_fns()))
 
     def apply(
             self, fn: Callable[[V0, V1, V2, V3, V4, V5], U]
@@ -654,7 +664,7 @@ class Tuple7(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]]):
         :param other: Next parser
         """
 
-        return _Tuple8(combinators.tuple8(self.to_fn(), other.to_fn()))
+        return _Tuple8(combinators.tuple8(self.to_fns(), other.to_fns()))
 
     def apply(
             self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6], U]
@@ -712,13 +722,27 @@ class Delay(TupleParser[S_contra, V_co]):
     """
 
     def __init__(self) -> None:
+        def _fast_fn(
+                stream: S_contra, pos: int,
+                ctx: Ctx[S_contra]) -> SimpleResult[V_co, S_contra]:
+            raise RuntimeError("Delayed parser was not defined")
+
         def _fn(
                 stream: S_contra, pos: int, ctx: Ctx[S_contra],
-                rs: RecoveryState) -> Result[V_co, S_contra]:
+                ins: int) -> Result[V_co, S_contra]:
+            raise RuntimeError("Delayed parser was not defined")
+
+        def _slow_fn(
+                stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
+                rem: int) -> Result[V_co, S_contra]:
             raise RuntimeError("Delayed parser was not defined")
 
         self._defined = False
-        self._fn: ParseFn[S_contra, V_co] = _fn
+        self._fns: ParseFns[S_contra, V_co] = ParseFns(
+            _fast_fn,
+            _fn,
+            _slow_fn
+        )
 
     def define(self, parser: ParseObj[S_contra, V_co]) -> None:
         """
@@ -743,17 +767,27 @@ class Delay(TupleParser[S_contra, V_co]):
         if self._defined:
             raise RuntimeError("Delayed parser was already defined")
         self._defined = True
-        self._fn = parser.to_fn()
+        self._fns = parser.to_fns()
+
+    def parse_fast_fn(
+            self, stream: S_contra, pos: int,
+            ctx: Ctx[S_contra]) -> SimpleResult[V_co, S_contra]:
+        return self._fns.fast_fn(stream, pos, ctx)
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            rs: RecoveryState) -> Result[V_co, S_contra]:
-        return self._fn(stream, pos, ctx, rs)
+            ins: int) -> Result[V_co, S_contra]:
+        return self._fns.fn(stream, pos, ctx, ins)
 
-    def to_fn(self) -> ParseFn[S_contra, V_co]:
+    def parse_slow_fn(
+            self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
+            rem: int) -> Result[V_co, S_contra]:
+        return self._fns.slow_fn(stream, pos, ctx, ins, rem)
+
+    def to_fns(self) -> ParseFns[S_contra, V_co]:
         if self._defined:
-            return self._fn
-        return super().to_fn()
+            return self._fns
+        return super().to_fns()
 
 
 def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> TupleParser[S, U]:
@@ -764,7 +798,7 @@ def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> TupleParser[S, U]:
     :param fn: Function to produce value from the result of ``parser``
     """
 
-    return FnParser(combinators.fmap(parser.to_fn(), fn))
+    return FnParser(combinators.fmap(parser.to_fns(), fn))
 
 
 def bind(
@@ -778,7 +812,7 @@ def bind(
         parser
     """
 
-    return FnParser(combinators.bind(parser.to_fn(), fn))
+    return FnParser(combinators.bind(parser.to_fns(), fn))
 
 
 def seq(
@@ -791,7 +825,7 @@ def seq(
     :param second: Second parser
     """
 
-    return FnParser(combinators.seq(parser.to_fn(), second.to_fn()))
+    return FnParser(combinators.seq(parser.to_fns(), second.to_fns()))
 
 
 def seql(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, V]:
@@ -802,7 +836,7 @@ def seql(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, V]:
     :param second: Second parser
     """
 
-    return FnParser(combinators.seql(parser.to_fn(), second.to_fn()))
+    return FnParser(combinators.seql(parser.to_fns(), second.to_fns()))
 
 
 def seqr(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, U]:
@@ -813,7 +847,7 @@ def seqr(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, U]:
     :param second: Second parser
     """
 
-    return FnParser(combinators.seqr(parser.to_fn(), second.to_fn()))
+    return FnParser(combinators.seqr(parser.to_fns(), second.to_fns()))
 
 
 def alt(
@@ -826,7 +860,7 @@ def alt(
     :param second: Second parser
     """
 
-    return FnParser(combinators.alt(parser.to_fn(), second.to_fn()))
+    return FnParser(combinators.alt(parser.to_fns(), second.to_fns()))
 
 
 def maybe(parser: ParseObj[S, V]) -> TupleParser[S, Optional[V]]:
@@ -836,7 +870,7 @@ def maybe(parser: ParseObj[S, V]) -> TupleParser[S, Optional[V]]:
     :param parser: Parser
     """
 
-    return FnParser(combinators.maybe(parser.to_fn()))
+    return FnParser(combinators.maybe(parser.to_fns()))
 
 
 def many(parser: ParseObj[S, V]) -> TupleParser[S, List[V]]:
@@ -846,7 +880,7 @@ def many(parser: ParseObj[S, V]) -> TupleParser[S, List[V]]:
     :param parser: Parser
     """
 
-    return FnParser(combinators.many(parser.to_fn()))
+    return FnParser(combinators.many(parser.to_fns()))
 
 
 def attempt(parser: ParseObj[S, V]) -> TupleParser[S, V]:
@@ -856,7 +890,7 @@ def attempt(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     :param parser: Parser
     """
 
-    return FnParser(combinators.attempt(parser.to_fn()))
+    return FnParser(combinators.attempt(parser.to_fns()))
 
 
 def label(parser: ParseObj[S, V], expected: str) -> TupleParser[S, V]:
@@ -867,7 +901,7 @@ def label(parser: ParseObj[S, V], expected: str) -> TupleParser[S, V]:
     :param expected: Description of the expected input
     """
 
-    return FnParser(combinators.label(parser.to_fn(), expected))
+    return FnParser(combinators.label(parser.to_fns(), expected))
 
 
 def recover(parser: ParseObj[S, V]) -> TupleParser[S, V]:
@@ -877,7 +911,7 @@ def recover(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     :param parser: Parser
     """
 
-    return FnParser(combinators.recover(parser.to_fn()))
+    return FnParser(combinators.recover(parser.to_fns()))
 
 
 def recover_with(
@@ -891,7 +925,7 @@ def recover_with(
     :param label: Description of the expected input
     """
 
-    return FnParser(combinators.recover_with(parser.to_fn(), x, label))
+    return FnParser(combinators.recover_with(parser.to_fns(), x, label))
 
 
 def recover_with_fn(
@@ -905,7 +939,7 @@ def recover_with_fn(
     :param label: Description of the expected input
     """
 
-    return FnParser(combinators.recover_with_fn(parser.to_fn(), fn, label))
+    return FnParser(combinators.recover_with_fn(parser.to_fns(), fn, label))
 
 
 def sep_by(

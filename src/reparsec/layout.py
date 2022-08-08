@@ -24,7 +24,7 @@ def block(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     :param parser: Parser
     """
 
-    return FnParser(layout.block(parser.to_fn()))
+    return FnParser(layout.block(parser.to_fns()))
 
 
 def aligned(parser: ParseObj[S, V]) -> TupleParser[S, V]:
@@ -34,7 +34,7 @@ def aligned(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     :param parser: Parser
     """
 
-    return FnParser(layout.aligned(parser.to_fn()))
+    return FnParser(layout.aligned(parser.to_fns()))
 
 
 def indented(delta: int, parser: ParseObj[S, V]) -> TupleParser[S, V]:
@@ -46,4 +46,4 @@ def indented(delta: int, parser: ParseObj[S, V]) -> TupleParser[S, V]:
     :param parser: Parser
     """
 
-    return FnParser(layout.indented(delta, parser.to_fn()))
+    return FnParser(layout.indented(delta, parser.to_fns()))
