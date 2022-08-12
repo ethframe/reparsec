@@ -42,7 +42,11 @@ def test_negative(data: str, expected: str) -> None:
 DATA_RECOVERY: List[Tuple[str, int, str]] = [
     ("1 1", 1, "at 1:3: expected end of file (skipped 1 token)"),
     ("1 )", 1, "at 1:3: expected end of file (skipped 1 token)"),
-    ("1 + 2 * * (3 + 4)", 15, "at 1:9: expected '(' (skipped 2 tokens)"),
+    (
+        "1 + 2 * * (3 + 4 5)", 15,
+        "at 1:9: expected '(' (skipped 2 tokens), " +
+        "at 1:18: expected ')' (skipped 1 token)"
+    ),
 ]
 
 

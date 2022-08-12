@@ -61,7 +61,7 @@ Output:
 Out-of-the-box error recovery:
 
 ```python
-result = parser.parse("1 + 2 * * (3 + 4)", recover=True)
+result = parser.parse("1 + 2 * * (3 + 4 5)", recover=True)
 
 try:
     result.unwrap()
@@ -74,7 +74,7 @@ print(result.unwrap(recover=True))
 Output:
 
 ```
-at 8: expected '(' (skipped 2 tokens)
+at 8: expected '(' (skipped 2 tokens), at 17: expected ')' (skipped 1 token)
 15
 ```
 
