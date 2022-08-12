@@ -128,7 +128,7 @@ class ParserParseObj(ParseObj[S_contra, V_co]):
 
         ctx = Ctx(0, Loc(0, 0, 0), get_loc)
         if recover:
-            result = self.parse_slow_fn(
+            result = self.parse_fn(
                 stream, 0, ctx, max_insertions, max_insertions
             )
         else:

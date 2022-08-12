@@ -1,4 +1,4 @@
-from typing import Callable, TypeVar
+from typing import Callable, Optional, TypeVar
 
 from .parser import ParseObj
 from .result import Ok, Result, SimpleResult
@@ -18,13 +18,8 @@ class Pure(ParseObj[S_contra, V_co]):
         return Ok(self._x, pos, ctx)
 
     def parse_fn(
-            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            ins: int) -> Result[V_co, S_contra]:
-        return Ok(self._x, pos, ctx)
-
-    def parse_slow_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-            rem: int) -> Result[V_co, S_contra]:
+            rem: Optional[int]) -> Result[V_co, S_contra]:
         return Ok(self._x, pos, ctx)
 
 
@@ -38,11 +33,6 @@ class PureFn(ParseObj[S_contra, V_co]):
         return Ok(self._fn(), pos, ctx)
 
     def parse_fn(
-            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            ins: int) -> Result[V_co, S_contra]:
-        return Ok(self._fn(), pos, ctx)
-
-    def parse_slow_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-            rem: int) -> Result[V_co, S_contra]:
+            rem: Optional[int]) -> Result[V_co, S_contra]:
         return Ok(self._fn(), pos, ctx)

@@ -462,14 +462,9 @@ class _FnParseObj(ParseObj[S_contra, V_co]):
         return self._fns.fast_fn(stream, pos, ctx)
 
     def parse_fn(
-            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            ins: int) -> Result[V_co, S_contra]:
-        return self._fns.fn(stream, pos, ctx, ins)
-
-    def parse_slow_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-            rem: int) -> Result[V_co, S_contra]:
-        return self._fns.slow_fn(stream, pos, ctx, ins, rem)
+            rem: Optional[int]) -> Result[V_co, S_contra]:
+        return self._fns.fn(stream, pos, ctx, ins, rem)
 
 
 class FnParser(_FnParseObj[S_contra, V_co], TupleParser[S_contra, V_co]):
@@ -728,21 +723,12 @@ class Delay(TupleParser[S_contra, V_co]):
             raise RuntimeError("Delayed parser was not defined")
 
         def _fn(
-                stream: S_contra, pos: int, ctx: Ctx[S_contra],
-                ins: int) -> Result[V_co, S_contra]:
-            raise RuntimeError("Delayed parser was not defined")
-
-        def _slow_fn(
                 stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-                rem: int) -> Result[V_co, S_contra]:
+                rem: Optional[int]) -> Result[V_co, S_contra]:
             raise RuntimeError("Delayed parser was not defined")
 
         self._defined = False
-        self._fns: ParseFns[S_contra, V_co] = ParseFns(
-            _fast_fn,
-            _fn,
-            _slow_fn
-        )
+        self._fns: ParseFns[S_contra, V_co] = ParseFns(_fast_fn, _fn)
 
     def define(self, parser: ParseObj[S_contra, V_co]) -> None:
         """
@@ -775,14 +761,9 @@ class Delay(TupleParser[S_contra, V_co]):
         return self._fns.fast_fn(stream, pos, ctx)
 
     def parse_fn(
-            self, stream: S_contra, pos: int, ctx: Ctx[S_contra],
-            ins: int) -> Result[V_co, S_contra]:
-        return self._fns.fn(stream, pos, ctx, ins)
-
-    def parse_slow_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-            rem: int) -> Result[V_co, S_contra]:
-        return self._fns.slow_fn(stream, pos, ctx, ins, rem)
+            rem: Optional[int]) -> Result[V_co, S_contra]:
+        return self._fns.fn(stream, pos, ctx, ins, rem)
 
     def to_fns(self) -> ParseFns[S_contra, V_co]:
         if self._defined:
