@@ -6,8 +6,8 @@ from typing_extensions import final
 from .chain import Append
 from .types import Ctx, Loc
 
-V = TypeVar("V")
-V_co = TypeVar("V_co", covariant=True)
+A = TypeVar("A")
+A_co = TypeVar("A_co", covariant=True)
 S = TypeVar("S")
 
 
@@ -41,12 +41,12 @@ class OpItem:
 
 
 @dataclass
-class Repair(Generic[V_co, S]):
+class Repair(Generic[A_co, S]):
     skip: Optional[int]
     auto: bool
     ins: int
     ops: List[OpItem]
-    value: V_co
+    value: A_co
     pos: int
     ctx: Ctx[S]
     expected: Iterable[str] = ()
@@ -71,8 +71,8 @@ def ops_prepend_expected(
 
 
 def make_insert(
-        rem: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, label: str,
-        expected: Iterable[str] = ()) -> Repair[V, S]:
+        rem: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, label: str,
+        expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
         None, True, rem - 1, [OpItem(Insert(label), loc, expected)], value,
         pos, ctx, (), True
@@ -80,8 +80,8 @@ def make_insert(
 
 
 def make_skip(
-        ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
-        expected: Iterable[str] = ()) -> Repair[V, S]:
+        ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
         skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
         (), True
@@ -89,8 +89,8 @@ def make_skip(
 
 
 def make_pending_skip(
-        ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
-        expected: Iterable[str] = ()) -> Repair[V, S]:
+        ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
         skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
     )

@@ -14,10 +14,10 @@ from .parser import FnParser, TupleParser
 __all__ = ("block", "aligned", "indented")
 
 S = TypeVar("S")
-V = TypeVar("V")
+A = TypeVar("A")
 
 
-def block(parser: ParseObj[S, V]) -> TupleParser[S, V]:
+def block(parser: ParseObj[S, A]) -> TupleParser[S, A]:
     """
     Applies parser with column mark set to current column.
 
@@ -27,7 +27,7 @@ def block(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     return FnParser(layout.block(parser.to_fns()))
 
 
-def aligned(parser: ParseObj[S, V]) -> TupleParser[S, V]:
+def aligned(parser: ParseObj[S, A]) -> TupleParser[S, A]:
     """
     Applies parser if column mark is equal to current column, otherwise fails.
 
@@ -37,7 +37,7 @@ def aligned(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     return FnParser(layout.aligned(parser.to_fns()))
 
 
-def indented(delta: int, parser: ParseObj[S, V]) -> TupleParser[S, V]:
+def indented(delta: int, parser: ParseObj[S, A]) -> TupleParser[S, A]:
     """
     If current column is greater than column mark by ``delta``, applies parser
     with column mark set to current column, otherwise fails.

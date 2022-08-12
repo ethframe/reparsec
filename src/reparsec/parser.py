@@ -12,14 +12,14 @@ from .types import ParserParseObj
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
-V = TypeVar("V")
-V_co = TypeVar("V_co", covariant=True)
-U = TypeVar("U")
-X = TypeVar("X")
+A = TypeVar("A")
+A_co = TypeVar("A_co", covariant=True)
+B = TypeVar("B")
+C = TypeVar("C")
 
 
-class Parser(ParserParseObj[S_contra, V_co]):
-    def fmap(self, fn: Callable[[V_co], U]) -> "TupleParser[S_contra, U]":
+class Parser(ParserParseObj[S_contra, A_co]):
+    def fmap(self, fn: Callable[[A_co], B]) -> "TupleParser[S_contra, B]":
         """
         Transforms the result of the parser by applying ``fn`` to it.
 
@@ -34,8 +34,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return fmap(self, fn)
 
     def bind(
-            self, fn: Callable[[V_co], ParseObj[S_contra, U]]
-    ) -> "TupleParser[S_contra, U]":
+            self, fn: Callable[[A_co], ParseObj[S_contra, B]]
+    ) -> "TupleParser[S_contra, B]":
         """
         Calls ``fn`` with the result of the parser and then applies the
         returned parser.
@@ -61,7 +61,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
     def seql(
             self,
-            other: ParseObj[S_contra, U]) -> "TupleParser[S_contra, V_co]":
+            other: ParseObj[S_contra, B]) -> "TupleParser[S_contra, A_co]":
         """
         Alias for :meth:`TupleParser.__lshift__`
 
@@ -70,7 +70,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return seql(self, other)
 
-    def seqr(self, other: ParseObj[S_contra, U]) -> "TupleParser[S_contra, U]":
+    def seqr(self, other: ParseObj[S_contra, B]) -> "TupleParser[S_contra, B]":
         """
         Alias for :meth:`TupleParser.__rshift__`
 
@@ -80,8 +80,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return seqr(self, other)
 
     def __lshift__(
-            self, other: ParseObj[S_contra, U]
-    ) -> "TupleParser[S_contra, V_co]":
+            self, other: ParseObj[S_contra, B]
+    ) -> "TupleParser[S_contra, A_co]":
         """
         Applies two parsers sequentially and returns the result of the first
         parser.
@@ -97,8 +97,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return seql(self, other)
 
     def __rshift__(
-            self, other: ParseObj[S_contra, U]
-    ) -> "TupleParser[S_contra, U]":
+            self, other: ParseObj[S_contra, B]
+    ) -> "TupleParser[S_contra, B]":
         """
         Applies two parsers sequentially and returns the result of the second
         parser.
@@ -114,8 +114,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return seqr(self, other)
 
     def __add__(
-            self, other: ParseObj[S_contra, U]
-    ) -> "TupleParser[S_contra, Tuple[V_co, U]]":
+            self, other: ParseObj[S_contra, B]
+    ) -> "TupleParser[S_contra, Tuple[A_co, B]]":
         """
         Applies two parsers sequentially and returns a tuple of their results.
 
@@ -136,8 +136,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return seq(self, other)
 
     def __or__(
-            self, other: ParseObj[S_contra, U]
-    ) -> "TupleParser[S_contra, Union[V_co, U]]":
+            self, other: ParseObj[S_contra, B]
+    ) -> "TupleParser[S_contra, Union[A_co, B]]":
         """
         Applies the first parser and returns its' result unless it fails
         without consuming any input. In this case the second parser is applied
@@ -161,7 +161,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return alt(self, other)
 
-    def maybe(self) -> "TupleParser[S_contra, Optional[V_co]]":
+    def maybe(self) -> "TupleParser[S_contra, Optional[A_co]]":
         """
         Applies the parser and returns ``None`` if it failed withoud consuming
         input. Otherwise returns the result of the parser.
@@ -183,7 +183,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return maybe(self)
 
-    def many(self) -> "TupleParser[S_contra, List[V_co]]":
+    def many(self) -> "TupleParser[S_contra, List[A_co]]":
         """
         Applies the parser multiple times, until it fails. Returns a list of
         the parsed values if the parser failed withoud consuming input.
@@ -204,7 +204,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return many(self)
 
-    def attempt(self) -> "TupleParser[S_contra, V_co]":
+    def attempt(self) -> "TupleParser[S_contra, A_co]":
         """
         Applies the parser, and pretends that no input was consumed if it
         fails.
@@ -225,7 +225,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return attempt(self)
 
-    def label(self, expected: str) -> "TupleParser[S_contra, V_co]":
+    def label(self, expected: str) -> "TupleParser[S_contra, A_co]":
         """
         Applies the parser, and replaces list of expected values with
         ``[expected]`` if no input was consumed.
@@ -248,7 +248,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
         return label(self, expected)
 
-    def recover(self) -> "TupleParser[S_contra, V_co]":
+    def recover(self) -> "TupleParser[S_contra, A_co]":
         """
         Allows the parser to recover with repair sequences that starts with
         automatically inserted tokens.
@@ -274,8 +274,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return recover(self)
 
     def recover_with(
-            self, x: U, label: Optional[str] = None
-    ) -> "TupleParser[S_contra, Union[V_co, U]]":
+            self, x: B, label: Optional[str] = None
+    ) -> "TupleParser[S_contra, Union[A_co, B]]":
         """
         Applies the parser and returns its' result unless it failed without
         consuming input while error recovery is enabled. In this case, the
@@ -305,8 +305,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return recover_with(self, x, label)
 
     def recover_with_fn(
-            self, fn: Callable[[S_contra, int], V_co],
-            label: Optional[str] = None) -> "TupleParser[S_contra, V_co]":
+            self, fn: Callable[[S_contra, int], A_co],
+            label: Optional[str] = None) -> "TupleParser[S_contra, A_co]":
         """
         Applies the parser and returns its' result unless it failed without
         consuming input while error recovery is enabled. In this case, the
@@ -338,7 +338,7 @@ class Parser(ParserParseObj[S_contra, V_co]):
 
     def sep_by(
             self,
-            sep: ParseObj[S_contra, U]) -> "TupleParser[S_contra, List[V_co]]":
+            sep: ParseObj[S_contra, B]) -> "TupleParser[S_contra, List[A_co]]":
         """
         Applies the parser multiple times, with ``sep`` in between. Returns a
         list of the values parsed by the parser.
@@ -356,8 +356,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return sep_by(self, sep)
 
     def between(
-            self, open: ParseObj[S_contra, U],
-            close: ParseObj[S_contra, X]) -> "TupleParser[S_contra, V_co]":
+            self, open: ParseObj[S_contra, B],
+            close: ParseObj[S_contra, C]) -> "TupleParser[S_contra, A_co]":
         """
         Applies ``open``, then the parser, then ``close``, and returns the
         value parsed by the parser.
@@ -376,8 +376,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return between(open, close, self)
 
     def chainl1(
-            self, op: ParseObj[S_contra, Callable[[V_co, V_co], V_co]]
-    ) -> "TupleParser[S_contra, V_co]":
+            self, op: ParseObj[S_contra, Callable[[A_co, A_co], A_co]]
+    ) -> "TupleParser[S_contra, A_co]":
         """
         Applies the parser one or more times, with ``op`` in between. Returns a
         value of left-associative application of functions returned by ``op``
@@ -398,8 +398,8 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return chainl1(self, op)
 
     def chainr1(
-            self, op: ParseObj[S_contra, Callable[[V_co, V_co], V_co]]
-    ) -> "TupleParser[S_contra, V_co]":
+            self, op: ParseObj[S_contra, Callable[[A_co, A_co], A_co]]
+    ) -> "TupleParser[S_contra, A_co]":
         """
         Applies the parser one or more times, with ``op`` in between. Returns a
         value of right-associative application of functions returned by ``op``
@@ -420,14 +420,14 @@ class Parser(ParserParseObj[S_contra, V_co]):
         return chainr1(self, op)
 
 
-class TupleParser(Parser[S_contra, V]):
+class TupleParser(Parser[S_contra, A]):
     """
     A subclass of :class:`Parser` with ability to build a tuple of up to eight
     results.
     """
 
     def then(
-            self, other: ParseObj[S_contra, U]) -> "Tuple2[S_contra, V, U]":
+            self, other: ParseObj[S_contra, B]) -> "Tuple2[S_contra, A, B]":
         """
         Applies up to eight parsers sequentially and returns a tuple of their
         results.
@@ -449,46 +449,46 @@ class TupleParser(Parser[S_contra, V]):
         return _Tuple2(seq(self, other).to_fns())
 
 
-class _FnParseObj(ParseObj[S_contra, V_co]):
-    def __init__(self, fns: ParseFns[S_contra, V_co]):
+class _FnParseObj(ParseObj[S_contra, A_co]):
+    def __init__(self, fns: ParseFns[S_contra, A_co]):
         self._fns = fns
 
-    def to_fns(self) -> ParseFns[S_contra, V_co]:
+    def to_fns(self) -> ParseFns[S_contra, A_co]:
         return self._fns
 
     def parse_fast_fn(
             self, stream: S_contra, pos: int,
-            ctx: Ctx[S_contra]) -> SimpleResult[V_co, S_contra]:
+            ctx: Ctx[S_contra]) -> SimpleResult[A_co, S_contra]:
         return self._fns.fast_fn(stream, pos, ctx)
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-            rem: Optional[int]) -> Result[V_co, S_contra]:
+            rem: Optional[int]) -> Result[A_co, S_contra]:
         return self._fns.fn(stream, pos, ctx, ins, rem)
 
 
-class FnParser(_FnParseObj[S_contra, V_co], TupleParser[S_contra, V_co]):
+class FnParser(_FnParseObj[S_contra, A_co], TupleParser[S_contra, A_co]):
     pass
 
 
-V0 = TypeVar("V0")
-V1 = TypeVar("V1")
-V2 = TypeVar("V2")
-V3 = TypeVar("V3")
-V4 = TypeVar("V4")
-V5 = TypeVar("V5")
-V6 = TypeVar("V6")
-V7 = TypeVar("V7")
+A0 = TypeVar("A0")
+A1 = TypeVar("A1")
+A2 = TypeVar("A2")
+A3 = TypeVar("A3")
+A4 = TypeVar("A4")
+A5 = TypeVar("A5")
+A6 = TypeVar("A6")
+A7 = TypeVar("A7")
 
 
-class Tuple2(Parser[S_contra, Tuple[V0, V1]]):
+class Tuple2(Parser[S_contra, Tuple[A0, A1]]):
     """
     A subclass of :class:`Parser` that always returns tuples of two values.
     """
 
     def then(
             self,
-            other: ParseObj[S_contra, V2]) -> "Tuple3[S_contra, V0, V1, V2]":
+            other: ParseObj[S_contra, A2]) -> "Tuple3[S_contra, A0, A1, A2]":
         """
         See :meth:`TupleParser.then`.
 
@@ -497,7 +497,7 @@ class Tuple2(Parser[S_contra, Tuple[V0, V1]]):
 
         return _Tuple3(combinators.tuple3(self.to_fns(), other.to_fns()))
 
-    def apply(self, fn: Callable[[V0, V1], U]) -> TupleParser[S_contra, U]:
+    def apply(self, fn: Callable[[A0, A1], B]) -> TupleParser[S_contra, B]:
         """
         Applies ``fn`` to elements of parsed tuple.
 
@@ -507,18 +507,18 @@ class Tuple2(Parser[S_contra, Tuple[V0, V1]]):
         return fmap(self, lambda t: fn(*t))
 
 
-class _Tuple2(_FnParseObj[S_contra, Tuple[V0, V1]], Tuple2[S_contra, V0, V1]):
+class _Tuple2(_FnParseObj[S_contra, Tuple[A0, A1]], Tuple2[S_contra, A0, A1]):
     pass
 
 
-class Tuple3(Parser[S_contra, Tuple[V0, V1, V2]]):
+class Tuple3(Parser[S_contra, Tuple[A0, A1, A2]]):
     """
     A subclass of :class:`Parser` that always returns tuples of three values.
     """
 
     def then(
-        self, other: ParseObj[S_contra, V3]
-    ) -> "Tuple4[S_contra, V0, V1, V2, V3]":
+        self, other: ParseObj[S_contra, A3]
+    ) -> "Tuple4[S_contra, A0, A1, A2, A3]":
         """
         See :meth:`TupleParser.then`.
 
@@ -527,7 +527,7 @@ class Tuple3(Parser[S_contra, Tuple[V0, V1, V2]]):
 
         return _Tuple4(combinators.tuple4(self.to_fns(), other.to_fns()))
 
-    def apply(self, fn: Callable[[V0, V1, V2], U]) -> TupleParser[S_contra, U]:
+    def apply(self, fn: Callable[[A0, A1, A2], B]) -> TupleParser[S_contra, B]:
         """
         Applies ``fn`` to elements of parsed tuple.
 
@@ -538,19 +538,19 @@ class Tuple3(Parser[S_contra, Tuple[V0, V1, V2]]):
 
 
 class _Tuple3(
-        _FnParseObj[S_contra, Tuple[V0, V1, V2]],
-        Tuple3[S_contra, V0, V1, V2]):
+        _FnParseObj[S_contra, Tuple[A0, A1, A2]],
+        Tuple3[S_contra, A0, A1, A2]):
     pass
 
 
-class Tuple4(Parser[S_contra, Tuple[V0, V1, V2, V3]]):
+class Tuple4(Parser[S_contra, Tuple[A0, A1, A2, A3]]):
     """
     A subclass of :class:`Parser` that always returns tuples of four values.
     """
 
     def then(
-        self, other: ParseObj[S_contra, V4]
-    ) -> "Tuple5[S_contra, V0, V1, V2, V3, V4]":
+        self, other: ParseObj[S_contra, A4]
+    ) -> "Tuple5[S_contra, A0, A1, A2, A3, A4]":
         """
         See :meth:`TupleParser.then`.
 
@@ -561,7 +561,7 @@ class Tuple4(Parser[S_contra, Tuple[V0, V1, V2, V3]]):
 
     def apply(
             self,
-            fn: Callable[[V0, V1, V2, V3], U]) -> TupleParser[S_contra, U]:
+            fn: Callable[[A0, A1, A2, A3], B]) -> TupleParser[S_contra, B]:
         """
         Applies ``fn`` to elements of parsed tuple.
 
@@ -572,19 +572,19 @@ class Tuple4(Parser[S_contra, Tuple[V0, V1, V2, V3]]):
 
 
 class _Tuple4(
-        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3]],
-        Tuple4[S_contra, V0, V1, V2, V3]):
+        _FnParseObj[S_contra, Tuple[A0, A1, A2, A3]],
+        Tuple4[S_contra, A0, A1, A2, A3]):
     pass
 
 
-class Tuple5(Parser[S_contra, Tuple[V0, V1, V2, V3, V4]]):
+class Tuple5(Parser[S_contra, Tuple[A0, A1, A2, A3, A4]]):
     """
     A subclass of :class:`Parser` that always returns tuples of five values.
     """
 
     def then(
-        self, other: ParseObj[S_contra, V5]
-    ) -> "Tuple6[S_contra, V0, V1, V2, V3, V4, V5]":
+        self, other: ParseObj[S_contra, A5]
+    ) -> "Tuple6[S_contra, A0, A1, A2, A3, A4, A5]":
         """
         See :meth:`TupleParser.then`.
 
@@ -595,7 +595,7 @@ class Tuple5(Parser[S_contra, Tuple[V0, V1, V2, V3, V4]]):
 
     def apply(
             self,
-            fn: Callable[[V0, V1, V2, V3, V4], U]) -> TupleParser[S_contra, U]:
+            fn: Callable[[A0, A1, A2, A3, A4], B]) -> TupleParser[S_contra, B]:
         """
         Applies ``fn`` to elements of parsed tuple.
 
@@ -606,19 +606,19 @@ class Tuple5(Parser[S_contra, Tuple[V0, V1, V2, V3, V4]]):
 
 
 class _Tuple5(
-        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4]],
-        Tuple5[S_contra, V0, V1, V2, V3, V4]):
+        _FnParseObj[S_contra, Tuple[A0, A1, A2, A3, A4]],
+        Tuple5[S_contra, A0, A1, A2, A3, A4]):
     pass
 
 
-class Tuple6(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5]]):
+class Tuple6(Parser[S_contra, Tuple[A0, A1, A2, A3, A4, A5]]):
     """
     A subclass of :class:`Parser` that always returns tuples of six values.
     """
 
     def then(
-            self, other: ParseObj[S_contra, V6]
-    ) -> "Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]":
+            self, other: ParseObj[S_contra, A6]
+    ) -> "Tuple7[S_contra, A0, A1, A2, A3, A4, A5, A6]":
         """
         See :meth:`TupleParser.then`.
 
@@ -628,8 +628,8 @@ class Tuple6(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5]]):
         return _Tuple7(combinators.tuple7(self.to_fns(), other.to_fns()))
 
     def apply(
-            self, fn: Callable[[V0, V1, V2, V3, V4, V5], U]
-    ) -> TupleParser[S_contra, U]:
+            self, fn: Callable[[A0, A1, A2, A3, A4, A5], B]
+    ) -> TupleParser[S_contra, B]:
         """
         Applies ``fn`` to elements of parsed tuple.
 
@@ -640,19 +640,19 @@ class Tuple6(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5]]):
 
 
 class _Tuple6(
-        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4, V5]],
-        Tuple6[S_contra, V0, V1, V2, V3, V4, V5]):
+        _FnParseObj[S_contra, Tuple[A0, A1, A2, A3, A4, A5]],
+        Tuple6[S_contra, A0, A1, A2, A3, A4, A5]):
     pass
 
 
-class Tuple7(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]]):
+class Tuple7(Parser[S_contra, Tuple[A0, A1, A2, A3, A4, A5, A6]]):
     """
     A subclass of :class:`Parser` that always returns tuples of seven values.
     """
 
     def then(
-            self, other: ParseObj[S_contra, V7]
-    ) -> "Tuple8[S_contra, V0, V1, V2, V3, V4, V5, V6, V7]":
+            self, other: ParseObj[S_contra, A7]
+    ) -> "Tuple8[S_contra, A0, A1, A2, A3, A4, A5, A6, A7]":
         """
         See :meth:`TupleParser.then`.
 
@@ -662,8 +662,8 @@ class Tuple7(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]]):
         return _Tuple8(combinators.tuple8(self.to_fns(), other.to_fns()))
 
     def apply(
-            self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6], U]
-    ) -> TupleParser[S_contra, U]:
+            self, fn: Callable[[A0, A1, A2, A3, A4, A5, A6], B]
+    ) -> TupleParser[S_contra, B]:
         """
         Applies ``fn`` to elements of parsed tuple.
 
@@ -674,19 +674,19 @@ class Tuple7(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]]):
 
 
 class _Tuple7(
-        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6]],
-        Tuple7[S_contra, V0, V1, V2, V3, V4, V5, V6]):
+        _FnParseObj[S_contra, Tuple[A0, A1, A2, A3, A4, A5, A6]],
+        Tuple7[S_contra, A0, A1, A2, A3, A4, A5, A6]):
     pass
 
 
-class Tuple8(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]):
+class Tuple8(Parser[S_contra, Tuple[A0, A1, A2, A3, A4, A5, A6, A7]]):
     """
     A subclass of :class:`Parser` that always returns tuples of eight values.
     """
 
     def apply(
-        self, fn: Callable[[V0, V1, V2, V3, V4, V5, V6, V7], U]
-    ) -> TupleParser[S_contra, U]:
+        self, fn: Callable[[A0, A1, A2, A3, A4, A5, A6, A7], B]
+    ) -> TupleParser[S_contra, B]:
         """
         Applies ``fn`` to elements of parsed tuple.
 
@@ -697,12 +697,12 @@ class Tuple8(Parser[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]):
 
 
 class _Tuple8(
-        _FnParseObj[S_contra, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]],
-        Tuple8[S_contra, V0, V1, V2, V3, V4, V5, V6, V7]):
+        _FnParseObj[S_contra, Tuple[A0, A1, A2, A3, A4, A5, A6, A7]],
+        Tuple8[S_contra, A0, A1, A2, A3, A4, A5, A6, A7]):
     pass
 
 
-class Delay(TupleParser[S_contra, V_co]):
+class Delay(TupleParser[S_contra, A_co]):
     """
     A subclass of :class:`TupleParser` to use as a forward declaration.
 
@@ -719,18 +719,18 @@ class Delay(TupleParser[S_contra, V_co]):
     def __init__(self) -> None:
         def _fast_fn(
                 stream: S_contra, pos: int,
-                ctx: Ctx[S_contra]) -> SimpleResult[V_co, S_contra]:
+                ctx: Ctx[S_contra]) -> SimpleResult[A_co, S_contra]:
             raise RuntimeError("Delayed parser was not defined")
 
         def _fn(
                 stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-                rem: Optional[int]) -> Result[V_co, S_contra]:
+                rem: Optional[int]) -> Result[A_co, S_contra]:
             raise RuntimeError("Delayed parser was not defined")
 
         self._defined = False
-        self._fns: ParseFns[S_contra, V_co] = ParseFns(_fast_fn, _fn)
+        self._fns: ParseFns[S_contra, A_co] = ParseFns(_fast_fn, _fn)
 
-    def define(self, parser: ParseObj[S_contra, V_co]) -> None:
+    def define(self, parser: ParseObj[S_contra, A_co]) -> None:
         """
         Define the parser.
 
@@ -757,21 +757,21 @@ class Delay(TupleParser[S_contra, V_co]):
 
     def parse_fast_fn(
             self, stream: S_contra, pos: int,
-            ctx: Ctx[S_contra]) -> SimpleResult[V_co, S_contra]:
+            ctx: Ctx[S_contra]) -> SimpleResult[A_co, S_contra]:
         return self._fns.fast_fn(stream, pos, ctx)
 
     def parse_fn(
             self, stream: S_contra, pos: int, ctx: Ctx[S_contra], ins: int,
-            rem: Optional[int]) -> Result[V_co, S_contra]:
+            rem: Optional[int]) -> Result[A_co, S_contra]:
         return self._fns.fn(stream, pos, ctx, ins, rem)
 
-    def to_fns(self) -> ParseFns[S_contra, V_co]:
+    def to_fns(self) -> ParseFns[S_contra, A_co]:
         if self._defined:
             return self._fns
         return super().to_fns()
 
 
-def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> TupleParser[S, U]:
+def fmap(parser: ParseObj[S, A], fn: Callable[[A], B]) -> TupleParser[S, B]:
     """
     :meth:`Parser.fmap` as a function.
 
@@ -783,8 +783,8 @@ def fmap(parser: ParseObj[S, V], fn: Callable[[V], U]) -> TupleParser[S, U]:
 
 
 def bind(
-        parser: ParseObj[S, V],
-        fn: Callable[[V], ParseObj[S, U]]) -> TupleParser[S, U]:
+        parser: ParseObj[S, A],
+        fn: Callable[[A], ParseObj[S, B]]) -> TupleParser[S, B]:
     """
     :meth:`Parser.bind` as a function.
 
@@ -797,8 +797,8 @@ def bind(
 
 
 def seq(
-        parser: ParseObj[S, V],
-        second: ParseObj[S, U]) -> TupleParser[S, Tuple[V, U]]:
+        parser: ParseObj[S, A],
+        second: ParseObj[S, B]) -> TupleParser[S, Tuple[A, B]]:
     """
     :meth:`Parser.__add__` as a function.
 
@@ -809,7 +809,7 @@ def seq(
     return FnParser(combinators.seq(parser.to_fns(), second.to_fns()))
 
 
-def seql(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, V]:
+def seql(parser: ParseObj[S, A], second: ParseObj[S, B]) -> TupleParser[S, A]:
     """
     :meth:`Parser.seql` as a function.
 
@@ -820,7 +820,7 @@ def seql(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, V]:
     return FnParser(combinators.seql(parser.to_fns(), second.to_fns()))
 
 
-def seqr(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, U]:
+def seqr(parser: ParseObj[S, A], second: ParseObj[S, B]) -> TupleParser[S, B]:
     """
     :meth:`Parser.seqr` as a function.
 
@@ -832,8 +832,8 @@ def seqr(parser: ParseObj[S, V], second: ParseObj[S, U]) -> TupleParser[S, U]:
 
 
 def alt(
-        parser: ParseObj[S, V],
-        second: ParseObj[S, U]) -> TupleParser[S, Union[V, U]]:
+        parser: ParseObj[S, A],
+        second: ParseObj[S, B]) -> TupleParser[S, Union[A, B]]:
     """
     :meth:`Parser.__or__` as a function.
 
@@ -844,7 +844,7 @@ def alt(
     return FnParser(combinators.alt(parser.to_fns(), second.to_fns()))
 
 
-def maybe(parser: ParseObj[S, V]) -> TupleParser[S, Optional[V]]:
+def maybe(parser: ParseObj[S, A]) -> TupleParser[S, Optional[A]]:
     """
     :meth:`Parser.maybe` as a function.
 
@@ -854,7 +854,7 @@ def maybe(parser: ParseObj[S, V]) -> TupleParser[S, Optional[V]]:
     return FnParser(combinators.maybe(parser.to_fns()))
 
 
-def many(parser: ParseObj[S, V]) -> TupleParser[S, List[V]]:
+def many(parser: ParseObj[S, A]) -> TupleParser[S, List[A]]:
     """
     :meth:`Parser.many` as a function.
 
@@ -864,7 +864,7 @@ def many(parser: ParseObj[S, V]) -> TupleParser[S, List[V]]:
     return FnParser(combinators.many(parser.to_fns()))
 
 
-def attempt(parser: ParseObj[S, V]) -> TupleParser[S, V]:
+def attempt(parser: ParseObj[S, A]) -> TupleParser[S, A]:
     """
     :meth:`Parser.attempt` as a function.
 
@@ -874,7 +874,7 @@ def attempt(parser: ParseObj[S, V]) -> TupleParser[S, V]:
     return FnParser(combinators.attempt(parser.to_fns()))
 
 
-def label(parser: ParseObj[S, V], expected: str) -> TupleParser[S, V]:
+def label(parser: ParseObj[S, A], expected: str) -> TupleParser[S, A]:
     """
     :meth:`Parser.label` as a function.
 
@@ -885,7 +885,7 @@ def label(parser: ParseObj[S, V], expected: str) -> TupleParser[S, V]:
     return FnParser(combinators.label(parser.to_fns(), expected))
 
 
-def recover(parser: ParseObj[S, V]) -> TupleParser[S, V]:
+def recover(parser: ParseObj[S, A]) -> TupleParser[S, A]:
     """
     :meth:`Parser.recover` as a function.
 
@@ -896,8 +896,8 @@ def recover(parser: ParseObj[S, V]) -> TupleParser[S, V]:
 
 
 def recover_with(
-        parser: ParseObj[S, V], x: V,
-        label: Optional[str] = None) -> TupleParser[S, V]:
+        parser: ParseObj[S, A], x: A,
+        label: Optional[str] = None) -> TupleParser[S, A]:
     """
     :meth:`Parser.recover_with` as a function.
 
@@ -910,8 +910,8 @@ def recover_with(
 
 
 def recover_with_fn(
-        parser: ParseObj[S, V], fn: Callable[[S, int], V],
-        label: Optional[str] = None) -> TupleParser[S, V]:
+        parser: ParseObj[S, A], fn: Callable[[S, int], A],
+        label: Optional[str] = None) -> TupleParser[S, A]:
     """
     :meth:`Parser.recover_with_fn` as a function.
 
@@ -924,8 +924,8 @@ def recover_with_fn(
 
 
 def sep_by(
-        parser: ParseObj[S, V],
-        sep: ParseObj[S, U]) -> TupleParser[S, List[V]]:
+        parser: ParseObj[S, A],
+        sep: ParseObj[S, B]) -> TupleParser[S, List[A]]:
     """
     :meth:`Parser.sep_by` as a function.
 
@@ -939,8 +939,8 @@ def sep_by(
 
 
 def between(
-        open: ParseObj[S, U], close: ParseObj[S, X],
-        parser: ParseObj[S, V]) -> TupleParser[S, V]:
+        open: ParseObj[S, B], close: ParseObj[S, C],
+        parser: ParseObj[S, A]) -> TupleParser[S, A]:
     """
     :meth:`Parser.between` as a function.
 
@@ -953,8 +953,8 @@ def between(
 
 
 def chainl1(
-        arg: ParseObj[S, V],
-        op: ParseObj[S, Callable[[V, V], V]]) -> TupleParser[S, V]:
+        arg: ParseObj[S, A],
+        op: ParseObj[S, Callable[[A, A], A]]) -> TupleParser[S, A]:
     """
     :meth:`Parser.chainl1` as a function.
 
@@ -962,7 +962,7 @@ def chainl1(
     :param op: Operator parser
     """
 
-    def reducer(v: Tuple[V, List[Tuple[Callable[[V, V], V], V]]]) -> V:
+    def reducer(v: Tuple[A, List[Tuple[Callable[[A, A], A], A]]]) -> A:
         res, tail = v
         for op, arg in tail:
             res = op(res, arg)
@@ -972,8 +972,8 @@ def chainl1(
 
 
 def chainr1(
-        arg: ParseObj[S, V],
-        op: ParseObj[S, Callable[[V, V], V]]) -> TupleParser[S, V]:
+        arg: ParseObj[S, A],
+        op: ParseObj[S, Callable[[A, A], A]]) -> TupleParser[S, A]:
     """
     :meth:`Parser.chainr1` as a function.
 
@@ -981,9 +981,9 @@ def chainr1(
     :param op: Operator parser
     """
 
-    def reducer(v: Tuple[V, List[Tuple[Callable[[V, V], V], V]]]) -> V:
+    def reducer(v: Tuple[A, List[Tuple[Callable[[A, A], A], A]]]) -> A:
         res, tail = v
-        rassoc: List[Tuple[V, Callable[[V, V], V]]] = []
+        rassoc: List[Tuple[A, Callable[[A, A], A]]] = []
         for op, arg in tail:
             rassoc.append((res, op))
             res = arg

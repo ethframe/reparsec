@@ -5,7 +5,7 @@ from .repair import Repair, make_insert, make_pending_skip, make_skip
 from .result import Error, Ok, Recovered, Result, SimpleResult
 from .types import Ctx
 
-T = TypeVar("T")
+A = TypeVar("A")
 
 
 def _eof_fast() -> ParseFastFn[Sized, None]:
@@ -44,10 +44,10 @@ def eof() -> ParseFns[Sized, None]:
     return ParseFns(_eof_fast(), _eof())
 
 
-def _satisfy_fast(test: Callable[[T], bool]) -> ParseFastFn[Sequence[T], T]:
+def _satisfy_fast(test: Callable[[A], bool]) -> ParseFastFn[Sequence[A], A]:
     def satisfy(
-            stream: Sequence[T], pos: int,
-            ctx: Ctx[Sequence[T]]) -> SimpleResult[T, Sequence[T]]:
+            stream: Sequence[A], pos: int,
+            ctx: Ctx[Sequence[A]]) -> SimpleResult[A, Sequence[A]]:
         if pos < len(stream):
             t = stream[pos]
             if test(t):
@@ -57,10 +57,10 @@ def _satisfy_fast(test: Callable[[T], bool]) -> ParseFastFn[Sequence[T], T]:
     return satisfy
 
 
-def _satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
+def _satisfy(test: Callable[[A], bool]) -> ParseFn[Sequence[A], A]:
     def satisfy(
-            stream: Sequence[T], pos: int, ctx: Ctx[Sequence[T]], ins: int,
-            rem: Optional[int]) -> Result[T, Sequence[T]]:
+            stream: Sequence[A], pos: int, ctx: Ctx[Sequence[A]], ins: int,
+            rem: Optional[int]) -> Result[A, Sequence[A]]:
         if pos < len(stream):
             t = stream[pos]
             if test(t):
@@ -86,14 +86,14 @@ def _satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
     return satisfy
 
 
-def satisfy(test: Callable[[T], bool]) -> ParseFns[Sequence[T], T]:
+def satisfy(test: Callable[[A], bool]) -> ParseFns[Sequence[A], A]:
     return ParseFns(_satisfy_fast(test), _satisfy(test))
 
 
-def _sym_fast(s: T, expected: Iterable[str]) -> ParseFastFn[Sequence[T], T]:
+def _sym_fast(s: A, expected: Iterable[str]) -> ParseFastFn[Sequence[A], A]:
     def sym(
-            stream: Sequence[T], pos: int,
-            ctx: Ctx[Sequence[T]]) -> SimpleResult[T, Sequence[T]]:
+            stream: Sequence[A], pos: int,
+            ctx: Ctx[Sequence[A]]) -> SimpleResult[A, Sequence[A]]:
         if pos < len(stream):
             t = stream[pos]
             if t == s:
@@ -103,10 +103,10 @@ def _sym_fast(s: T, expected: Iterable[str]) -> ParseFastFn[Sequence[T], T]:
     return sym
 
 
-def _sym(s: T, label: str, expected: Iterable[str]) -> ParseFn[Sequence[T], T]:
+def _sym(s: A, label: str, expected: Iterable[str]) -> ParseFn[Sequence[A], A]:
     def sym(
-            stream: Sequence[T], pos: int, ctx: Ctx[Sequence[T]], ins: int,
-            rem: Optional[int]) -> Result[T, Sequence[T]]:
+            stream: Sequence[A], pos: int, ctx: Ctx[Sequence[A]], ins: int,
+            rem: Optional[int]) -> Result[A, Sequence[A]]:
         if pos < len(stream):
             t = stream[pos]
             if t == s:
@@ -114,7 +114,7 @@ def _sym(s: T, label: str, expected: Iterable[str]) -> ParseFn[Sequence[T], T]:
         if rem is None:
             return Error(ctx.get_loc(stream, pos), expected)
         loc = ctx.get_loc(stream, pos)
-        reps: List[Repair[T, Sequence[T]]] = []
+        reps: List[Repair[A, Sequence[A]]] = []
         if rem:
             reps.append(make_insert(rem, s, pos, ctx, loc, label, expected))
         cur = pos + 1
@@ -134,7 +134,7 @@ def _sym(s: T, label: str, expected: Iterable[str]) -> ParseFn[Sequence[T], T]:
     return sym
 
 
-def sym(s: T, label: Optional[str]) -> ParseFns[Sequence[T], T]:
+def sym(s: A, label: Optional[str]) -> ParseFns[Sequence[A], A]:
     if label is None:
         label_ = repr(s)
     else:

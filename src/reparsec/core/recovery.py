@@ -6,20 +6,20 @@ from .result import Ok, Recovered, Result
 from .types import Ctx
 
 S = TypeVar("S")
-V = TypeVar("V")
-U = TypeVar("U")
-X = TypeVar("X")
+A = TypeVar("A")
+B = TypeVar("B")
+C = TypeVar("C")
 
 
-ContinueFn = Callable[[V, int, Ctx[S], int], Result[U, S]]
-MergeFn = Callable[[V, U], X]
+ContinueFn = Callable[[A, int, Ctx[S], int], Result[B, S]]
+MergeFn = Callable[[A, B], C]
 
 
 def continue_parse(
-        ra: Recovered[V, S], ins: int, parse: ContinueFn[V, S, U],
-        merge: MergeFn[V, U, X]) -> Result[X, S]:
+        ra: Recovered[A, S], ins: int, parse: ContinueFn[A, S, B],
+        merge: MergeFn[A, B, C]) -> Result[C, S]:
 
-    reps: List[Repair[X, S]] = []
+    reps: List[Repair[C, S]] = []
     for r in ra.repairs:
         rb = parse(r.value, r.pos, r.ctx, r.ins)
         if type(rb) is Ok:
@@ -46,8 +46,8 @@ def continue_parse(
 
 
 def join_repairs(
-        ra: Recovered[V, S], rb: Recovered[U, S]) -> Recovered[Union[V, U], S]:
-    reps: List[Repair[Union[V, U], S]] = list(ra.repairs)
+        ra: Recovered[A, S], rb: Recovered[B, S]) -> Recovered[Union[A, B], S]:
+    reps: List[Repair[Union[A, B], S]] = list(ra.repairs)
     min_skip = ra.min_skip
     if min_skip is not None:
         reps.extend(
@@ -69,7 +69,7 @@ def join_repairs(
     )
 
 
-def _join_ops(rep: Repair[V, S], repb: Repair[U, S]) -> List[OpItem]:
+def _join_ops(rep: Repair[A, S], repb: Repair[B, S]) -> List[OpItem]:
     ops = [OpItem(i.op, i.loc, i.expected, i.consumed) for i in rep.ops]
     ops_prepend_expected(repb.ops, rep.expected, rep.consumed)
     ops.extend(repb.ops)
@@ -77,7 +77,7 @@ def _join_ops(rep: Repair[V, S], repb: Repair[U, S]) -> List[OpItem]:
 
 
 def _append_expected(
-        ra: Repair[V, S], expected: Iterable[str],
+        ra: Repair[A, S], expected: Iterable[str],
         consumed: bool) -> Iterable[str]:
     if consumed:
         return expected

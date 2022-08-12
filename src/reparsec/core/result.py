@@ -6,18 +6,18 @@ from .chain import Append
 from .repair import Repair, ops_prepend_expected, ops_set_expected
 from .types import Ctx, Loc
 
-V = TypeVar("V")
-V_co = TypeVar("V_co", covariant=True)
-U = TypeVar("U")
+A = TypeVar("A")
+A_co = TypeVar("A_co", covariant=True)
+B = TypeVar("B")
 S = TypeVar("S")
 
 
 @final
-class Ok(Generic[V_co, S]):
+class Ok(Generic[A_co, S]):
     __slots__ = "value", "pos", "ctx", "expected", "consumed"
 
     def __init__(
-            self, value: V_co, pos: int, ctx: Ctx[S],
+            self, value: A_co, pos: int, ctx: Ctx[S],
             expected: Iterable[str] = (), consumed: bool = False):
         self.value = value
         self.pos = pos
@@ -30,22 +30,22 @@ class Ok(Generic[V_co, S]):
             "Ok(value={!r}, pos={!r}, ctx={!r}, expected={!r}, consumed={!r})"
         ).format(self.value, self.pos, self.ctx, self.expected, self.consumed)
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "Ok[U, S]":
+    def fmap(self, fn: Callable[[A_co], B]) -> "Ok[B, S]":
         return Ok(
             fn(self.value), self.pos, self.ctx, self.expected, self.consumed
         )
 
-    def set_ctx(self, ctx: Ctx[S]) -> "Ok[V_co, S]":
+    def set_ctx(self, ctx: Ctx[S]) -> "Ok[A_co, S]":
         self.ctx = ctx
         return self
 
-    def set_expected(self, expected: Iterable[str]) -> "Ok[V_co, S]":
+    def set_expected(self, expected: Iterable[str]) -> "Ok[A_co, S]":
         if not self.consumed:
             self.expected = expected
         return self
 
     def prepend_expected(
-            self, expected: Iterable[str], consumed: bool) -> "Ok[V_co, S]":
+            self, expected: Iterable[str], consumed: bool) -> "Ok[A_co, S]":
         if not self.consumed:
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
@@ -88,11 +88,11 @@ class Error:
 
 
 @final
-class Recovered(Generic[V_co, S]):
+class Recovered(Generic[A_co, S]):
     __slots__ = "repairs", "min_skip", "loc", "expected", "consumed"
 
     def __init__(
-            self, repairs: List[Repair[V_co, S]], min_skip: Optional[int],
+            self, repairs: List[Repair[A_co, S]], min_skip: Optional[int],
             loc: Loc, expected: Iterable[str] = (), consumed: bool = False):
         self.repairs = repairs
         self.min_skip = min_skip
@@ -108,7 +108,7 @@ class Recovered(Generic[V_co, S]):
             self.repairs, self.min_skip, self.loc, self.expected, self.consumed
         )
 
-    def fmap(self, fn: Callable[[V_co], U]) -> "Recovered[U, S]":
+    def fmap(self, fn: Callable[[A_co], B]) -> "Recovered[B, S]":
         return Recovered(
             [
                 Repair(
@@ -120,12 +120,12 @@ class Recovered(Generic[V_co, S]):
             self.min_skip, self.loc, self.expected, self.consumed
         )
 
-    def set_ctx(self, ctx: Ctx[S]) -> "Recovered[V_co, S]":
+    def set_ctx(self, ctx: Ctx[S]) -> "Recovered[A_co, S]":
         for r in self.repairs:
             r.ctx = ctx
         return self
 
-    def set_expected(self, expected: Iterable[str]) -> "Recovered[V_co, S]":
+    def set_expected(self, expected: Iterable[str]) -> "Recovered[A_co, S]":
         if not self.consumed:
             self.expected = expected
         for r in self.repairs:
@@ -136,7 +136,7 @@ class Recovered(Generic[V_co, S]):
 
     def prepend_expected(
             self, expected: Iterable[str],
-            consumed: bool) -> "Recovered[V_co, S]":
+            consumed: bool) -> "Recovered[A_co, S]":
         if not self.consumed:
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
@@ -148,5 +148,5 @@ class Recovered(Generic[V_co, S]):
         return self
 
 
-SimpleResult = Union[Ok[V, S], Error]
-Result = Union[SimpleResult[V, S], Recovered[V, S]]
+SimpleResult = Union[Ok[A, S], Error]
+Result = Union[SimpleResult[A, S], Recovered[A, S]]

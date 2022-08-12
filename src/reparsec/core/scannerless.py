@@ -6,7 +6,7 @@ from .repair import Repair, make_insert, make_skip
 from .result import Error, Ok, Recovered, Result, SimpleResult
 from .types import Ctx, Loc
 
-V = TypeVar("V")
+A = TypeVar("A")
 
 
 def get_loc(loc: Loc, stream: str, pos: int) -> Loc:

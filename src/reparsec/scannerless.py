@@ -10,7 +10,7 @@ from .types import ParseResult
 
 __all__ = ("literal", "regexp", "parse")
 
-V = TypeVar("V")
+A = TypeVar("A")
 
 
 def literal(s: str) -> TupleParser[str, str]:
@@ -58,8 +58,8 @@ def regexp(pat: str, group: Union[int, str] = 0) -> TupleParser[str, str]:
 
 
 def parse(
-        parser: Parser[str, V], stream: str,
-        recover: bool = False) -> ParseResult[V, str]:
+        parser: Parser[str, A], stream: str,
+        recover: bool = False) -> ParseResult[A, str]:
     """
     Wrapper around :meth:`reparsec.Parser.parse` that enables line and column
     tracking for scannerless parsers.

@@ -9,7 +9,7 @@ from .parser import FnParser, TupleParser
 
 __all__ = ("eof", "satisfy", "sym", "letter", "digit")
 
-T = TypeVar("T")
+A = TypeVar("A")
 
 
 def eof() -> TupleParser[Sized, None]:
@@ -28,7 +28,7 @@ def eof() -> TupleParser[Sized, None]:
     return FnParser(sequence.eof())
 
 
-def satisfy(test: Callable[[T], bool]) -> TupleParser[Sequence[T], T]:
+def satisfy(test: Callable[[A], bool]) -> TupleParser[Sequence[A], A]:
     """
     Succeeds for sequence element for which ``test`` returns ``True`` and
     returns that element.
@@ -50,7 +50,7 @@ def satisfy(test: Callable[[T], bool]) -> TupleParser[Sequence[T], T]:
     return FnParser(sequence.satisfy(test))
 
 
-def sym(s: T, label: Optional[str] = None) -> TupleParser[Sequence[T], T]:
+def sym(s: A, label: Optional[str] = None) -> TupleParser[Sequence[A], A]:
     """
     Parses ``s`` and returns the parsed element.
 

@@ -2,8 +2,8 @@ from typing import Callable, Generic, NamedTuple, TypeVar
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
-V = TypeVar("V")
-V_co = TypeVar("V_co", covariant=True)
+A = TypeVar("A")
+A_co = TypeVar("A_co", covariant=True)
 
 
 class Loc(NamedTuple):

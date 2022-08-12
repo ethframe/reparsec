@@ -13,8 +13,8 @@ from .core.types import Ctx, Loc
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
-V_co = TypeVar("V_co", covariant=True)
-U = TypeVar("U")
+A_co = TypeVar("A_co", covariant=True)
+B = TypeVar("B")
 
 
 @dataclass
@@ -74,22 +74,22 @@ class ParseError(Exception):
         return ", ".join(error.msg for error in self.errors)
 
 
-class ParseResult(Generic[V_co, S]):
+class ParseResult(Generic[A_co, S]):
     """
     Result of the parsing.
     """
 
     @abstractmethod
-    def fmap(self, fn: Callable[[V_co], U]) -> "ParseResult[U, S]":
+    def fmap(self, fn: Callable[[A_co], B]) -> "ParseResult[B, S]":
         """
-        Transforms :class:`ParseResult`\\[``V_co``, ``S``] into
-        :class:`ParseResult`\\[``U``, ``S``] by applying `fn` to value.
+        Transforms :class:`ParseResult`\\[``A_co``, ``S``] into
+        :class:`ParseResult`\\[``B``, ``S``] by applying `fn` to value.
 
         :param fn: Function to apply to value
         """
 
     @abstractmethod
-    def unwrap(self, recover: bool = False) -> V_co:
+    def unwrap(self, recover: bool = False) -> A_co:
         """
         Returns parsed value if there is one. Otherwise throws
         :exc:`ParseError`.
@@ -107,13 +107,13 @@ def _fmt_loc(loc: Loc) -> str:
     return repr(loc.pos)
 
 
-class ParserParseObj(ParseObj[S_contra, V_co]):
+class ParserParseObj(ParseObj[S_contra, A_co]):
     def parse(
             self, stream: S_contra, recover: bool = False, *,
             max_insertions: int = 5,
             get_loc: Callable[[Loc, S_contra, int], Loc] = _get_loc,
             fmt_loc: Callable[[Loc], str] = _fmt_loc
-    ) -> ParseResult[V_co, S_contra]:
+    ) -> ParseResult[A_co, S_contra]:
         """
         Parses input.
 
@@ -136,15 +136,15 @@ class ParserParseObj(ParseObj[S_contra, V_co]):
         return _ParseResult(result, fmt_loc)
 
 
-class _ParseResult(ParseResult[V_co, S]):
-    def __init__(self, result: Result[V_co, S], fmt_loc: Callable[[Loc], str]):
+class _ParseResult(ParseResult[A_co, S]):
+    def __init__(self, result: Result[A_co, S], fmt_loc: Callable[[Loc], str]):
         self._result = result
         self._fmt_loc = fmt_loc
 
-    def fmap(self, fn: Callable[[V_co], U]) -> ParseResult[U, S]:
+    def fmap(self, fn: Callable[[A_co], B]) -> ParseResult[B, S]:
         return _ParseResult(self._result.fmap(fn), self._fmt_loc)
 
-    def unwrap(self, recover: bool = False) -> V_co:
+    def unwrap(self, recover: bool = False) -> A_co:
         if type(self._result) is Ok:
             return self._result.value
 

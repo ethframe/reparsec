@@ -8,42 +8,42 @@ from .result import Error, Ok, Recovered, Result, SimpleResult
 from .types import Ctx
 
 S = TypeVar("S")
-V = TypeVar("V")
-U = TypeVar("U")
-X = TypeVar("X")
+A = TypeVar("A")
+B = TypeVar("B")
+C = TypeVar("C")
 
 
 def _fmap_fast(
-        parse_fns: ParseFns[S, V], fn: Callable[[V], U]) -> ParseFastFn[S, U]:
+        parse_fns: ParseFns[S, A], fn: Callable[[A], B]) -> ParseFastFn[S, B]:
     parse_fn = parse_fns.fast_fn
 
-    def fmap(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[U, S]:
+    def fmap(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[B, S]:
         return parse_fn(stream, pos, ctx).fmap(fn)
 
     return fmap
 
 
-def _fmap(parse_fns: ParseFns[S, V], fn: Callable[[V], U]) -> ParseFn[S, U]:
+def _fmap(parse_fns: ParseFns[S, A], fn: Callable[[A], B]) -> ParseFn[S, B]:
     parse_fn = parse_fns.fn
 
     def fmap(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[U, S]:
+            rem: Optional[int]) -> Result[B, S]:
         return parse_fn(stream, pos, ctx, ins, rem).fmap(fn)
     return fmap
 
 
-def fmap(parse_fns: ParseFns[S, V], fn: Callable[[V], U]) -> ParseFns[S, U]:
+def fmap(parse_fns: ParseFns[S, A], fn: Callable[[A], B]) -> ParseFns[S, B]:
     return ParseFns(_fmap_fast(parse_fns, fn), _fmap(parse_fns, fn))
 
 
 def _alt_fast(
-        parse_fns: ParseFns[S, V],
-        second_fns: ParseFns[S, U]) -> ParseFastFn[S, Union[V, U]]:
+        parse_fns: ParseFns[S, A],
+        second_fns: ParseFns[S, B]) -> ParseFastFn[S, Union[A, B]]:
     parse_fn = parse_fns.fast_fn
     second_fn = second_fns.fast_fn
 
-    def alt(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[Union[V, U], S]:
+    def alt(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[Union[A, B], S]:
         ra = parse_fn(stream, pos, ctx)
         if type(ra) is Ok or ra.consumed:
             return ra
@@ -59,14 +59,14 @@ def _alt_fast(
 
 
 def _alt(
-        parse_fns: ParseFns[S, V],
-        second_fns: ParseFns[S, U]) -> ParseFn[S, Union[V, U]]:
+        parse_fns: ParseFns[S, A],
+        second_fns: ParseFns[S, B]) -> ParseFn[S, Union[A, B]]:
     parse_fn = parse_fns.fn
     second_fn = second_fns.fn
 
     def alt(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[Union[V, U], S]:
+            rem: Optional[int]) -> Result[Union[A, B], S]:
         ra = parse_fn(stream, pos, ctx, ins, None)
         if type(ra) is Ok or ra.consumed:
             return ra
@@ -91,8 +91,8 @@ def _alt(
 
 
 def alt(
-        parse_fns: ParseFns[S, V],
-        second_fns: ParseFns[S, U]) -> ParseFns[S, Union[V, U]]:
+        parse_fns: ParseFns[S, A],
+        second_fns: ParseFns[S, B]) -> ParseFns[S, Union[A, B]]:
     return ParseFns(
         _alt_fast(parse_fns, second_fns),
         _alt(parse_fns, second_fns)
@@ -100,11 +100,11 @@ def alt(
 
 
 def _bind_fast(
-        parse_fns: ParseFns[S, V],
-        fn: Callable[[V], ParseObj[S, U]]) -> ParseFastFn[S, U]:
+        parse_fns: ParseFns[S, A],
+        fn: Callable[[A], ParseObj[S, B]]) -> ParseFastFn[S, B]:
     parse_fn = parse_fns.fast_fn
 
-    def bind(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[U, S]:
+    def bind(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[B, S]:
         ra = parse_fn(stream, pos, ctx)
         if type(ra) is Error:
             return ra
@@ -116,13 +116,13 @@ def _bind_fast(
 
 
 def _bind(
-        parse_fns: ParseFns[S, V],
-        fn: Callable[[V], ParseObj[S, U]]) -> ParseFn[S, U]:
+        parse_fns: ParseFns[S, A],
+        fn: Callable[[A], ParseObj[S, B]]) -> ParseFn[S, B]:
     parse_fn = parse_fns.fn
 
     def bind(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[U, S]:
+            rem: Optional[int]) -> Result[B, S]:
         ra = parse_fn(stream, pos, ctx, ins, rem)
         if type(ra) is Error:
             return ra
@@ -144,18 +144,18 @@ def _bind(
 
 
 def bind(
-        parse_fns: ParseFns[S, V],
-        fn: Callable[[V], ParseObj[S, U]]) -> ParseFns[S, U]:
+        parse_fns: ParseFns[S, A],
+        fn: Callable[[A], ParseObj[S, B]]) -> ParseFns[S, B]:
     return ParseFns(_bind_fast(parse_fns, fn), _bind(parse_fns, fn))
 
 
 def _seq_h_fast(
-        parse_fns: ParseFns[S, V], second_fns: ParseFns[S, U],
-        merge: MergeFn[V, U, X]) -> ParseFastFn[S, X]:
+        parse_fns: ParseFns[S, A], second_fns: ParseFns[S, B],
+        merge: MergeFn[A, B, C]) -> ParseFastFn[S, C]:
     parse_fn = parse_fns.fast_fn
     second_fn = second_fns.fast_fn
 
-    def seq(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[X, S]:
+    def seq(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[C, S]:
         ra = parse_fn(stream, pos, ctx)
         if type(ra) is Error:
             return ra
@@ -170,14 +170,14 @@ def _seq_h_fast(
 
 
 def _seq_h(
-        parse_fns: ParseFns[S, V], second_fns: ParseFns[S, U],
-        merge: MergeFn[V, U, X]) -> ParseFn[S, X]:
+        parse_fns: ParseFns[S, A], second_fns: ParseFns[S, B],
+        merge: MergeFn[A, B, C]) -> ParseFn[S, C]:
     parse_fn = parse_fns.fn
     second_fn = second_fns.fn
 
     def seq(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[X, S]:
+            rem: Optional[int]) -> Result[C, S]:
         ra = parse_fn(stream, pos, ctx, ins, rem)
         if type(ra) is Error:
             return ra
@@ -197,8 +197,8 @@ def _seq_h(
 
 
 def _seq(
-        parse_fns: ParseFns[S, V], second_fns: ParseFns[S, U],
-        merge: MergeFn[V, U, X]) -> ParseFns[S, X]:
+        parse_fns: ParseFns[S, A], second_fns: ParseFns[S, B],
+        merge: MergeFn[A, B, C]) -> ParseFns[S, C]:
     return ParseFns(
         _seq_h_fast(parse_fns, second_fns, merge),
         _seq_h(parse_fns, second_fns, merge),
@@ -206,95 +206,95 @@ def _seq(
 
 
 def seql(
-        parse_fns: ParseFns[S, V],
-        second_fns: ParseFns[S, U]) -> ParseFns[S, V]:
+        parse_fns: ParseFns[S, A],
+        second_fns: ParseFns[S, B]) -> ParseFns[S, A]:
     return _seq(parse_fns, second_fns, lambda l, _: l)
 
 
 def seqr(
-        parse_fns: ParseFns[S, V],
-        second_fns: ParseFns[S, U]) -> ParseFns[S, U]:
+        parse_fns: ParseFns[S, A],
+        second_fns: ParseFns[S, B]) -> ParseFns[S, B]:
     return _seq(parse_fns, second_fns, lambda _, r: r)
 
 
 def seq(
-        parse_fns: ParseFns[S, V],
-        second_fns: ParseFns[S, U]) -> ParseFns[S, Tuple[V, U]]:
+        parse_fns: ParseFns[S, A],
+        second_fns: ParseFns[S, B]) -> ParseFns[S, Tuple[A, B]]:
     return _seq(parse_fns, second_fns, lambda l, r: (l, r))
 
 
-V0 = TypeVar("V0")
-V1 = TypeVar("V1")
-V2 = TypeVar("V2")
-V3 = TypeVar("V3")
-V4 = TypeVar("V4")
-V5 = TypeVar("V5")
-V6 = TypeVar("V6")
-V7 = TypeVar("V7")
+A0 = TypeVar("A0")
+A1 = TypeVar("A1")
+A2 = TypeVar("A2")
+A3 = TypeVar("A3")
+A4 = TypeVar("A4")
+A5 = TypeVar("A5")
+A6 = TypeVar("A6")
+A7 = TypeVar("A7")
 
 
 def tuple3(
-        parse_fns: ParseFns[S, Tuple[V0, V1]],
-        second_fns: ParseFns[S, V2]) -> ParseFns[S, Tuple[V0, V1, V2]]:
-    def merge(a: Tuple[V0, V1], b: V2) -> Tuple[V0, V1, V2]:
+        parse_fns: ParseFns[S, Tuple[A0, A1]],
+        second_fns: ParseFns[S, A2]) -> ParseFns[S, Tuple[A0, A1, A2]]:
+    def merge(a: Tuple[A0, A1], b: A2) -> Tuple[A0, A1, A2]:
         return (*a, b)
     return _seq(parse_fns, second_fns, merge)
 
 
 def tuple4(
-        parse_fns: ParseFns[S, Tuple[V0, V1, V2]],
-        second_fns: ParseFns[S, V3]) -> ParseFns[S, Tuple[V0, V1, V2, V3]]:
-    def merge(a: Tuple[V0, V1, V2], b: V3) -> Tuple[V0, V1, V2, V3]:
+        parse_fns: ParseFns[S, Tuple[A0, A1, A2]],
+        second_fns: ParseFns[S, A3]) -> ParseFns[S, Tuple[A0, A1, A2, A3]]:
+    def merge(a: Tuple[A0, A1, A2], b: A3) -> Tuple[A0, A1, A2, A3]:
         return (*a, b)
     return _seq(parse_fns, second_fns, merge)
 
 
 def tuple5(
-        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3]],
-        second_fns: ParseFns[S, V4]) -> ParseFns[S, Tuple[V0, V1, V2, V3, V4]]:
-    def merge(a: Tuple[V0, V1, V2, V3], b: V4) -> Tuple[V0, V1, V2, V3, V4]:
+        parse_fns: ParseFns[S, Tuple[A0, A1, A2, A3]],
+        second_fns: ParseFns[S, A4]) -> ParseFns[S, Tuple[A0, A1, A2, A3, A4]]:
+    def merge(a: Tuple[A0, A1, A2, A3], b: A4) -> Tuple[A0, A1, A2, A3, A4]:
         return (*a, b)
     return _seq(parse_fns, second_fns, merge)
 
 
 def tuple6(
-        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3, V4]],
-        second_fns: ParseFns[S, V5]) -> ParseFns[
-            S, Tuple[V0, V1, V2, V3, V4, V5]]:
+        parse_fns: ParseFns[S, Tuple[A0, A1, A2, A3, A4]],
+        second_fns: ParseFns[S, A5]) -> ParseFns[
+            S, Tuple[A0, A1, A2, A3, A4, A5]]:
     def merge(
-            a: Tuple[V0, V1, V2, V3, V4],
-            b: V5) -> Tuple[V0, V1, V2, V3, V4, V5]:
+            a: Tuple[A0, A1, A2, A3, A4],
+            b: A5) -> Tuple[A0, A1, A2, A3, A4, A5]:
         return (*a, b)
     return _seq(parse_fns, second_fns, merge)
 
 
 def tuple7(
-        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3, V4, V5]],
-        second_fns: ParseFns[S, V6]) -> ParseFns[
-            S, Tuple[V0, V1, V2, V3, V4, V5, V6]]:
+        parse_fns: ParseFns[S, Tuple[A0, A1, A2, A3, A4, A5]],
+        second_fns: ParseFns[S, A6]) -> ParseFns[
+            S, Tuple[A0, A1, A2, A3, A4, A5, A6]]:
     def merge(
-            a: Tuple[V0, V1, V2, V3, V4, V5],
-            b: V6) -> Tuple[V0, V1, V2, V3, V4, V5, V6]:
+            a: Tuple[A0, A1, A2, A3, A4, A5],
+            b: A6) -> Tuple[A0, A1, A2, A3, A4, A5, A6]:
         return (*a, b)
     return _seq(parse_fns, second_fns, merge)
 
 
 def tuple8(
-        parse_fns: ParseFns[S, Tuple[V0, V1, V2, V3, V4, V5, V6]],
-        second_fns: ParseFns[S, V7]) -> ParseFns[
-            S, Tuple[V0, V1, V2, V3, V4, V5, V6, V7]]:
+        parse_fns: ParseFns[S, Tuple[A0, A1, A2, A3, A4, A5, A6]],
+        second_fns: ParseFns[S, A7]) -> ParseFns[
+            S, Tuple[A0, A1, A2, A3, A4, A5, A6, A7]]:
     def merge(
-            a: Tuple[V0, V1, V2, V3, V4, V5, V6],
-            b: V7) -> Tuple[V0, V1, V2, V3, V4, V5, V6, V7]:
+            a: Tuple[A0, A1, A2, A3, A4, A5, A6],
+            b: A7) -> Tuple[A0, A1, A2, A3, A4, A5, A6, A7]:
         return (*a, b)
     return _seq(parse_fns, second_fns, merge)
 
 
-def _maybe_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, Optional[V]]:
+def _maybe_fast(parse_fns: ParseFns[S, A]) -> ParseFastFn[S, Optional[A]]:
     parse_fn = parse_fns.fast_fn
 
     def maybe(
-            stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[Optional[V], S]:
+            stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[Optional[A], S]:
         r = parse_fn(stream, pos, ctx)
         if r.consumed or type(r) is Ok:
             return r
@@ -303,12 +303,12 @@ def _maybe_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, Optional[V]]:
     return maybe
 
 
-def _maybe(parse_fns: ParseFns[S, V]) -> ParseFn[S, Optional[V]]:
+def _maybe(parse_fns: ParseFns[S, A]) -> ParseFn[S, Optional[A]]:
     parse_fn = parse_fns.fn
 
     def maybe(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[Optional[V], S]:
+            rem: Optional[int]) -> Result[Optional[A], S]:
         r = parse_fn(stream, pos, ctx, ins, None)
         if r.consumed or type(r) is Ok:
             return r
@@ -317,16 +317,16 @@ def _maybe(parse_fns: ParseFns[S, V]) -> ParseFn[S, Optional[V]]:
     return maybe
 
 
-def maybe(parse_fns: ParseFns[S, V]) -> ParseFns[S, Optional[V]]:
+def maybe(parse_fns: ParseFns[S, A]) -> ParseFns[S, Optional[A]]:
     return ParseFns(_maybe_fast(parse_fns), _maybe(parse_fns))
 
 
-def _many_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, List[V]]:
+def _many_fast(parse_fns: ParseFns[S, A]) -> ParseFastFn[S, List[A]]:
     parse_fn = parse_fns.fast_fn
 
-    def many(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[List[V], S]:
+    def many(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[List[A], S]:
         consumed = False
-        value: List[V] = []
+        value: List[A] = []
         r = parse_fn(stream, pos, ctx)
         while type(r) is Ok:
             if not r.consumed:
@@ -343,14 +343,14 @@ def _many_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, List[V]]:
     return many
 
 
-def _many(parse_fns: ParseFns[S, V]) -> ParseFn[S, List[V]]:
+def _many(parse_fns: ParseFns[S, A]) -> ParseFn[S, List[A]]:
     parse_fn = parse_fns.fn
 
     def many(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[List[V], S]:
+            rem: Optional[int]) -> Result[List[A], S]:
         consumed = False
-        value: List[V] = []
+        value: List[A] = []
         r = parse_fn(stream, pos, ctx, ins, None)
         while type(r) is Ok:
             if not r.consumed:
@@ -362,11 +362,11 @@ def _many(parse_fns: ParseFns[S, V]) -> ParseFn[S, List[V]]:
             r = parse_fn(stream, pos, ctx, ins, None)
         if type(r) is Recovered:
             def parse(
-                    _: V, pos: int, ctx: Ctx[S],
-                    __: int) -> Result[List[V], S]:
+                    _: A, pos: int, ctx: Ctx[S],
+                    __: int) -> Result[List[A], S]:
                 r = many(stream, pos, ctx, ins, None)
                 if type(r) is Error and not r.consumed:
-                    return Ok[List[V], S]([], pos, ctx, r.expected)
+                    return Ok[List[A], S]([], pos, ctx, r.expected)
                 return r
 
             return continue_parse(
@@ -379,14 +379,14 @@ def _many(parse_fns: ParseFns[S, V]) -> ParseFn[S, List[V]]:
     return many
 
 
-def many(parse_fns: ParseFns[S, V]) -> ParseFns[S, List[V]]:
+def many(parse_fns: ParseFns[S, A]) -> ParseFns[S, List[A]]:
     return ParseFns(_many_fast(parse_fns), _many(parse_fns))
 
 
-def _attempt_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
+def _attempt_fast(parse_fns: ParseFns[S, A]) -> ParseFastFn[S, A]:
     parse_fn = parse_fns.fast_fn
 
-    def attempt(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[V, S]:
+    def attempt(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[A, S]:
         r = parse_fn(stream, pos, ctx)
         if type(r) is Error:
             return Error(r.loc, r.expected)
@@ -395,13 +395,13 @@ def _attempt_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
     return attempt
 
 
-def _attempt(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
+def _attempt(parse_fns: ParseFns[S, A]) -> ParseFn[S, A]:
     parse_fast_fn = parse_fns.fast_fn
     parse_fn = parse_fns.fn
 
     def attempt(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[V, S]:
+            rem: Optional[int]) -> Result[A, S]:
         if rem is not None:
             return parse_fn(stream, pos, ctx, ins, rem)
         r = parse_fast_fn(stream, pos, ctx)
@@ -412,34 +412,34 @@ def _attempt(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
     return attempt
 
 
-def attempt(parse_fns: ParseFns[S, V]) -> ParseFns[S, V]:
+def attempt(parse_fns: ParseFns[S, A]) -> ParseFns[S, A]:
     return ParseFns(_attempt_fast(parse_fns), _attempt(parse_fns))
 
 
 def _label_fast(
-        parse_fns: ParseFns[S, V],
-        expected: Iterable[str]) -> ParseFastFn[S, V]:
+        parse_fns: ParseFns[S, A],
+        expected: Iterable[str]) -> ParseFastFn[S, A]:
     parse_fn = parse_fns.fast_fn
 
-    def label(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[V, S]:
+    def label(stream: S, pos: int, ctx: Ctx[S]) -> SimpleResult[A, S]:
         return parse_fn(stream, pos, ctx).set_expected(expected)
 
     return label
 
 
 def _label(
-        parse_fns: ParseFns[S, V], expected: Iterable[str]) -> ParseFn[S, V]:
+        parse_fns: ParseFns[S, A], expected: Iterable[str]) -> ParseFn[S, A]:
     parse_fn = parse_fns.fn
 
     def label(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[V, S]:
+            rem: Optional[int]) -> Result[A, S]:
         return parse_fn(stream, pos, ctx, ins, rem).set_expected(expected)
 
     return label
 
 
-def label(parse_fns: ParseFns[S, V], x: str) -> ParseFns[S, V]:
+def label(parse_fns: ParseFns[S, A], x: str) -> ParseFns[S, A]:
     expected = [x]
     return ParseFns(
         _label_fast(parse_fns, expected),
@@ -447,16 +447,16 @@ def label(parse_fns: ParseFns[S, V], x: str) -> ParseFns[S, V]:
     )
 
 
-def _recover_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
+def _recover_fast(parse_fns: ParseFns[S, A]) -> ParseFastFn[S, A]:
     return parse_fns.fast_fn
 
 
-def _recover(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
+def _recover(parse_fns: ParseFns[S, A]) -> ParseFn[S, A]:
     parse_fn = parse_fns.fn
 
     def recover(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[V, S]:
+            rem: Optional[int]) -> Result[A, S]:
         r = parse_fn(stream, pos, ctx, ins, rem)
         if type(r) is Recovered:
             for p in r.repairs:
@@ -467,22 +467,22 @@ def _recover(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
     return recover
 
 
-def recover(parse_fns: ParseFns[S, V]) -> ParseFns[S, V]:
+def recover(parse_fns: ParseFns[S, A]) -> ParseFns[S, A]:
     return ParseFns(_recover_fast(parse_fns), _recover(parse_fns))
 
 
 def _recover_with_fast(
-        parse_fns: ParseFns[S, V], x: V, vs: str) -> ParseFastFn[S, V]:
+        parse_fns: ParseFns[S, A], x: A, vs: str) -> ParseFastFn[S, A]:
     return parse_fns.fast_fn
 
 
 def _recover_with(
-        parse_fns: ParseFns[S, V], x: V, vs: str) -> ParseFn[S, V]:
+        parse_fns: ParseFns[S, A], x: A, vs: str) -> ParseFn[S, A]:
     parse_fn = parse_fns.fn
 
     def recover_with(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[V, S]:
+            rem: Optional[int]) -> Result[A, S]:
         if rem is None:
             return parse_fn(stream, pos, ctx, ins, None)
         r = parse_fn(stream, pos, ctx, ins, rem)
@@ -503,8 +503,8 @@ def _recover_with(
 
 
 def recover_with(
-        parse_fns: ParseFns[S, V], x: V,
-        label: Optional[str] = None) -> ParseFns[S, V]:
+        parse_fns: ParseFns[S, A], x: A,
+        label: Optional[str] = None) -> ParseFns[S, A]:
     vs = repr(x) if label is None else label
 
     return ParseFns(
@@ -513,18 +513,18 @@ def recover_with(
     )
 
 
-def _recover_with_fn_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
+def _recover_with_fn_fast(parse_fns: ParseFns[S, A]) -> ParseFastFn[S, A]:
     return parse_fns.fast_fn
 
 
 def _recover_with_fn(
-        parse_fns: ParseFns[S, V], fn: Callable[[S, int], V],
-        label: Optional[str]) -> ParseFn[S, V]:
+        parse_fns: ParseFns[S, A], fn: Callable[[S, int], A],
+        label: Optional[str]) -> ParseFn[S, A]:
     parse_fn = parse_fns.fn
 
     def recover_with_fn(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: Optional[int]) -> Result[V, S]:
+            rem: Optional[int]) -> Result[A, S]:
         if rem is None:
             return parse_fn(stream, pos, ctx, ins, None)
         r = parse_fn(stream, pos, ctx, ins, rem)
@@ -551,8 +551,8 @@ def _recover_with_fn(
 
 
 def recover_with_fn(
-        parse_fns: ParseFns[S, V], fn: Callable[[S, int], V],
-        label: Optional[str]) -> ParseFns[S, V]:
+        parse_fns: ParseFns[S, A], fn: Callable[[S, int], A],
+        label: Optional[str]) -> ParseFns[S, A]:
     return ParseFns(
         _recover_with_fn_fast(parse_fns),
         _recover_with_fn(parse_fns, fn, label),

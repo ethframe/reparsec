@@ -12,7 +12,7 @@ from .types import ParseResult
 
 __all__ = ("Token", "LexError", "split_tokens", "token", "token_ins", "parse")
 
-V = TypeVar("V")
+A = TypeVar("A")
 
 
 @dataclass(frozen=True)
@@ -155,8 +155,8 @@ def token_ins(
 
 
 def parse(
-        parser: Parser[Sequence[Token], V], stream: Sequence[Token],
-        recover: bool = False) -> ParseResult[V, Sequence[Token]]:
+        parser: Parser[Sequence[Token], A], stream: Sequence[Token],
+        recover: bool = False) -> ParseResult[A, Sequence[Token]]:
     """
     Wrapper around :meth:`reparsec.Parser.parse` that enables line and column
     tracking.
