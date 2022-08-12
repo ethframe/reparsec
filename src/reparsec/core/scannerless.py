@@ -1,7 +1,7 @@
 import re
 from typing import List, Optional, Pattern, TypeVar, Union
 
-from .parser import ParseFastFn, ParseFn, ParseFns, ParseSlowFn
+from .parser import ParseFastFn, ParseFn, ParseFns
 from .repair import Repair, make_insert, make_skip
 from .result import Error, Ok, Recovered, Result, SimpleResult
 from .types import Ctx, Loc
@@ -39,25 +39,12 @@ def _literal(s: str) -> ParseFn[str, str]:
     expected = [ss]
 
     def literal(
-            stream: str, pos: int, ctx: Ctx[str],
-            ins: int) -> Result[str, str]:
-        if stream.startswith(s, pos):
-            return Ok(s, pos + ls, ctx.update_loc(stream, pos + ls), (), True)
-        return Error(ctx.get_loc(stream, pos), expected)
-
-    return literal
-
-
-def _literal_slow(s: str) -> ParseSlowFn[str, str]:
-    ls = len(s)
-    ss = repr(s)
-    expected = [ss]
-
-    def literal(
             stream: str, pos: int, ctx: Ctx[str], ins: int,
-            rem: int) -> Result[str, str]:
+            rem: Optional[int]) -> Result[str, str]:
         if stream.startswith(s, pos):
             return Ok(s, pos + ls, ctx.update_loc(stream, pos + ls), (), True)
+        if rem is None:
+            return Error(ctx.get_loc(stream, pos), expected)
         loc = ctx.get_loc(stream, pos)
         reps: List[Repair[str, str]] = []
         if rem:
@@ -82,11 +69,7 @@ def literal(s: str) -> ParseFns[str, str]:
     if len(s) == 0:
         raise ValueError("Expected non-empty value")
 
-    return ParseFns(
-        _literal_fast(s),
-        _literal(s),
-        _literal_slow(s)
-    )
+    return ParseFns(_literal_fast(s), _literal(s))
 
 
 def _regexp_fast(
@@ -109,32 +92,16 @@ def _regexp(pat: Pattern[str], group: Union[int, str]) -> ParseFn[str, str]:
     match = pat.match
 
     def regexp(
-            stream: str, pos: int, ctx: Ctx[str],
-            ins: int) -> Result[str, str]:
-        r = match(stream, pos=pos)
-        if r is not None:
-            v: Optional[str] = r.group(group)
-            if v is not None:
-                end = r.end()
-                return Ok(v, end, ctx.update_loc(stream, end), (), end != pos)
-        return Error(ctx.get_loc(stream, pos))
-
-    return regexp
-
-
-def _regexp_slow(
-        pat: Pattern[str], group: Union[int, str]) -> ParseSlowFn[str, str]:
-    match = pat.match
-
-    def regexp(
             stream: str, pos: int, ctx: Ctx[str], ins: int,
-            rem: int) -> Result[str, str]:
+            rem: Optional[int]) -> Result[str, str]:
         r = match(stream, pos=pos)
         if r is not None:
             v: Optional[str] = r.group(group)
             if v is not None:
                 end = r.end()
                 return Ok(v, end, ctx.update_loc(stream, end), (), end != pos)
+        if rem is None:
+            return Error(ctx.get_loc(stream, pos))
         loc = ctx.get_loc(stream, pos)
         cur = pos + 1
         while cur < len(stream):
@@ -159,8 +126,4 @@ def _regexp_slow(
 
 def regexp(pat: str, group: Union[int, str]) -> ParseFns[str, str]:
     p = re.compile(pat)
-    return ParseFns(
-        _regexp_fast(p, group),
-        _regexp(p, group),
-        _regexp_slow(p, group)
-    )
+    return ParseFns(_regexp_fast(p, group), _regexp(p, group))

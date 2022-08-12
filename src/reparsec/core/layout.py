@@ -1,6 +1,6 @@
-from typing import TypeVar
+from typing import Optional, TypeVar
 
-from .parser import ParseFastFn, ParseFn, ParseFns, ParseSlowFn
+from .parser import ParseFastFn, ParseFn, ParseFns
 from .result import Error, Result, SimpleResult
 from .types import Ctx
 
@@ -22,21 +22,9 @@ def _block_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
 def _block(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
     parse_fn = parse_fns.fn
 
-    def block(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[V, S]:
-        ctx = ctx.update_loc(stream, pos)
-        return parse_fn(
-            stream, pos, ctx.set_mark(ctx.loc.col), ins
-        ).set_ctx(ctx)
-
-    return block
-
-
-def _block_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, V]:
-    parse_fn = parse_fns.slow_fn
-
     def block(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: int) -> Result[V, S]:
+            rem: Optional[int]) -> Result[V, S]:
         ctx = ctx.update_loc(stream, pos)
         return parse_fn(
             stream, pos, ctx.set_mark(ctx.loc.col), ins, rem
@@ -46,11 +34,7 @@ def _block_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, V]:
 
 
 def block(parse_fns: ParseFns[S, V]) -> ParseFns[S, V]:
-    return ParseFns(
-        _block_fast(parse_fns),
-        _block(parse_fns),
-        _block_slow(parse_fns)
-    )
+    return ParseFns(_block_fast(parse_fns), _block(parse_fns),)
 
 
 def _aligned_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
@@ -68,21 +52,9 @@ def _aligned_fast(parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
 def _aligned(parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
     parse_fn = parse_fns.fn
 
-    def aligned(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[V, S]:
-        ctx = ctx.update_loc(stream, pos)
-        if ctx.mark == ctx.loc.col:
-            return parse_fn(stream, pos, ctx, ins)
-        return Error(ctx.loc, ["indentation"])
-
-    return aligned
-
-
-def _aligned_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, V]:
-    parse_fn = parse_fns.slow_fn
-
     def aligned(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: int) -> Result[V, S]:
+            rem: Optional[int]) -> Result[V, S]:
         ctx = ctx.update_loc(stream, pos)
         if ctx.mark == ctx.loc.col:
             return parse_fn(stream, pos, ctx, ins, rem)
@@ -92,11 +64,7 @@ def _aligned_slow(parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, V]:
 
 
 def aligned(parse_fns: ParseFns[S, V]) -> ParseFns[S, V]:
-    return ParseFns(
-        _aligned_fast(parse_fns),
-        _aligned(parse_fns),
-        _aligned_slow(parse_fns)
-    )
+    return ParseFns(_aligned_fast(parse_fns), _aligned(parse_fns))
 
 
 def _indented_fast(delta: int, parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
@@ -115,22 +83,9 @@ def _indented_fast(delta: int, parse_fns: ParseFns[S, V]) -> ParseFastFn[S, V]:
 def _indented(delta: int, parse_fns: ParseFns[S, V]) -> ParseFn[S, V]:
     parse_fn = parse_fns.fn
 
-    def indented(stream: S, pos: int, ctx: Ctx[S], ins: int) -> Result[V, S]:
-        ctx = ctx.update_loc(stream, pos)
-        level = ctx.loc.col
-        if ctx.mark + delta == level:
-            return parse_fn(stream, pos, ctx.set_mark(level), ins).set_ctx(ctx)
-        return Error(ctx.loc, ["indentation"])
-
-    return indented
-
-
-def _indented_slow(delta: int, parse_fns: ParseFns[S, V]) -> ParseSlowFn[S, V]:
-    parse_fn = parse_fns.slow_fn
-
     def indented(
             stream: S, pos: int, ctx: Ctx[S], ins: int,
-            rem: int) -> Result[V, S]:
+            rem: Optional[int]) -> Result[V, S]:
         ctx = ctx.update_loc(stream, pos)
         level = ctx.loc.col
         if ctx.mark + delta == level:
@@ -146,5 +101,4 @@ def indented(delta: int, parse_fns: ParseFns[S, V]) -> ParseFns[S, V]:
     return ParseFns(
         _indented_fast(delta, parse_fns),
         _indented(delta, parse_fns),
-        _indented_slow(delta, parse_fns)
     )
