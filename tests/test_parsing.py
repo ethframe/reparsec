@@ -31,6 +31,7 @@ chains = letter.chainl1(
 DATA_POSITIVE = [
     (Pure("a"), "", "a"),
     (PureFn(lambda: "a"), "", "a"),
+    (Pure("a").bind(lambda _: b), "b", "b"),
     (a.seql(b), "ab", "a"),
     (a.seqr(b), "ab", "b"),
     (maybe_a_b, "ab", "ab"),
@@ -67,6 +68,7 @@ DATA_POSITIVE = [
 @pytest.mark.parametrize("parser, data, value", DATA_POSITIVE)
 def test_positive(parser: Parser[str, str], data: str, value: str) -> None:
     assert parser.parse(data).unwrap() == value
+    assert parser.parse(data, recover=True).unwrap() == value
 
 
 DATA_NEGATIVE = [
