@@ -1,6 +1,37 @@
+[tool.poetry]
+name = "reparsec"
+version = "0.4.0a1"
+description = "Parser"
+authors = ["ethframe <ethframe@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+repository = "https://github.com/ethframe/reparsec"
+documentation = "https://reparsec.readthedocs.io/"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Typing :: Typed",
+]
+packages = [
+    { include = "reparsec", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+dataclasses = { version = "^0.8", python = "~3.6" }
+typing-extensions = "^4.1"
+
+[tool.poetry.dev-dependencies]
+
 [build-system]
-requires = ["setuptools>=40.8.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 strict = true
