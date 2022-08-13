@@ -71,10 +71,10 @@ def ops_prepend_expected(
 
 
 def make_insert(
-        ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, label: str,
+        rem: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, label: str,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        None, True, ins - 1, [OpItem(Insert(label), loc, expected)], value,
+        None, True, rem - 1, [OpItem(Insert(label), loc, expected)], value,
         pos, ctx, (), True
     )
 
@@ -92,5 +92,5 @@ def make_pending_skip(
         ins: int, value: V, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[V, S]:
     return Repair(
-        None, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
+        skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
     )

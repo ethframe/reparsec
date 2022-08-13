@@ -54,7 +54,7 @@ def _literal(s: str) -> ParseFn[str, str]:
             if stream.startswith(s, cur):
                 reps.append(
                     make_skip(
-                        rem, s, cur + ls, ctx.update_loc(stream, cur + ls),
+                        ins, s, cur + ls, ctx.update_loc(stream, cur + ls),
                         loc, cur - pos, expected
                     )
                 )
@@ -113,7 +113,7 @@ def _regexp(pat: Pattern[str], group: Union[int, str]) -> ParseFn[str, str]:
                     return Recovered(
                         [
                             make_skip(
-                                rem, v, end, ctx.update_loc(stream, end), loc,
+                                ins, v, end, ctx.update_loc(stream, end), loc,
                                 cur - pos
                             )
                         ], cur - pos, loc

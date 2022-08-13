@@ -25,7 +25,7 @@ def continue_parse(
         if type(rb) is Ok:
             reps.append(
                 Repair(
-                    r.skip, r.auto, ins if rb.consumed else r.ins,
+                    r.skip, r.auto, r.ins if r.pos == rb.pos else ins,
                     r.ops, merge(r.value, rb.value), rb.pos, rb.ctx,
                     _append_expected(r, rb.expected, rb.consumed),
                     r.consumed or rb.consumed

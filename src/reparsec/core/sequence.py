@@ -32,7 +32,7 @@ def _eof() -> ParseFn[Sized, None]:
         return Recovered(
             [
                 make_pending_skip(
-                    rem, None, sl, ctx, loc, sl - pos, ["end of file"]
+                    ins, None, sl, ctx, loc, sl - pos, ["end of file"]
                 ),
             ], None, loc, ["end of file"]
         )
@@ -75,7 +75,7 @@ def _satisfy(test: Callable[[T], bool]) -> ParseFn[Sequence[T], T]:
                 return Recovered(
                     [
                         make_skip(
-                            rem, t, cur + 1, ctx.update_loc(stream, cur + 1),
+                            ins, t, cur + 1, ctx.update_loc(stream, cur + 1),
                             loc, cur - pos
                         ),
                     ], cur - pos, loc
@@ -123,7 +123,7 @@ def _sym(s: T, label: str, expected: Iterable[str]) -> ParseFn[Sequence[T], T]:
             if t == s:
                 reps.append(
                     make_skip(
-                        rem, t, cur + 1, ctx.update_loc(stream, cur + 1), loc,
+                        ins, t, cur + 1, ctx.update_loc(stream, cur + 1), loc,
                         cur - pos, expected
                     )
                 )
