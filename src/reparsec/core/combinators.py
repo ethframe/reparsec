@@ -361,16 +361,9 @@ def _many(parse_fns: ParseFns[S, A]) -> ParseFn[S, List[A]]:
             ctx = r.ctx
             r = parse_fn(stream, pos, ctx, ins, None)
         if type(r) is Recovered:
-            def parse(
-                    _: A, pos: int, ctx: Ctx[S],
-                    __: int) -> Result[List[A], S]:
-                r = many(stream, pos, ctx, ins, None)
-                if type(r) is Error and not r.consumed:
-                    return Ok[List[A], S]([], pos, ctx, r.expected)
-                return r
-
             return continue_parse(
-                r, ins, parse, lambda a, b: [*value, a, *b]
+                r, ins, lambda _, p, c, __: many(stream, p, c, ins, None),
+                lambda a, b: [*value, a, *b]
             )
         if r.consumed:
             return r

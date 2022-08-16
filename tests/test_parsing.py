@@ -66,9 +66,11 @@ DATA_POSITIVE = [
 
 
 @pytest.mark.parametrize("parser, data, value", DATA_POSITIVE)
-def test_positive(parser: Parser[str, str], data: str, value: str) -> None:
-    assert parser.parse(data).unwrap() == value
-    assert parser.parse(data, recover=True).unwrap() == value
+@pytest.mark.parametrize("recover", [False, True])
+def test_positive(
+        parser: Parser[str, str], data: str, value: str,
+        recover: bool) -> None:
+    assert parser.parse(data, recover=recover).unwrap() == value
 
 
 DATA_NEGATIVE = [
@@ -77,8 +79,10 @@ DATA_NEGATIVE = [
 
 
 @pytest.mark.parametrize("parser, data, expected", DATA_NEGATIVE)
+@pytest.mark.parametrize("recover", [False, True])
 def test_negative(
-        parser: Parser[str, str], data: str, expected: List[str]) -> None:
+        parser: Parser[str, str], data: str, expected: List[str],
+        recover: bool) -> None:
     with pytest.raises(ParseError) as err:
-        parser.parse(data).unwrap()
+        parser.parse(data, recover=recover).unwrap()
     assert err.value.errors[0].expected == expected
