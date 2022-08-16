@@ -5,9 +5,9 @@ Primitive input-agnostic parsers.
 from typing import TypeVar
 
 from .core import primitive
-from .parser import TupleParser
+from .parser import FnParser, TupleParser
 
-__all__ = ("Pure", "PureFn")
+__all__ = ("Pure", "PureFn", "unexpected")
 
 S_contra = TypeVar("S_contra", contravariant=True)
 A_co = TypeVar("A_co", covariant=True)
@@ -38,3 +38,20 @@ class PureFn(primitive.PureFn[S_contra, A_co], TupleParser[S_contra, A_co]):
 
     :param fn: Function that produces a value to return
     """
+
+
+def unexpected(expected: str) -> TupleParser[object, None]:
+    """
+    Parser that always fails and consumes no input.
+
+    >>> from reparsec.primitive import unexpected
+
+    >>> unexpected("a").parse("").unwrap()
+    Traceback (most recent call last):
+      ...
+    reparsec.types.ParseError: at 0: expected a
+
+    :param expected: Error label
+    """
+
+    return FnParser(primitive.unexpected(expected))
