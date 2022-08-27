@@ -464,8 +464,7 @@ def recover(parse_fns: ParseFns[S, A]) -> ParseFns[S, A]:
     return ParseFns(_recover_fast(parse_fns), _recover(parse_fns))
 
 
-def _recover_with_fast(
-        parse_fns: ParseFns[S, A], x: A, vs: str) -> ParseFastFn[S, A]:
+def _recover_with_fast(parse_fns: ParseFns[S, A]) -> ParseFastFn[S, A]:
     return parse_fns.fast_fn
 
 
@@ -498,7 +497,7 @@ def recover_with(
     vs = repr(x) if label is None else label
 
     return ParseFns(
-        _recover_with_fast(parse_fns, x, vs),
+        _recover_with_fast(parse_fns),
         _recover_with(parse_fns, x, vs)
     )
 
