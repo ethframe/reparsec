@@ -75,8 +75,8 @@ def make_skip(
         ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos,
-        ctx, (), True
+        skip, skip, False, ins, [OpItem(Skip(skip), loc, expected)], value,
+        pos, ctx, (), True
     )
 
 
@@ -84,6 +84,6 @@ def make_pending_skip(
         ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos,
-        ctx
+        skip, skip, False, ins, [OpItem(Skip(skip), loc, expected)], value,
+        pos, ctx
     )
