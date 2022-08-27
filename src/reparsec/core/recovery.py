@@ -25,7 +25,7 @@ def continue_parse(
         if type(rb) is Ok:
             reps.append(
                 Repair(
-                    r.skip, r.auto, r.ins if r.pos == rb.pos else ins,
+                    r.cost, r.skip, r.auto, r.ins if r.pos == rb.pos else ins,
                     r.ops, merge(r.value, rb.value), rb.pos, rb.ctx,
                     _append_expected(r, rb.expected, rb.consumed),
                     r.consumed or rb.consumed
@@ -35,9 +35,9 @@ def continue_parse(
             for rr in rb.repairs:
                 reps.append(
                     Repair(
-                        r.skip, r.auto, rr.ins, _join_ops(r, rr),
-                        merge(r.value, rr.value), rr.pos, rr.ctx,
-                        _append_expected(r, rr.expected, rr.consumed),
+                        r.cost + rr.cost, r.skip, r.auto, rr.ins,
+                        _join_ops(r, rr), merge(r.value, rr.value), rr.pos,
+                        rr.ctx, _append_expected(r, rr.expected, rr.consumed),
                         r.consumed or rr.consumed
                     )
                 )

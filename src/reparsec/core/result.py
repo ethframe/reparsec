@@ -112,8 +112,8 @@ class Recovered(Generic[A_co, S]):
         return Recovered(
             [
                 Repair(
-                    r.skip, r.auto, r.ins, r.ops, fn(r.value), r.pos, r.ctx,
-                    r.expected, r.consumed
+                    r.cost, r.skip, r.auto, r.ins, r.ops, fn(r.value), r.pos,
+                    r.ctx, r.expected, r.consumed
                 )
                 for r in self.repairs
             ],

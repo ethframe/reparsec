@@ -165,7 +165,9 @@ class _ParseResult(ParseResult[A_co, S]):
                     list(self._result.expected)
                 )
             ])
-        repair = min(self._result.repairs, key=lambda r: r.cost())
+        repair = min(
+            self._result.repairs, key=lambda r: (r.cost, -r.pos, r.auto)
+        )
         if recover:
             return repair.value
         errors = [

@@ -484,7 +484,7 @@ def _recover_with(
         if rem:
             loc = ctx.get_loc(stream, pos)
             rep = Repair(
-                None, False, rem - 1, [OpItem(Insert(vs), loc, r.expected)],
+                1, None, False, rem - 1, [OpItem(Insert(vs), loc, r.expected)],
                 x, pos, ctx, (), True
             )
             if type(r) is Error:
@@ -527,7 +527,7 @@ def _recover_with_fn(
             x = fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             rep = Repair(
-                None, False, rem - 1, [
+                1, None, False, rem - 1, [
                     OpItem(
                         Insert(repr(x) if label is None else label),
                         loc, r.expected

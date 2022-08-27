@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Generic, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Generic, Iterable, List, Optional, TypeVar, Union
 
 from typing_extensions import final
 
@@ -16,17 +16,11 @@ S = TypeVar("S")
 class Skip:
     count: int
 
-    def cost(self) -> int:
-        return self.count
-
 
 @dataclass
 @final
 class Insert:
     label: str
-
-    def cost(self) -> int:
-        return 1
 
 
 RepairOp = Union[Skip, Insert]
@@ -42,6 +36,7 @@ class OpItem:
 
 @dataclass
 class Repair(Generic[A_co, S]):
+    cost: int
     skip: Optional[int]
     auto: bool
     ins: int
@@ -51,9 +46,6 @@ class Repair(Generic[A_co, S]):
     ctx: Ctx[S]
     expected: Iterable[str] = ()
     consumed: bool = False
-
-    def cost(self) -> Tuple[int, int, int]:
-        return sum(op.op.cost() for op in self.ops), -self.pos, int(self.auto)
 
 
 def ops_set_expected(ops: List[OpItem], expected: Iterable[str]) -> None:
@@ -74,7 +66,7 @@ def make_insert(
         rem: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, label: str,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        None, True, rem - 1, [OpItem(Insert(label), loc, expected)], value,
+        1, None, True, rem - 1, [OpItem(Insert(label), loc, expected)], value,
         pos, ctx, (), True
     )
 
@@ -83,8 +75,8 @@ def make_skip(
         ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
-        (), True
+        skip, skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos,
+        ctx, (), True
     )
 
 
@@ -92,5 +84,6 @@ def make_pending_skip(
         ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
+        skip, skip, True, ins, [OpItem(Skip(skip), loc, expected)], value, pos,
+        ctx
     )
