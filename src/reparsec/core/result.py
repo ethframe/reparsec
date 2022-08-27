@@ -89,35 +89,35 @@ class Error:
 
 @final
 class Recovered(Generic[A_co, S]):
-    __slots__ = "repairs", "min_skip", "loc", "expected", "consumed"
+    __slots__ = "repairs", "min_prio", "loc", "expected", "consumed"
 
     def __init__(
-            self, repairs: List[Repair[A_co, S]], min_skip: Optional[int],
+            self, repairs: List[Repair[A_co, S]], min_prio: Optional[int],
             loc: Loc, expected: Iterable[str] = (), consumed: bool = False):
         self.repairs = repairs
-        self.min_skip = min_skip
+        self.min_prio = min_prio
         self.loc = loc
         self.expected = expected
         self.consumed = consumed
 
     def __repr__(self) -> str:
         return (
-            "Recovered(repairs={!r}, min_skip={!r}, loc={!r}, expected={!r},"
+            "Recovered(repairs={!r}, min_prio={!r}, loc={!r}, expected={!r},"
             " consumed={!r})"
         ).format(
-            self.repairs, self.min_skip, self.loc, self.expected, self.consumed
+            self.repairs, self.min_prio, self.loc, self.expected, self.consumed
         )
 
     def fmap(self, fn: Callable[[A_co], B]) -> "Recovered[B, S]":
         return Recovered(
             [
                 Repair(
-                    r.cost, r.skip, r.auto, r.ins, r.ops, fn(r.value), r.pos,
-                    r.ctx, r.expected, r.consumed
+                    r.cost, r.prio, r.ins, r.ops, fn(r.value), r.pos, r.ctx,
+                    r.expected, r.consumed
                 )
                 for r in self.repairs
             ],
-            self.min_skip, self.loc, self.expected, self.consumed
+            self.min_prio, self.loc, self.expected, self.consumed
         )
 
     def set_ctx(self, ctx: Ctx[S]) -> "Recovered[A_co, S]":

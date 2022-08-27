@@ -453,8 +453,8 @@ def _recover(parse_fns: ParseFns[S, A]) -> ParseFn[S, A]:
         r = parse_fn(stream, pos, ctx, ins, rem)
         if type(r) is Recovered:
             for p in r.repairs:
-                if p.skip is None:
-                    p.auto = False
+                if p.prio is None:
+                    p.prio = 0
         return r
 
     return recover
@@ -484,12 +484,12 @@ def _recover_with(
         if rem:
             loc = ctx.get_loc(stream, pos)
             rep = Repair(
-                1, None, False, rem - 1, [OpItem(Insert(vs), loc, r.expected)],
-                x, pos, ctx, (), True
+                1, 0, rem - 1, [OpItem(Insert(vs), loc, r.expected)], x, pos,
+                ctx, (), True
             )
             if type(r) is Error:
                 return Recovered([rep], None, loc)
-            return Recovered([rep, *r.repairs], r.min_skip, loc, r.expected)
+            return Recovered([rep, *r.repairs], r.min_prio, loc, r.expected)
         return r
 
     return recover_with
@@ -527,7 +527,7 @@ def _recover_with_fn(
             x = fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             rep = Repair(
-                1, None, False, rem - 1, [
+                1, 0, rem - 1, [
                     OpItem(
                         Insert(repr(x) if label is None else label),
                         loc, r.expected
@@ -537,7 +537,7 @@ def _recover_with_fn(
             )
             if type(r) is Error:
                 return Recovered([rep], None, loc)
-            return Recovered([rep, *r.repairs], r.min_skip, loc, r.expected)
+            return Recovered([rep, *r.repairs], r.min_prio, loc, r.expected)
         return r
 
     return recover_with_fn

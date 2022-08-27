@@ -37,8 +37,7 @@ class OpItem:
 @dataclass
 class Repair(Generic[A_co, S]):
     cost: int
-    skip: Optional[int]
-    auto: bool
+    prio: Optional[int]
     ins: int
     ops: List[OpItem]
     value: A_co
@@ -66,7 +65,7 @@ def make_insert(
         rem: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, label: str,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        1, None, True, rem - 1, [OpItem(Insert(label), loc, expected)], value,
+        1, None, rem - 1, [OpItem(Insert(label), loc, expected)], value,
         pos, ctx, (), True
     )
 
@@ -75,8 +74,8 @@ def make_skip(
         ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, skip, False, ins, [OpItem(Skip(skip), loc, expected)], value,
-        pos, ctx, (), True
+        skip, False, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
+        (), True
     )
 
 
@@ -84,6 +83,5 @@ def make_pending_skip(
         ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, skip, False, ins, [OpItem(Skip(skip), loc, expected)], value,
-        pos, ctx
+        skip, False, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
     )

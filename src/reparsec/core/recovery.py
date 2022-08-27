@@ -25,8 +25,8 @@ def continue_parse(
         if type(rb) is Ok:
             reps.append(
                 Repair(
-                    r.cost, r.skip, r.auto, r.ins if r.pos == rb.pos else ins,
-                    r.ops, merge(r.value, rb.value), rb.pos, rb.ctx,
+                    r.cost, r.prio, r.ins if r.pos == rb.pos else ins, r.ops,
+                    merge(r.value, rb.value), rb.pos, rb.ctx,
                     _append_expected(r, rb.expected, rb.consumed),
                     r.consumed or rb.consumed
                 )
@@ -35,36 +35,35 @@ def continue_parse(
             for rr in rb.repairs:
                 reps.append(
                     Repair(
-                        r.cost + rr.cost, r.skip, r.auto, rr.ins,
-                        _join_ops(r, rr), merge(r.value, rr.value), rr.pos,
-                        rr.ctx, _append_expected(r, rr.expected, rr.consumed),
+                        r.cost + rr.cost, r.prio, rr.ins, _join_ops(r, rr),
+                        merge(r.value, rr.value), rr.pos, rr.ctx,
+                        _append_expected(r, rr.expected, rr.consumed),
                         r.consumed or rr.consumed
                     )
                 )
 
-    return Recovered(reps, ra.min_skip, ra.loc, ra.expected, ra.consumed)
+    return Recovered(reps, ra.min_prio, ra.loc, ra.expected, ra.consumed)
 
 
 def join_repairs(
         ra: Recovered[A, S], rb: Recovered[B, S]) -> Recovered[Union[A, B], S]:
     reps: List[Repair[Union[A, B], S]] = list(ra.repairs)
-    min_skip = ra.min_skip
-    if min_skip is not None:
+    min_prio = ra.min_prio
+    if min_prio is not None:
         reps.extend(
-            r for r in rb.repairs
-            if not r.auto or r.skip is not None and r.skip < min_skip
+            r for r in rb.repairs if r.prio is not None and r.prio < min_prio
         )
-        if rb.min_skip is not None and rb.min_skip < min_skip:
-            min_skip = rb.min_skip
+        if rb.min_prio is not None and rb.min_prio < min_prio:
+            min_prio = rb.min_prio
     else:
-        reps.extend(r for r in rb.repairs if not r.auto or r.skip is not None)
-        min_skip = rb.min_skip
+        reps.extend(r for r in rb.repairs if r.prio is not None)
+        min_prio = rb.min_prio
     if ra.consumed:
-        return Recovered(reps, min_skip, ra.loc, ra.expected, True)
+        return Recovered(reps, min_prio, ra.loc, ra.expected, True)
     if rb.consumed:
-        return Recovered(reps, min_skip, rb.loc, rb.expected, True)
+        return Recovered(reps, min_prio, rb.loc, rb.expected, True)
     return Recovered(
-        reps, min_skip, ra.loc, Append(ra.expected, rb.expected),
+        reps, min_prio, ra.loc, Append(ra.expected, rb.expected),
         ra.consumed or rb.consumed
     )
 

@@ -166,7 +166,8 @@ class _ParseResult(ParseResult[A_co, S]):
                 )
             ])
         repair = min(
-            self._result.repairs, key=lambda r: (r.cost, -r.pos, r.auto)
+            self._result.repairs,
+            key=lambda r: (r.cost, -r.pos, r.prio is None)
         )
         if recover:
             return repair.value
