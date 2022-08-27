@@ -70,6 +70,15 @@ def make_insert(
     )
 
 
+def make_user_insert(
+        rem: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, label: str,
+        expected: Iterable[str] = ()) -> Repair[A, S]:
+    return Repair(
+        1, 0, rem - 1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
+        (), True
+    )
+
+
 def make_skip(
         ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:

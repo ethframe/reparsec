@@ -3,7 +3,7 @@ from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 from .chain import Append
 from .parser import ParseFastFn, ParseFn, ParseFns, ParseObj
 from .recovery import MergeFn, continue_parse, join_repairs
-from .repair import Insert, OpItem, Repair
+from .repair import make_user_insert
 from .result import Error, Ok, Recovered, Result, SimpleResult
 from .types import Ctx
 
@@ -483,10 +483,7 @@ def _recover_with(
             return r
         if rem:
             loc = ctx.get_loc(stream, pos)
-            rep = Repair(
-                1, 0, rem - 1, [OpItem(Insert(vs), loc, r.expected)], x, pos,
-                ctx, (), True
-            )
+            rep = make_user_insert(rem, x, pos, ctx, loc, vs, r.expected)
             if type(r) is Error:
                 return Recovered([rep], None, loc)
             return Recovered([rep, *r.repairs], r.min_prio, loc, r.expected)
@@ -526,14 +523,9 @@ def _recover_with_fn(
         if rem:
             x = fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
-            rep = Repair(
-                1, 0, rem - 1, [
-                    OpItem(
-                        Insert(repr(x) if label is None else label),
-                        loc, r.expected
-                    )
-                ],
-                x, pos, ctx, (), True
+            rep = make_user_insert(
+                rem, x, pos, ctx, loc, repr(x) if label is None else label,
+                r.expected
             )
             if type(r) is Error:
                 return Recovered([rep], None, loc)
