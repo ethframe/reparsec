@@ -7,8 +7,8 @@ from typing import Callable, List, Optional, Tuple, TypeVar, Union
 from .core import combinators
 from .core.parser import ParseFns, ParseObj
 from .core.result import Result, SimpleResult
-from .core.types import Ctx
-from .types import ParserParseObj
+from .core.types import Ctx, Loc
+from .types import ParseResult, ResultWrapper
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
@@ -18,7 +18,42 @@ B = TypeVar("B")
 C = TypeVar("C")
 
 
-class Parser(ParserParseObj[S_contra, A_co]):
+def _get_loc(loc: Loc, stream: S, pos: int) -> Loc:
+    return Loc(pos, 0, 0)
+
+
+def _fmt_loc(loc: Loc) -> str:
+    return repr(loc.pos)
+
+
+class Parser(ParseObj[S_contra, A_co]):
+    def parse(
+            self, stream: S_contra, recover: bool = False, *,
+            max_insertions: int = 5,
+            get_loc: Callable[[Loc, S_contra, int], Loc] = _get_loc,
+            fmt_loc: Callable[[Loc], str] = _fmt_loc
+    ) -> ParseResult[A_co, S_contra]:
+        """
+        Parses input.
+
+        :param stream: Input to parse
+        :param recover: Flag to enable error recovery
+        :param max_insertions: Maximal number of token insertions in a row
+            during error recovery
+        :param get_loc: Function that constructs new ``Loc`` from a previous
+            ``Loc``, a stream, and position in the stream
+        :param fmt_loc: Function that converts ``Loc`` to string
+        """
+
+        ctx = Ctx(0, Loc(0, 0, 0), get_loc)
+        if recover:
+            result = self.parse_fn(
+                stream, 0, ctx, max_insertions, max_insertions
+            )
+        else:
+            result = self.parse_fast_fn(stream, 0, ctx)
+        return ResultWrapper(result, fmt_loc)
+
     def fmap(self, fn: Callable[[A_co], B]) -> "TupleParser[S_contra, B]":
         """
         Transforms the result of the parser by applying ``fn`` to it.

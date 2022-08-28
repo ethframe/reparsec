@@ -6,10 +6,9 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
-from .core.parser import ParseObj
 from .core.repair import RepairOp, Skip
 from .core.result import Error, Ok, Result
-from .core.types import Ctx, Loc
+from .core.types import Loc
 
 S = TypeVar("S")
 S_contra = TypeVar("S_contra", contravariant=True)
@@ -99,50 +98,13 @@ class ParseResult(Generic[A_co, S]):
         """
 
 
-def _get_loc(loc: Loc, stream: S, pos: int) -> Loc:
-    return Loc(pos, 0, 0)
-
-
-def _fmt_loc(loc: Loc) -> str:
-    return repr(loc.pos)
-
-
-class ParserParseObj(ParseObj[S_contra, A_co]):
-    def parse(
-            self, stream: S_contra, recover: bool = False, *,
-            max_insertions: int = 5,
-            get_loc: Callable[[Loc, S_contra, int], Loc] = _get_loc,
-            fmt_loc: Callable[[Loc], str] = _fmt_loc
-    ) -> ParseResult[A_co, S_contra]:
-        """
-        Parses input.
-
-        :param stream: Input to parse
-        :param recover: Flag to enable error recovery
-        :param max_insertions: Maximal number of token insertions in a row
-            during error recovery
-        :param get_loc: Function that constructs new ``Loc`` from a previous
-            ``Loc``, a stream, and position in the stream
-        :param fmt_loc: Function that converts ``Loc`` to string
-        """
-
-        ctx = Ctx(0, Loc(0, 0, 0), get_loc)
-        if recover:
-            result = self.parse_fn(
-                stream, 0, ctx, max_insertions, max_insertions
-            )
-        else:
-            result = self.parse_fast_fn(stream, 0, ctx)
-        return _ParseResult(result, fmt_loc)
-
-
-class _ParseResult(ParseResult[A_co, S]):
+class ResultWrapper(ParseResult[A_co, S]):
     def __init__(self, result: Result[A_co, S], fmt_loc: Callable[[Loc], str]):
         self._result = result
         self._fmt_loc = fmt_loc
 
     def fmap(self, fn: Callable[[A_co], B]) -> ParseResult[B, S]:
-        return _ParseResult(self._result.fmap(fn), self._fmt_loc)
+        return ResultWrapper(self._result.fmap(fn), self._fmt_loc)
 
     def unwrap(self, recover: bool = False) -> A_co:
         if type(self._result) is Ok:
