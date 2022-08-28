@@ -1,6 +1,11 @@
 Welcome to reparsec's documentation!
 ====================================
 
+.. testsetup::
+
+   from tests.parsers.expr import parser
+   from reparsec.scannerless import parse
+
 .. mdinclude:: ../../README.md
 
 .. toctree::

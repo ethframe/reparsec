@@ -18,13 +18,15 @@ pip install reparsec
 * [Tutorial](https://reparsec.readthedocs.io/en/latest/pages/tutorial.html)
 * [Documentation](https://reparsec.readthedocs.io/en/latest/index.html)
 
-Simple arithmetic expression parser and calculator:
+## Example
+
+With `reparsec`, simple arithmetic expression parser and evaluator could be written like this:
 
 ```python
 from typing import Callable
 
 from reparsec import Delay
-from reparsec.scannerless import literal, regexp
+from reparsec.scannerless import literal, parse, regexp
 from reparsec.sequence import eof
 
 
@@ -44,39 +46,53 @@ l_paren = literal("(") << spaces
 r_paren = literal(")") << spaces
 
 expr = Delay[str, int]()
-value = number | expr.between(l_paren, r_paren)
-expr.define(value.chainl1(mul_op).chainl1(add_op))
+expr.define(
+    (
+        number |
+        expr.between(l_paren, r_paren)
+    )
+    .chainl1(mul_op)
+    .chainl1(add_op)
+)
 
 parser = expr << eof()
-
-print(parser.parse("1 + 2 * (3 + 4)").unwrap())
 ```
 
-Output:
+This parser can:
 
-```
-15
-```
-
-Out-of-the-box error recovery:
-
-```python
-result = parser.parse("1 + 2 * * (3 + 4 5)", recover=True)
-
-try:
-    result.unwrap()
-except ParseError as e:
-    print(e)
-
-print(result.unwrap(recover=True))
-```
-
-Output:
-
-```
-at 8: expected '(' (skipped 2 tokens), at 17: expected ')' (skipped 1 token)
-15
-```
+* evaluate an expression:
+  ```python
+  >>> parser.parse("1 + 2 * (3 + 4)").unwrap()
+  15
+  ```
+* report first syntax error:
+  ```python
+  >>> parser.parse("1 + 2 * * (3 + 4 5)").unwrap()
+  Traceback (most recent call last):
+    ...
+  reparsec.types.ParseError: at 8: expected '('
+  ```
+* attempt to recover and report multiple syntax errors:
+  ```python
+  >>> parser.parse("1 + 2 * * (3 + 4 5)", recover=True).unwrap()
+  Traceback (most recent call last):
+    ...
+  reparsec.types.ParseError: at 8: expected '(' (skipped 2 tokens), at 17: expected ')' (skipped 1 token)
+  ```
+* automatically repair input and return some result:
+  ```python
+  >>> parser.parse("1 + 2 * * (3 + 4 5)", recover=True).unwrap(recover=True)
+  15
+  ```
+* track line and column numbers:
+  ```python
+  >>> parse(parser, """1 +
+  ... 2 * * (
+  ... 3 + 4 5)""", recover=True).unwrap()
+  Traceback (most recent call last):
+    ...
+  reparsec.types.ParseError: at 2:5: expected '(' (skipped 2 tokens), at 3:7: expected ')' (skipped 1 token)
+  ```
 
 More examples:
   * [JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json.py)
