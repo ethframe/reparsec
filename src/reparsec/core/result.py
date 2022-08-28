@@ -1,4 +1,4 @@
-from typing import Callable, Generic, Iterable, List, Optional, TypeVar, Union
+from typing import Callable, Dict, Generic, Iterable, Optional, TypeVar, Union
 
 from typing_extensions import final
 
@@ -92,7 +92,7 @@ class Recovered(Generic[A_co, S]):
     __slots__ = "repairs", "min_prio", "loc", "expected", "consumed"
 
     def __init__(
-            self, repairs: List[Repair[A_co, S]], min_prio: Optional[int],
+            self, repairs: Dict[int, Repair[A_co, S]], min_prio: Optional[int],
             loc: Loc, expected: Iterable[str] = (), consumed: bool = False):
         self.repairs = repairs
         self.min_prio = min_prio
@@ -110,25 +110,25 @@ class Recovered(Generic[A_co, S]):
 
     def fmap(self, fn: Callable[[A_co], B]) -> "Recovered[B, S]":
         return Recovered(
-            [
-                Repair(
-                    r.cost, r.prio, r.ins, r.ops, fn(r.value), r.pos, r.ctx,
+            {
+                p: Repair(
+                    r.cost, r.prio, r.ins, r.ops, fn(r.value), r.ctx,
                     r.expected, r.consumed
                 )
-                for r in self.repairs
-            ],
+                for p, r in self.repairs.items()
+            },
             self.min_prio, self.loc, self.expected, self.consumed
         )
 
     def set_ctx(self, ctx: Ctx[S]) -> "Recovered[A_co, S]":
-        for r in self.repairs:
+        for r in self.repairs.values():
             r.ctx = ctx
         return self
 
     def set_expected(self, expected: Iterable[str]) -> "Recovered[A_co, S]":
         if not self.consumed:
             self.expected = expected
-        for r in self.repairs:
+        for r in self.repairs.values():
             if not r.consumed:
                 r.expected = expected
             ops_set_expected(r.ops, expected)
@@ -140,7 +140,7 @@ class Recovered(Generic[A_co, S]):
         if not self.consumed:
             self.expected = Append(expected, self.expected)
             self.consumed |= consumed
-        for r in self.repairs:
+        for r in self.repairs.values():
             if not r.consumed:
                 r.expected = Append(expected, r.expected)
                 r.consumed |= consumed

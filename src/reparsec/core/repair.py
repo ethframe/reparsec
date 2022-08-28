@@ -41,7 +41,6 @@ class Repair(Generic[A_co, S]):
     ins: int
     ops: List[OpItem]
     value: A_co
-    pos: int
     ctx: Ctx[S]
     expected: Iterable[str] = ()
     consumed: bool = False
@@ -62,35 +61,35 @@ def ops_prepend_expected(
 
 
 def make_insert(
-        rem: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, label: str,
+        rem: int, value: A, ctx: Ctx[S], loc: Loc, label: str,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        1, None, rem - 1, [OpItem(Insert(label), loc, expected)], value,
-        pos, ctx, (), True
+        1, None, rem - 1, [OpItem(Insert(label), loc, expected)], value, ctx,
+        (), True
     )
 
 
 def make_user_insert(
-        rem: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, label: str,
+        rem: int, value: A, ctx: Ctx[S], loc: Loc, label: str,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        1, 0, rem - 1, [OpItem(Insert(label), loc, expected)], value, pos, ctx,
-        (), True
+        1, 0, rem - 1, [OpItem(Insert(label), loc, expected)], value, ctx, (),
+        True
     )
 
 
 def make_skip(
-        ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        ins: int, value: A, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, False, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx,
-        (), True
+        skip, skip, ins, [OpItem(Skip(skip), loc, expected)], value, ctx, (),
+        True
     )
 
 
 def make_pending_skip(
-        ins: int, value: A, pos: int, ctx: Ctx[S], loc: Loc, skip: int,
+        ins: int, value: A, ctx: Ctx[S], loc: Loc, skip: int,
         expected: Iterable[str] = ()) -> Repair[A, S]:
     return Repair(
-        skip, False, ins, [OpItem(Skip(skip), loc, expected)], value, pos, ctx
+        skip, skip, ins, [OpItem(Skip(skip), loc, expected)], value, ctx
     )

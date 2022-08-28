@@ -128,9 +128,9 @@ class ResultWrapper(ParseResult[A_co, S]):
                 )
             ])
         repair = min(
-            self._result.repairs,
-            key=lambda r: (r.cost, -r.pos, r.prio is None)
-        )
+            self._result.repairs.items(),
+            key=lambda pr: (pr[1].cost, -pr[0], pr[1].prio is None)
+        )[1]
         if recover:
             return repair.value
         errors = [

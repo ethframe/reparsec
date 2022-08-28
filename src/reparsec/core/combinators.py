@@ -452,7 +452,7 @@ def _recover(parse_fns: ParseFns[S, A]) -> ParseFn[S, A]:
             rem: Optional[int]) -> Result[A, S]:
         r = parse_fn(stream, pos, ctx, ins, rem)
         if type(r) is Recovered:
-            for p in r.repairs:
+            for p in r.repairs.values():
                 if p.prio is None:
                     p.prio = 0
         return r
@@ -482,10 +482,11 @@ def _recover_with(
             return r
         if rem:
             loc = ctx.get_loc(stream, pos)
-            rep = make_user_insert(rem, x, pos, ctx, loc, vs, r.expected)
+            rep = make_user_insert(rem, x, ctx, loc, vs, r.expected)
             if type(r) is Error:
-                return Recovered([rep], None, loc)
-            return Recovered([rep, *r.repairs], r.min_prio, loc, r.expected)
+                return Recovered({pos: rep}, None, loc)
+            r.repairs[pos] = rep
+            return Recovered(r.repairs, r.min_prio, loc, r.expected)
         return r
 
     return recover_with
@@ -523,12 +524,13 @@ def _recover_with_fn(
             x = fn(stream, pos)
             loc = ctx.get_loc(stream, pos)
             rep = make_user_insert(
-                rem, x, pos, ctx, loc, repr(x) if label is None else label,
+                rem, x, ctx, loc, repr(x) if label is None else label,
                 r.expected
             )
             if type(r) is Error:
-                return Recovered([rep], None, loc)
-            return Recovered([rep, *r.repairs], r.min_prio, loc, r.expected)
+                return Recovered({pos: rep}, None, loc)
+            r.repairs[pos] = rep
+            return Recovered(r.repairs, r.min_prio, loc, r.expected)
         return r
 
     return recover_with_fn

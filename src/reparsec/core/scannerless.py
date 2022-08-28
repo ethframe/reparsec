@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Pattern, TypeVar, Union
+from typing import Dict, Optional, Pattern, TypeVar, Union
 
 from .parser import ParseFastFn, ParseFn, ParseFns
 from .repair import Repair, make_insert, make_skip
@@ -46,17 +46,15 @@ def _literal(s: str) -> ParseFn[str, str]:
         if rem is None:
             return Error(ctx.get_loc(stream, pos), expected)
         loc = ctx.get_loc(stream, pos)
-        reps: List[Repair[str, str]] = []
+        reps: Dict[int, Repair[str, str]] = {}
         if rem:
-            reps.append(make_insert(rem, s, pos, ctx, loc, ss, expected))
+            reps[pos] = make_insert(rem, s, ctx, loc, ss, expected)
         cur = pos + 1
         while cur < len(stream):
             if stream.startswith(s, cur):
-                reps.append(
-                    make_skip(
-                        ins, s, cur + ls, ctx.update_loc(stream, cur + ls),
-                        loc, cur - pos, expected
-                    )
+                reps[cur + ls] = make_skip(
+                    ins, s, ctx.update_loc(stream, cur + ls), loc, cur - pos,
+                    expected
                 )
                 return Recovered(reps, cur - pos, loc, expected)
             cur += 1
@@ -111,12 +109,12 @@ def _regexp(pat: Pattern[str], group: Union[int, str]) -> ParseFn[str, str]:
                 if v is not None:
                     end = r.end()
                     return Recovered(
-                        [
-                            make_skip(
-                                ins, v, end, ctx.update_loc(stream, end), loc,
+                        {
+                            end: make_skip(
+                                ins, v, ctx.update_loc(stream, end), loc,
                                 cur - pos
                             )
-                        ], cur - pos, loc
+                        }, cur - pos, loc
                     )
             cur += 1
         return Error(loc)

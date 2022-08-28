@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, List, Optional, Sequence, Sized, TypeVar
+from typing import Callable, Dict, Iterable, Optional, Sequence, Sized, TypeVar
 
 from .parser import ParseFastFn, ParseFn, ParseFns
 from .repair import Repair, make_insert, make_pending_skip, make_skip
@@ -30,11 +30,11 @@ def _eof() -> ParseFn[Sized, None]:
         loc = ctx.get_loc(stream, pos)
         sl = len(stream)
         return Recovered(
-            [
-                make_pending_skip(
-                    ins, None, sl, ctx, loc, sl - pos, ["end of file"]
+            {
+                sl: make_pending_skip(
+                    ins, None, ctx, loc, sl - pos, ["end of file"]
                 ),
-            ], None, loc, ["end of file"]
+            }, None, loc, ["end of file"]
         )
 
     return eof
@@ -73,12 +73,12 @@ def _satisfy(test: Callable[[A], bool]) -> ParseFn[Sequence[A], A]:
             t = stream[cur]
             if test(t):
                 return Recovered(
-                    [
-                        make_skip(
-                            ins, t, cur + 1, ctx.update_loc(stream, cur + 1),
-                            loc, cur - pos
+                    {
+                        cur + 1: make_skip(
+                            ins, t, ctx.update_loc(stream, cur + 1), loc,
+                            cur - pos
                         ),
-                    ], cur - pos, loc
+                    }, cur - pos, loc
                 )
             cur += 1
         return Error(loc)
@@ -114,18 +114,16 @@ def _sym(s: A, label: str, expected: Iterable[str]) -> ParseFn[Sequence[A], A]:
         if rem is None:
             return Error(ctx.get_loc(stream, pos), expected)
         loc = ctx.get_loc(stream, pos)
-        reps: List[Repair[A, Sequence[A]]] = []
+        reps: Dict[int, Repair[A, Sequence[A]]] = {}
         if rem:
-            reps.append(make_insert(rem, s, pos, ctx, loc, label, expected))
+            reps[pos] = make_insert(rem, s, ctx, loc, label, expected)
         cur = pos + 1
         while cur < len(stream):
             t = stream[cur]
             if t == s:
-                reps.append(
-                    make_skip(
-                        ins, t, cur + 1, ctx.update_loc(stream, cur + 1), loc,
-                        cur - pos, expected
-                    )
+                reps[cur + 1] = make_skip(
+                    ins, t, ctx.update_loc(stream, cur + 1), loc, cur - pos,
+                    expected
                 )
                 return Recovered(reps, cur - pos, loc, expected)
             cur += 1
