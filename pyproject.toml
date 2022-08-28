@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "reparsec"
-version = "0.4.1"
+version = "0.4.2"
 description = "Parser"
 authors = ["ethframe <ethframe@gmail.com>"]
 license = "MIT License"

@@ -25,4 +25,4 @@ __all__ = (
     "recover_with", "recover_with_fn", "sep_by", "seq", "seql", "seqr"
 )
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
