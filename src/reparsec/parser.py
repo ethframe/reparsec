@@ -455,14 +455,14 @@ class Parser(ParseObj[S_contra, A_co]):
         return chainr1(self, op)
 
 
-class TupleParser(Parser[S_contra, A]):
+class TupleParser(Parser[S_contra, A_co]):
     """
     A subclass of :class:`Parser` with ability to build a tuple of up to eight
     results.
     """
 
     def then(
-            self, other: ParseObj[S_contra, B]) -> "Tuple2[S_contra, A, B]":
+            self, other: ParseObj[S_contra, B]) -> "Tuple2[S_contra, A_co, B]":
         """
         Applies up to eight parsers sequentially and returns a tuple of their
         results.
