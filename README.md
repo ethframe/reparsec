@@ -9,7 +9,7 @@ Small parsec-like parser combinators library with semi-automatic error recovery.
 
 ## Installation
 
-```
+```bash
 pip install reparsec
 ```
 
@@ -61,38 +61,47 @@ parser = expr << eof()
 This parser can:
 
 * evaluate an expression:
-  ```python
-  >>> parser.parse("1 + 2 * (3 + 4)").unwrap()
-  15
-  ```
+
+```python
+>>> parser.parse("1 + 2 * (3 + 4)").unwrap()
+15
+```
+
 * report first syntax error:
-  ```python
-  >>> parser.parse("1 + 2 * * (3 + 4 5)").unwrap()
-  Traceback (most recent call last):
-    ...
-  reparsec.types.ParseError: at 8: expected '('
-  ```
+
+```python
+>>> parser.parse("1 + 2 * * (3 + 4 5)").unwrap()
+Traceback (most recent call last):
+...
+reparsec.types.ParseError: at 8: expected '('
+```
+
 * attempt to recover and report multiple syntax errors:
-  ```python
-  >>> parser.parse("1 + 2 * * (3 + 4 5)", recover=True).unwrap()
-  Traceback (most recent call last):
-    ...
-  reparsec.types.ParseError: at 8: expected '(' (skipped 2 tokens), at 17: expected ')' (skipped 1 token)
-  ```
+
+```python
+>>> parser.parse("1 + 2 * * (3 + 4 5)", recover=True).unwrap()
+Traceback (most recent call last):
+...
+reparsec.types.ParseError: at 8: expected '(' (skipped 2 tokens), at 17: expected ')' (skipped 1 token)
+```
+
 * automatically repair input and return some result:
-  ```python
-  >>> parser.parse("1 + 2 * * (3 + 4 5)", recover=True).unwrap(recover=True)
-  15
-  ```
+
+```python
+>>> parser.parse("1 + 2 * * (3 + 4 5)", recover=True).unwrap(recover=True)
+15
+```
+
 * track line and column numbers:
-  ```python
-  >>> parse(parser, """1 +
-  ... 2 * * (
-  ... 3 + 4 5)""", recover=True).unwrap()
-  Traceback (most recent call last):
-    ...
-  reparsec.types.ParseError: at 2:5: expected '(' (skipped 2 tokens), at 3:7: expected ')' (skipped 1 token)
-  ```
+
+```python
+>>> parse(parser, """1 +
+... 2 * * (
+... 3 + 4 5)""", recover=True).unwrap()
+Traceback (most recent call last):
+...
+reparsec.types.ParseError: at 2:5: expected '(' (skipped 2 tokens), at 3:7: expected ')' (skipped 1 token)
+```
 
 More examples:
   * [JSON parser](https://github.com/ethframe/reparsec/blob/master/tests/parsers/json.py)
